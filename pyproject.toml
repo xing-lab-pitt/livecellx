@@ -3,22 +3,38 @@ build-backend = "flit_core.buildapi"
 requires = ["flit_core >=3.4,<4"]
 
 [project]
-name = "livecell-tracker"
+name = "livecell-analyzer"
 version = "0.0.0"
 description = "live-cell tracking package including instance segmentation and tracker"
-authors = [
-    {name = "Ke Ni", email = "ken67@pitt.edu"},
-]
+authors = [{ name = "Ke Ni", email = "ken67@pitt.edu" }]
 readme = "readme.md"
-classifiers = [
-    "License :: OSI Approved :: MIT License",
-]
+classifiers = ["License :: OSI Approved :: MIT License"]
 requires-python = ">=3.7"
 # dynamic = ["dependencies", "version", "description"]
 # dynamic = ["dependencies"]
 
 [tool.flit.module]
 name = "livecell_tracker"
+
+dependencies = [
+    "skimage",
+    "ipympl",
+
+    # labelme2coco requirements below
+    "sahi>=0.8.19",
+    "jsonschema>=2.6.0",
+
+    "Augmentor",
+
+    # note we need to use multitracker in cv2 legacy
+    "opencv-contrib-python",
+
+    # for sort tracker
+    "lap",
+    "filterpy",
+
+]
+
 
 [project.urls]
 homepage = "https://github.com/xing-lab-pitt/LiveCellTracker-dev"
