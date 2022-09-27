@@ -1,4 +1,5 @@
 import gzip
+import json
 import torch
 import numpy as np
 from torch import Tensor
@@ -24,7 +25,7 @@ from collections import deque
 class LiveCellImageDataset(torch.utils.data.Dataset):
     """Dataset that reads in various features"""
 
-    def __init__(self, dir_path, ext="tif", max_cache_size=50):
+    def __init__(self, dir_path, ext="tif", max_cache_size=50, name="livecell-base"):
         if isinstance(dir_path, str):
             dir_path = Path(dir_path)
 
@@ -32,6 +33,8 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self.img_idx2img = {}
         self.max_cache_size = max_cache_size
         self.img_idx_queue = deque()
+        self.name = name
+        self.data_dir_path = dir_path
         print("%d %s img file paths loaded: " % (len(self.img_path_list), ext))
 
     def __len__(self):
@@ -49,6 +52,12 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     def get_img_path(self, idx):
         return self.img_path_list[idx]
 
+    def get_dataset_name(self):
+        return self.name
+
+    def get_dataset_path(self):
+        return self.data_dir_path
+
     def __getitem__(self, idx):
         if idx in self.img_idx2img:
             return self.img_idx2img[idx]
@@ -56,3 +65,18 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         img = np.array(img)
         self.insert_cache(img, idx)
         return img
+
+    def to_json_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "data_dir_path": str(self.data_dir_path),
+            "img_path_list": self.img_path_list,
+            "max_cache_size": int(self.max_cache_size),
+        }
+
+    def to_json(self, path=None):
+        if path is None:
+            return json.dumps(self.to_dict())
+        else:
+            with open(path, "w+") as f:
+                json.dump(self.to_dict(), f)
