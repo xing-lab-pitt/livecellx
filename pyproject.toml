@@ -1,0 +1,29 @@
+[build-system]
+build-backend = "flit_core.buildapi"
+requires = ["flit_core >=3.4,<4"]
+
+[project]
+name = "livecell-tracker"
+version = "0.0.0"
+description = "live-cell tracking package including instance segmentation and tracker"
+authors = [
+    {name = "Ke Ni", email = "ken67@pitt.edu"},
+]
+readme = "readme.md"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+]
+requires-python = ">=3.7"
+# dynamic = ["dependencies", "version", "description"]
+# dynamic = ["dependencies"]
+
+[tool.flit.module]
+name = "livecell_tracker"
+
+[project.urls]
+homepage = "https://github.com/xing-lab-pitt/LiveCellTracker-dev"
+documentation = "https://github.com/xing-lab-pitt/LiveCellTracker-dev"
+repository = "https://github.com/xing-lab-pitt/LiveCellTracker-dev"
+
+[project.scripts]
+poetry = "infer_pyproject.cli:main"
