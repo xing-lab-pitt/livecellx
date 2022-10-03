@@ -18,7 +18,8 @@ class SingleCellStatic:
         bbox: np.array = None,
         regionprops: RegionProperties = None,
         img_dataset: LiveCellImageDataset = None,
-        feature_dict: dict = {},
+        mask_dataset: LiveCellImageDataset = None,
+        feature_dict: Dict[str, np.array] = {},
     ) -> None:
         """_summary_
 
@@ -38,6 +39,7 @@ class SingleCellStatic:
         self.regionprops = regionprops
         self.timeframe = timeframe
         self.img_dataset = img_dataset
+        self.mask_dataset = mask_dataset
         self.raw_img = self.get_img()
         self.feature_dict = feature_dict
         self.bbox = bbox
@@ -45,12 +47,14 @@ class SingleCellStatic:
         # infer bbox from regionprops
         if (bbox is None) and (regionprops is not None):
             self.bbox = regionprops.bbox
-        self.img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(
-            self.bbox, self.raw_img
-        )
+        self.img_crop = None
+        self.mask_crop = None
 
     def get_img(self):
         return self.img_dataset[self.timeframe]
+
+    def get_mask(self):
+        return self.mask_dataset[self.timeframe]
 
     def get_bbox(self) -> np.array:
         return np.array(self.bbox)
@@ -65,6 +69,25 @@ class SingleCellStatic:
         img_crop = img[min_x:max_x, min_y:max_y]
         return img_crop
 
+    def get_img_crop(self):
+        if self.img_crop is None:
+            self.img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(
+                self.bbox, self.raw_img
+            )
+        return self.img_crop
+
+    def get_mask_crop(self):
+        if self.mask_crop is None:
+            self.mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(
+                self.bbox, self.get_mask()
+            )
+        return self.mask_crop
+
+    def update_bbox(self, bbox):
+        self.bbox = bbox
+        self.img_crop = None
+        self.mask_crop = None
+
     def to_json_dict(self):
         """returns a dict that can be converted to json"""
         res = {
@@ -76,12 +99,27 @@ class SingleCellStatic:
         }
         return res
 
+    def load_from_json_dict(self, json_dict):
+        self.timeframe = json_dict["timeframe"]
+        self.bbox = np.array(json_dict["bbox"], dtype=float)
+        self.feature_dict = json_dict["feature_dict"]
+        self.img_dataset = LiveCellImageDataset(
+            dir_path=json_dict["dataset_path"], name=json_dict["dataset_name"]
+        )
+        self.mask_dataset = LiveCellImageDataset(
+            json_dict["dataset_name"] + "_mask", json_dict["dataset_path"]
+        )
+
     def to_json(self, path=None):
         if path is None:
             return json.dumps(self.to_json_dict())
         else:
             with open(path, "w+") as f:
                 json.dump(self.to_json_dict(), f)
+
+    def extract_feature(self):
+        raise NotImplementedError
+
 
 class SingleCellTrajectory:
     """
@@ -93,12 +131,16 @@ class SingleCellTrajectory:
         raw_img_dataset: LiveCellImageDataset,
         track_id: int = None,
         timeframe_to_single_cell: Dict[int, SingleCellStatic] = {},
+        mask_dataset: LiveCellImageDataset = None,
+        extra_channel_dataset: Dict[str, LiveCellImageDataset] = None,
     ) -> None:
         self.timeframe_set = set()
         self.timeframe_to_single_cell = timeframe_to_single_cell
         self.raw_img_dataset = raw_img_dataset
         self.raw_total_timeframe = len(raw_img_dataset)
         self.track_id = track_id
+        self.mask_dataset = mask_dataset
+        self.extra_channel_dataset = None
 
     def add_timeframe_data(self, timeframe, cell: SingleCellStatic):
         self.timeframe_to_single_cell[timeframe] = cell
@@ -106,6 +148,12 @@ class SingleCellTrajectory:
 
     def get_img(self, timeframe):
         return self.raw_img_dataset[timeframe]
+
+    def get_mask(self, timeframe):
+        assert (
+            self.mask_dataset is not None
+        ), "missing mask dataset in single cell trajectory"
+        return self.mask_dataset[timeframe]
 
     def get_timeframe_span_range(self):
         return (min(self.timeframe_set), max(self.timeframe_set))
@@ -124,7 +172,7 @@ class SingleCellTrajectory:
                 timeframe: sc.to_json_dict()
                 for timeframe, sc in self.timeframe_to_single_cell.items()
             },
-            "dataset_info": self.raw_img_dataset.to_json_dict()
+            "dataset_info": self.raw_img_dataset.to_json_dict(),
         }
         return res
 
@@ -143,6 +191,26 @@ class SingleCellTrajectory:
         fig=None,
         ani_update_func: Callable = None,  # how you draw each frame
     ):
+        """generate movies of this single trajectory
+
+        Parameters
+        ----------
+        save_path : str, optional
+            _description_, by default "./tmp.gif"
+        min_length : _type_, optional
+            _description_, by default None
+        ax : _type_, optional
+            _description_, by default None
+        fig : _type_, optional
+            _description_, by default None
+        ani_update_func : Callable, optional
+            a callable function whose argument is a SingleCell object, by default None. This argument allows users to pass in customized functions to draw/beautify code.
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         if min_length is not None:
             if self.get_timeframe_span_length() < min_length:
                 print("[Viz] skipping the current trajectory track_id: ", self.track_id)
@@ -158,7 +226,7 @@ class SingleCellTrajectory:
                 sc_tp.timeframe,
                 sc_tp.raw_img,
                 sc_tp.bbox,
-                sc_tp.img_crop,
+                sc_tp.get_img_crop(),
             )
             ax.cla()
             frame_text = ax.text(
