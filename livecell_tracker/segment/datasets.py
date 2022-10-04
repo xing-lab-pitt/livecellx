@@ -1,25 +1,25 @@
+import argparse
+import glob
 import gzip
 import json
-import torch
-import numpy as np
-from torch import Tensor
-import torch.optim as optim
-import torch.nn.functional as F
-import torch.nn as nn
-from torch.nn import init
-import argparse
-import time
-import sys
-import pytorch_lightning as pl
-from torch.utils.data import DataLoader, random_split
-from datetime import timedelta
-
-import pandas as pd
-import glob
 import os.path
-from pathlib import Path
-from PIL import Image
+import sys
+import time
 from collections import deque
+from datetime import timedelta
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytorch_lightning as pl
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from PIL import Image
+from torch import Tensor
+from torch.nn import init
+from torch.utils.data import DataLoader, random_split
 
 
 class LiveCellImageDataset(torch.utils.data.Dataset):

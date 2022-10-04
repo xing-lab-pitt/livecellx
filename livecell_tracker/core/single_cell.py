@@ -1,10 +1,12 @@
 import json
 from typing import Callable, Dict
-import numpy as np
-import matplotlib.pyplot as plt
+
 import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.animation import FuncAnimation
 from skimage.measure._regionprops import RegionProperties
+
 from livecell_tracker.segment.datasets import LiveCellImageDataset
 
 
@@ -74,16 +76,12 @@ class SingleCellStatic:
 
     def get_img_crop(self):
         if self.img_crop is None:
-            self.img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(
-                self.bbox, self.raw_img
-            )
+            self.img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.raw_img)
         return self.img_crop
 
     def get_mask_crop(self):
         if self.mask_crop is None:
-            self.mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(
-                self.bbox, self.get_mask()
-            )
+            self.mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask())
         return self.mask_crop
 
     def update_bbox(self, bbox):
@@ -106,12 +104,8 @@ class SingleCellStatic:
         self.timeframe = json_dict["timeframe"]
         self.bbox = np.array(json_dict["bbox"], dtype=float)
         self.feature_dict = json_dict["feature_dict"]
-        self.img_dataset = LiveCellImageDataset(
-            dir_path=json_dict["dataset_path"], name=json_dict["dataset_name"]
-        )
-        self.mask_dataset = LiveCellImageDataset(
-            json_dict["dataset_name"] + "_mask", json_dict["dataset_path"]
-        )
+        self.img_dataset = LiveCellImageDataset(dir_path=json_dict["dataset_path"], name=json_dict["dataset_name"])
+        self.mask_dataset = LiveCellImageDataset(json_dict["dataset_name"] + "_mask", json_dict["dataset_path"])
 
     def to_json(self, path=None):
         if path is None:
@@ -160,9 +154,7 @@ class SingleCellTrajectory:
         return self.raw_img_dataset[timeframe]
 
     def get_mask(self, timeframe):
-        assert (
-            self.mask_dataset is not None
-        ), "missing mask dataset in single cell trajectory"
+        assert self.mask_dataset is not None, "missing mask dataset in single cell trajectory"
         return self.mask_dataset[timeframe]
 
     def get_timeframe_span_range(self):
@@ -179,8 +171,7 @@ class SingleCellTrajectory:
         res = {
             "track_id": int(self.track_id),
             "timeframe_to_single_cell": {
-                timeframe: sc.to_json_dict()
-                for timeframe, sc in self.timeframe_to_single_cell.items()
+                timeframe: sc.to_json_dict() for timeframe, sc in self.timeframe_to_single_cell.items()
             },
             "dataset_info": self.raw_img_dataset.to_json_dict(),
         }
@@ -261,9 +252,7 @@ class SingleCellTrajectory:
             bbox = sc_timepoint.get_bbox()
             frame_data.append(sc_timepoint)
 
-        ani = FuncAnimation(
-            fig, default_update, frames=frame_data, init_func=init, blit=True
-        )
+        ani = FuncAnimation(fig, default_update, frames=frame_data, init_func=init, blit=True)
         print("saving to: %s..." % save_path)
         ani.save(save_path)
 

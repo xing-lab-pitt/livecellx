@@ -18,18 +18,19 @@
 from __future__ import print_function
 
 import os
-import numpy as np
+
 import matplotlib
+import numpy as np
 
 matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from skimage import io
-
+import argparse
 import glob
 import time
-import argparse
+
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 from filterpy.kalman import KalmanFilter
+from skimage import io
 
 np.random.seed(0)
 

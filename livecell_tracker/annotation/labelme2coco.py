@@ -4,6 +4,8 @@
 # Source: https://github.com/fcakyon/labelme2coco
 # ---------------------------------------------------------------------------
 
+import logging
+import os
 from pathlib import Path
 from typing import List
 
@@ -12,8 +14,6 @@ from PIL import Image
 from sahi.utils.coco import Coco, CocoAnnotation, CocoCategory, CocoImage
 from sahi.utils.file import list_files_recursively, load_json, save_json
 from tqdm import tqdm
-import logging
-import os
 
 logger = logging.getLogger(__name__)
 

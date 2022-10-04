@@ -1,4 +1,4 @@
-from livecell_tracker.core.single_cell import SingleCellTrajectory, SingleCellStatic
+from livecell_tracker.core.single_cell import SingleCellStatic, SingleCellTrajectory
 
 
 def convert_sort_bbox_results_to_single_cell_trajs(all_track_bboxes, raw_img_dataset):

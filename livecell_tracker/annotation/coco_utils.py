@@ -1,9 +1,10 @@
-from matplotlib import pyplot as plt
-import numpy as np
 import os
 from pathlib import Path
-from pycocotools.coco import COCO
+
+import numpy as np
+from matplotlib import pyplot as plt
 from PIL import Image
+from pycocotools.coco import COCO
 
 
 def convert_coco_category_to_mask(coco_annotation: COCO, cat_id: int, output_dir: str):

@@ -2,7 +2,7 @@ import numpy as np
 
 
 # TODO: add tests and note if scale * raw_image exceeds type boundaries such as 255
-def reserve_img_by_pixel_percentile(raw_img:np.array, percentile:float, target_val: float=None, scale: float=1):
+def reserve_img_by_pixel_percentile(raw_img: np.array, percentile: float, target_val: float = None, scale: float = 1):
     """
     Parameters
     ----------
@@ -25,7 +25,7 @@ def reserve_img_by_pixel_percentile(raw_img:np.array, percentile:float, target_v
     ValueError
         _description_
     """
-    
+
     flattened_img = raw_img.copy().flatten()
     is_above_threshold = flattened_img > np.percentile(flattened_img, percentile)
     if target_val is not None:

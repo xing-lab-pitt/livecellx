@@ -1,3 +1,3 @@
-import livecell_tracker.core.utils
 import livecell_tracker.core.single_cell
+import livecell_tracker.core.utils
 from livecell_tracker.core.single_cell import SingleCellStatic, SingleCellTrajectory
