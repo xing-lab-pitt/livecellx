@@ -10,7 +10,7 @@ import os
 import os.path
 
 
-def normalize_img_by_zscore(img: np.array):
+def normalize_img_by_zscore(img: np.array) -> np.array:
     """calculate z score of img and normalize to range [0, 255]
 
     Parameters
