@@ -5,7 +5,7 @@ from detectron2.utils.visualizer import Visualizer
 from detectron2.data import MetadataCatalog, DatasetCatalog
 import matplotlib.pyplot as plt
 import os
-
+import numpy as np
 
 def gen_cfg(model_path=None, output_dir="./detectron_training_output"):
     cfg = get_cfg()
@@ -41,3 +41,16 @@ def detectron_visualize_img(img, cfg, detectron_outputs):
     figure, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=80)
     axis_img = ax.imshow(v.get_image()[:, :, ::-1])
     return axis_img.get_array()
+
+
+def convert_detectron_instances_to_label_masks(instance_pred_masks):
+    res_mask = np.zeros(instance_pred_masks.shape[1:])
+    for idx in range(instance_pred_masks.shape[0]):
+        res_mask[instance_pred_masks[idx, :, :]] = idx + 1
+    return res_mask
+
+
+def convert_detectron_instances_to_binary_masks(instance_pred_masks):
+    label_mask = convert_detectron_instances_to_label_masks(instance_pred_masks)
+    label_mask[label_mask > 0] = 1
+    return label_mask
