@@ -5,12 +5,15 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.animation import FuncAnimation
 from skimage.measure._regionprops import RegionProperties
-
 from livecell_tracker.segment.datasets import LiveCellImageDataset
 
 
 class SingleCellStatic:
     """Single cell at one time frame."""
+
+    HARALICK_FEATURE_KEY = "_haralick"
+    MORPHOLOGY_FEATURE_KEY = "_morphology"
+    AUTOENCODER_FEATURE_KEY = "_autoencoder"
 
     def __init__(
         self,
@@ -120,6 +123,12 @@ class SingleCellStatic:
     def extract_feature(self):
         raise NotImplementedError
 
+    def show(self, ax: plt.Axes = None, **kwargs):
+        if ax is None:
+            ax = plt.gca()
+        ax.imshow(self.get_img_crop(), **kwargs)
+        return ax
+
 
 class SingleCellTrajectory:
     """
@@ -130,17 +139,18 @@ class SingleCellTrajectory:
         self,
         raw_img_dataset: LiveCellImageDataset,
         track_id: int = None,
-        timeframe_to_single_cell: Dict[int, SingleCellStatic] = {},
+        timeframe_to_single_cell: Dict[int, SingleCellStatic] = None,
         mask_dataset: LiveCellImageDataset = None,
         extra_channel_dataset: Dict[str, LiveCellImageDataset] = None,
     ) -> None:
         self.timeframe_set = set()
-        self.timeframe_to_single_cell = timeframe_to_single_cell
+        if timeframe_to_single_cell is None:
+            self.timeframe_to_single_cell = dict()
         self.raw_img_dataset = raw_img_dataset
         self.raw_total_timeframe = len(raw_img_dataset)
         self.track_id = track_id
         self.mask_dataset = mask_dataset
-        self.extra_channel_dataset = None
+        self.extra_channel_dataset = extra_channel_dataset
 
     def add_timeframe_data(self, timeframe, cell: SingleCellStatic):
         self.timeframe_to_single_cell[timeframe] = cell
