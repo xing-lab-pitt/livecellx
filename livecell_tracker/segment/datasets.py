@@ -25,11 +25,13 @@ from torch.utils.data import DataLoader, random_split
 class LiveCellImageDataset(torch.utils.data.Dataset):
     """Dataset that reads in various features"""
 
-    def __init__(self, dir_path, ext="tif", max_cache_size=50, name="livecell-base"):
+    def __init__(self, dir_path=None, ext="tif", max_cache_size=50, name="livecell-base", num_imgs=None):
         if isinstance(dir_path, str):
             dir_path = Path(dir_path)
 
         self.img_path_list = sorted(glob.glob(str(dir_path / ("*.%s" % (ext)))))
+        if num_imgs is not None:
+            self.img_path_list = self.img_path_list[:num_imgs]
         self.img_idx2img = {}
         self.max_cache_size = max_cache_size
         self.img_idx_queue = deque()
