@@ -24,7 +24,8 @@ class SingleCellStatic:
         regionprops: RegionProperties = None,
         img_dataset: LiveCellImageDataset = None,
         mask_dataset: LiveCellImageDataset = None,
-        feature_dict: Dict[str, np.array] = {},
+        feature_dict: Dict[str, np.array] = dict(),
+        contour: np.array = None,
     ) -> None:
         """_summary_
 
