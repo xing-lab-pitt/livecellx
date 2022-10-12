@@ -7,7 +7,7 @@ import numpy as np
 from matplotlib.animation import FuncAnimation
 from skimage.measure._regionprops import RegionProperties
 
-from livecell_tracker.segment.datasets import LiveCellImageDataset
+from livecell_tracker.core.datasets import LiveCellImageDataset
 
 
 class SingleCellStatic:
@@ -49,6 +49,7 @@ class SingleCellStatic:
         self.raw_img = self.get_img()
         self.feature_dict = feature_dict
         self.bbox = bbox
+        self.contour = np.array(contour, dtype=float)
 
         # infer bbox from regionprops
         if (bbox is None) and (regionprops is not None):
@@ -98,6 +99,7 @@ class SingleCellStatic:
             "feature_dict": self.feature_dict,
             "dataset_name": str(self.img_dataset.get_dataset_name()),
             "dataset_path": str(self.img_dataset.get_dataset_path()),
+            "contour": self.contour.tolist(),
         }
         return res
 
@@ -259,4 +261,25 @@ class SingleCellTrajectory:
 
 
 class SingleCellTrajectoryCollection:
-    pass
+    def __init__(self) -> None:
+        self.track_id_to_trajectory = dict()
+
+    def add_trajectory(self, trajectory: SingleCellTrajectory):
+        self.track_id_to_trajectory[trajectory.track_id] = trajectory
+
+    def get_trajectory(self, track_id) -> SingleCellTrajectory:
+        return self.track_id_to_trajectory[track_id]
+
+    def __contains__(self, track_id):
+        return track_id in self.track_id_to_trajectory
+
+    def to_json_dict(self):
+        return {
+            "track_id_to_trajectory": {
+                track_id: trajectory.to_dict() for track_id, trajectory in self.track_id_to_trajectory.items()
+            }
+        }
+
+    def to_json(self, path):
+        with open(path, "w+") as f:
+            json.dump(self.to_json_dict(), f)
