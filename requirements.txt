@@ -13,3 +13,5 @@ opencv-contrib-python
 # for sort tracker
 lap
 filterpy
+
+# segmentation evaluation miseval
