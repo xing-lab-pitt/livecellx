@@ -1,0 +1,22 @@
+from livecell_tracker.core.datasets import LiveCellImageDataset
+from conftest import TestUtils
+from pathlib import PurePosixPath
+
+
+def test_posix_pathlib():
+    p = PurePosixPath("c:\\windows")
+    assert p.as_posix() == "c:/windows", "pathlib bug?..."
+
+
+def test_posix_paths():
+    imgs = LiveCellImageDataset(TestUtils.RAW_DATASET_PATH, ext="png")
+    print("dataset path: %s" % (imgs.get_dataset_path()))
+    print("dataset name: %s" % (imgs.get_dataset_name()))
+    print("dataset img list: %s" % str(imgs.img_path_list))
+    all_paths_cat = "**".join(imgs.img_path_list)
+    assert all_paths_cat.find("\\") == -1
+
+
+if __name__ == "__main__":
+    # test_posix_pathlib()
+    test_posix_paths()
