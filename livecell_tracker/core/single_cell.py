@@ -112,7 +112,7 @@ class SingleCellStatic:
         self.mask_dataset = LiveCellImageDataset(json_dict["dataset_name"] + "_mask", json_dict["dataset_path"])
         return self
 
-    def to_json(self, path=None):
+    def write_json(self, path=None):
         if path is None:
             return json.dumps(self.to_json_dict())
         else:
@@ -182,7 +182,7 @@ class SingleCellTrajectory:
         }
         return res
 
-    def to_json(self, path=None):
+    def write_json(self, path=None):
         if path is None:
             return json.dumps(self.to_dict())
         else:
@@ -221,7 +221,7 @@ class SingleCellTrajectoryCollection:
             }
         }
 
-    def to_json(self, path):
+    def write_json(self, path):
         with open(path, "w+") as f:
             json.dump(self.to_json_dict(), f)
 

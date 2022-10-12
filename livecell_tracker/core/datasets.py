@@ -98,7 +98,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             "ext": self.ext,
         }
 
-    def to_json(self, path=None):
+    def write_json(self, path=None):
         if path is None:
             return json.dumps(self.to_dict())
         else:
