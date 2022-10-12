@@ -16,7 +16,7 @@ from tqdm import tqdm
 import json
 
 
-def gen_cfg(model_path=None, output_dir="./detectron_training_output"):
+def gen_cfg(model_path=None, output_dir="./detectron_training_output", test_dataset_name="deepfashion_val"):
     cfg = get_cfg()
 
     cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
@@ -38,9 +38,11 @@ def gen_cfg(model_path=None, output_dir="./detectron_training_output"):
     cfg.TEST.EVAL_PERIOD = 500
     cfg.OUTPUT_DIR = output_dir
     if model_path is not None:
-        cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_final.pth")
+        cfg.MODEL.WEIGHTS = model_path  # os.path.join(cfg.OUTPUT_DIR, "model_final.pth")
+    else:
+        cfg.MODEL.WEIGHTS = str(Path(cfg.OUTPUT_DIR) / "model_final.pth")
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.55  # set the testing threshold for this model
-    cfg.DATASETS.TEST = ("deepfashion_val",)
+    cfg.DATASETS.TEST = (test_dataset_name,)
     return cfg
 
 
