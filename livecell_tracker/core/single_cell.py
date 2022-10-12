@@ -134,9 +134,9 @@ class SingleCellTrajectory:
 
     def __init__(
         self,
-        raw_img_dataset: LiveCellImageDataset,
         track_id: int = None,
         timeframe_to_single_cell: Dict[int, SingleCellStatic] = None,
+        raw_img_dataset: LiveCellImageDataset = None,
         mask_dataset: LiveCellImageDataset = None,
         extra_datasets: Dict[str, LiveCellImageDataset] = None,
     ) -> None:
@@ -144,7 +144,7 @@ class SingleCellTrajectory:
         if timeframe_to_single_cell is None:
             self.timeframe_to_single_cell = dict()
         self.raw_img_dataset = raw_img_dataset
-        self.raw_total_timeframe = len(raw_img_dataset)
+        self.raw_total_timeframe = len(raw_img_dataset) if raw_img_dataset is not None else None
         self.track_id = track_id
         self.mask_dataset = mask_dataset
         self.extra_datasets = extra_datasets

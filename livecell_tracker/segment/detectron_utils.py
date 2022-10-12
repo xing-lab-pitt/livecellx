@@ -10,7 +10,7 @@ from detectron2.utils.visualizer import Visualizer
 from skimage import measure
 from livecell_tracker.core import SingleCellTrajectory, SingleCellStatic
 from pathlib import Path
-from livecell_tracker.segment.datasets import LiveCellImageDataset
+from livecell_tracker.core.datasets import LiveCellImageDataset
 from PIL import Image, ImageSequence
 from tqdm import tqdm
 import json

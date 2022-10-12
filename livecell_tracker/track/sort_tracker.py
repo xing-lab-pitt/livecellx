@@ -132,7 +132,10 @@ class KalmanBoxTracker(object):
         self.kf.Q[-1, -1] *= 0.01
         self.kf.Q[4:, 4:] *= 0.01
 
+        self.origin_bbox = np.copy(np.array(bbox))
+        self.origin_bboxes = [self.origin_bbox]
         self.kf.x[:4] = convert_bbox_to_z(bbox)
+
         self.time_since_update = 0
         self.id = KalmanBoxTracker.count
         KalmanBoxTracker.count += 1
@@ -150,6 +153,8 @@ class KalmanBoxTracker(object):
         self.hits += 1
         self.hit_streak += 1
         self.kf.update(convert_bbox_to_z(bbox))
+        self.origin_bbox = np.copy(np.array(bbox))
+        self.origin_bboxes.append(self.origin_bbox)
 
     def predict(self):
         """
@@ -170,6 +175,9 @@ class KalmanBoxTracker(object):
         Returns the current bounding box estimate.
         """
         return convert_x_to_bbox(self.kf.x)
+
+    def get_original_bbox(self):
+        return self.origin_bbox
 
 
 def associate_detections_to_trackers(detections, trackers, iou_threshold=0.3):
@@ -228,12 +236,14 @@ class Sort(object):
         self.trackers = []
         self.frame_count = 0
 
-    def update(self, dets=np.empty((0, 5))):
+    def update(self, dets=np.empty((0, 5)), ret_origin_bbox=False):
         """
         Params:
           dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
-        Requires: this method must be called once for each frame even with empty detections (use np.empty((0, 5)) for frames without detections).
+        Requires: this method MUST be called once for each frame even with empty detections (use np.empty((0, 5)) for frames without detections).
         Returns the a similar array, where the last column is the object ID.
+
+        if ret_origin_bbox is True, return [tracker_bb, original bbox, score, track_id]
 
         NOTE: The number of objects returned may differ from the number of detections provided.
         """
@@ -264,7 +274,12 @@ class Sort(object):
         for trk in reversed(self.trackers):
             d = trk.get_state()[0]
             if (trk.time_since_update < 1) and (trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits):
-                ret.append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))  # +1 as MOT benchmark requires positive
+                det_row = None
+                if ret_origin_bbox:
+                    det_row = np.concatenate((d, trk.get_original_bbox(), [trk.id + 1])).reshape(1, -1)
+                else:
+                    det_row = np.concatenate((d, [trk.id + 1])).reshape(1, -1)
+                ret.append(det_row)  # +1 as MOT benchmark requires positive
             i -= 1
             # remove dead tracklet
             if trk.time_since_update > self.max_age:

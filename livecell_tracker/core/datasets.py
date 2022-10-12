@@ -30,13 +30,19 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     ):
 
         if isinstance(dir_path, str):
-            dir_path = Path(dir_path)
+            # dir_path = Path(dir_path)
             dir_path = PurePosixPath(dir_path)
         elif isinstance(dir_path, Path) and force_posix_path:
             dir_path = PurePosixPath(dir_path)
 
         self.data_dir_path = dir_path
-        self.img_path_list = sorted(glob.glob(str(PurePosixPath(dir_path / ("*.%s" % (ext))))))
+        self.img_path_list = sorted(glob.glob(str((Path(dir_path) / Path("*.%s" % (ext))))))
+
+        # force posix path
+        if force_posix_path:
+            # TODO: fix pathlib issues on windows;
+            # TODO should work without .replace('\\', '/'), but it doesn't on Ke's windows py3.8; need confirmation
+            self.img_path_list = [str(PurePosixPath(path)).replace("\\", "/") for path in list(self.img_path_list)]
         if num_imgs is not None:
             self.img_path_list = self.img_path_list[:num_imgs]
         self.img_idx2img = {}
