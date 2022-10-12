@@ -7,7 +7,7 @@ import sys
 import time
 from collections import deque
 from datetime import timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import numpy as np
 import pandas as pd
@@ -25,18 +25,25 @@ from torch.utils.data import DataLoader, random_split
 class LiveCellImageDataset(torch.utils.data.Dataset):
     """Dataset that reads in various features"""
 
-    def __init__(self, dir_path=None, ext="tif", max_cache_size=50, name="livecell-base", num_imgs=None):
+    def __init__(
+        self, dir_path=None, ext="tif", max_cache_size=50, name="livecell-base", num_imgs=None, force_posix_path=True
+    ):
+
         if isinstance(dir_path, str):
             dir_path = Path(dir_path)
+            dir_path = PurePosixPath(dir_path)
+        elif isinstance(dir_path, Path) and force_posix_path:
+            dir_path = PurePosixPath(dir_path)
 
-        self.img_path_list = sorted(glob.glob(str(dir_path / ("*.%s" % (ext)))))
+        self.data_dir_path = dir_path
+        self.img_path_list = sorted(glob.glob(str(PurePosixPath(dir_path / ("*.%s" % (ext))))))
         if num_imgs is not None:
             self.img_path_list = self.img_path_list[:num_imgs]
         self.img_idx2img = {}
         self.max_cache_size = max_cache_size
         self.img_idx_queue = deque()
         self.name = name
-        self.data_dir_path = dir_path
+
         print("%d %s img file paths loaded: " % (len(self.img_path_list), ext))
 
     def __len__(self):
@@ -69,6 +76,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         return img
 
     def to_json_dict(self) -> dict:
+        # img_path_list = [str(PurePosixPath(path)) for path in self.img_path_list]
         return {
             "name": self.name,
             "data_dir_path": str(self.data_dir_path),
