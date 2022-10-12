@@ -36,7 +36,8 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             dir_path = PurePosixPath(dir_path)
 
         self.data_dir_path = dir_path
-        self.img_path_list = sorted(glob.glob(str((Path(dir_path) / Path("*.%s" % (ext))))))
+        self.ext = ext
+        self.update_img_paths()
 
         # force posix path
         if force_posix_path:
@@ -50,7 +51,13 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self.img_idx_queue = deque()
         self.name = name
 
-        print("%d %s img file paths loaded: " % (len(self.img_path_list), ext))
+    def update_img_paths(self):
+        if self.data_dir_path is None:
+            self.img_path_list = []
+            return
+        assert self.ext, "ext must be specified"
+        self.img_path_list = sorted(glob.glob(str((Path(self.data_dir_path) / Path("*.%s" % (self.ext))))))
+        # print("%d %s img file paths loaded: " % (len(self.img_path_list), self.ext))
 
     def __len__(self):
         return len(self.img_path_list)
@@ -88,6 +95,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             "data_dir_path": str(self.data_dir_path),
             "img_path_list": self.img_path_list,
             "max_cache_size": int(self.max_cache_size),
+            "ext": self.ext,
         }
 
     def to_json(self, path=None):
@@ -96,3 +104,13 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         else:
             with open(path, "w+") as f:
                 json.dump(self.to_dict(), f)
+
+    def load_from_json_dict(self, json_dict):
+        self.name = json_dict["name"]
+        self.data_dir_path = json_dict["data_dir_path"]
+        self.update_img_paths()
+
+        self.img_path_list = json_dict["img_path_list"]
+        self.max_cache_size = json_dict["max_cache_size"]
+        self.ext = json_dict["ext"]
+        return self

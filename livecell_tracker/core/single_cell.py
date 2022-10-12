@@ -10,6 +10,7 @@ from skimage.measure._regionprops import RegionProperties
 from livecell_tracker.core.datasets import LiveCellImageDataset
 
 
+# TODO: possibly refactor load_from_json methods into a mixin class
 class SingleCellStatic:
     """Single cell at one time frame."""
 
@@ -109,6 +110,7 @@ class SingleCellStatic:
         self.feature_dict = json_dict["feature_dict"]
         self.img_dataset = LiveCellImageDataset(dir_path=json_dict["dataset_path"], name=json_dict["dataset_name"])
         self.mask_dataset = LiveCellImageDataset(json_dict["dataset_name"] + "_mask", json_dict["dataset_path"])
+        return self
 
     def to_json(self, path=None):
         if path is None:
@@ -174,7 +176,7 @@ class SingleCellTrajectory:
         res = {
             "track_id": int(self.track_id),
             "timeframe_to_single_cell": {
-                timeframe: sc.to_json_dict() for timeframe, sc in self.timeframe_to_single_cell.items()
+                int(float(timeframe)): sc.to_json_dict() for timeframe, sc in self.timeframe_to_single_cell.items()
             },
             "dataset_info": self.raw_img_dataset.to_json_dict(),
         }
@@ -187,77 +189,16 @@ class SingleCellTrajectory:
             with open(path, "w+") as f:
                 json.dump(self.to_dict(), f)
 
-    def generate_single_trajectory_movie(
-        self,
-        save_path="./tmp.gif",
-        min_length=None,
-        ax=None,
-        fig=None,
-        ani_update_func: Callable = None,  # how you draw each frame
-    ):
-        """generate movies of this single trajectory
-
-        Parameters
-        ----------
-        save_path : str, optional
-            _description_, by default "./tmp.gif"
-        min_length : _type_, optional
-            _description_, by default None
-        ax : _type_, optional
-            _description_, by default None
-        fig : _type_, optional
-            _description_, by default None
-        ani_update_func : Callable, optional
-            a callable function whose argument is a SingleCell object, by default None. This argument allows users to pass in customized functions to draw/beautify code.
-
-        Returns
-        -------
-        _type_
-            _description_
-        """
-        if min_length is not None:
-            if self.get_timeframe_span_length() < min_length:
-                print("[Viz] skipping the current trajectory track_id: ", self.track_id)
-                return None
-        if ax is None:
-            fig, ax = plt.subplots()
-
-        def init():
-            return []
-
-        def default_update(sc_tp: SingleCellStatic):
-            frame_idx, raw_img, bbox, img_crop = (
-                sc_tp.timeframe,
-                sc_tp.raw_img,
-                sc_tp.bbox,
-                sc_tp.get_img_crop(),
-            )
-            ax.cla()
-            frame_text = ax.text(
-                -10,
-                -10,
-                "frame: {}".format(frame_idx),
-                fontsize=10,
-                color="red",
-                ha="center",
-                va="center",
-            )
-            ax.imshow(img_crop)
-            return []
-
-        if ani_update_func is None:
-            ani_update_func = default_update
-
-        frame_data = []
-        for frame_idx in self.timeframe_to_single_cell:
-            sc_timepoint = self.get_single_cell(frame_idx)
-            img = self.raw_img_dataset[frame_idx]
-            bbox = sc_timepoint.get_bbox()
-            frame_data.append(sc_timepoint)
-
-        ani = FuncAnimation(fig, default_update, frames=frame_data, init_func=init, blit=True)
-        print("saving to: %s..." % save_path)
-        ani.save(save_path)
+    def load_from_json_dict(self, json_dict):
+        self.track_id = json_dict["track_id"]
+        self.raw_img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict["dataset_info"])
+        self.raw_total_timeframe = len(self.raw_img_dataset)
+        self.timeframe_to_single_cell = {
+            int(timeframe): SingleCellStatic(int(timeframe), img_dataset=self.raw_img_dataset).load_from_json_dict(sc)
+            for timeframe, sc in json_dict["timeframe_to_single_cell"].items()
+        }
+        self.timeframe_set = set(self.timeframe_to_single_cell.keys())
+        return self
 
 
 class SingleCellTrajectoryCollection:
@@ -276,10 +217,17 @@ class SingleCellTrajectoryCollection:
     def to_json_dict(self):
         return {
             "track_id_to_trajectory": {
-                track_id: trajectory.to_dict() for track_id, trajectory in self.track_id_to_trajectory.items()
+                int(track_id): trajectory.to_dict() for track_id, trajectory in self.track_id_to_trajectory.items()
             }
         }
 
     def to_json(self, path):
         with open(path, "w+") as f:
             json.dump(self.to_json_dict(), f)
+
+    def load_from_json_dict(self, json_dict):
+        self.track_id_to_trajectory = {
+            int(float(track_id)): SingleCellTrajectory().load_from_json_dict(trajectory_dict)
+            for track_id, trajectory_dict in json_dict["track_id_to_trajectory"].items()
+        }
+        return self
