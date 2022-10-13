@@ -9,8 +9,16 @@ basic information:
 - original img (reference/poniter)
 - img crop (lazy)
 
-
 ## SingleCellTrajectory
 
-
 ## SingleCellTrajectoryCollection
+
+## Expected information after each stage
+
+### Annotation
+
+### Segmentation
+
+### Track
+
+### Trajectory
