@@ -161,7 +161,7 @@ class SingleCellStatic:
                 tmp_series = pd.Series(self.feature_dict[feature_name])
             elif isinstance(features, pd.Series):
                 tmp_series = features
-            tmp_series.add_prefix(feature_name + "_")
+            tmp_series = tmp_series.add_prefix(feature_name + "_")
             res_series = res_series.append(tmp_series)
         return res_series
 
