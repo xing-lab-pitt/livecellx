@@ -1,17 +1,26 @@
-skimage
+numpy
+pandas
+Pillow
+scikit-image
 ipympl
 
 # labelme2coco requirements below
 sahi>=0.8.19
 jsonschema>=2.6.0
 
-Augmentor
-
-# note we need to use multitracker in cv2 legacy
-opencv-contrib-python
-
 # for sort tracker
 lap
 filterpy
 
-# segmentation evaluation miseval
+################################################################################
+# segmentation 
+################################################################################
+pycocotools
+# conda install pytorch torchvision -c pytorch
+pytorch-lightning
+# note we need to use multitracker in cv2 legacy
+Augmentor
+# seg evaluation
+miseval
+cellpose
+opencv-contrib-python
