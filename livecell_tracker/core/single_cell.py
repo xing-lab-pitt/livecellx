@@ -110,6 +110,7 @@ class SingleCellStatic:
         self.feature_dict = json_dict["feature_dict"]
         self.img_dataset = LiveCellImageDataset(dir_path=json_dict["dataset_path"], name=json_dict["dataset_name"])
         self.mask_dataset = LiveCellImageDataset(json_dict["dataset_name"] + "_mask", json_dict["dataset_path"])
+        self.contour = np.array(json_dict["contour"], dtype=float)
         return self
 
     def write_json(self, path=None):

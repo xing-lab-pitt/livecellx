@@ -80,14 +80,14 @@ def gen_SORT_detections_input_from_contours(contours):
     return detections, contour_bbs
 
 
-def map_SORT_detections_to_contour_bbs(track_bbs, contour_bbs):
+def map_SORT_detections_to_contour_bbs(track_bbs, contour_bbs, contours):
     detection_contours = []
     # TODO: optimize later
     for det in track_bbs:
         det_bbs = det[4:8]  # 4-8 contains original bbox
-        for i, contour_bb in enumerate(contour_bbs):
+        for idx, contour_bb in enumerate(contour_bbs):
             if np.allclose(det_bbs, contour_bb, atol=1e-5):
-                detection_contours.append(contour_bbs[i])
+                detection_contours.append(contours[idx])
                 break
         else:
             raise Exception("fail to find contour for some detection: " + (str(det_bbs)))
@@ -102,7 +102,7 @@ def update_traj_collection_by_SORT_tracker_detection(
     contour_bbs,
     raw_img_dataset: LiveCellImageDataset = None,
 ):
-    det_contours = map_SORT_detections_to_contour_bbs(track_bbs, contour_bbs)
+    det_contours = map_SORT_detections_to_contour_bbs(track_bbs, contour_bbs, contours)
     for idx, det in enumerate(track_bbs):
         track_id = det[-1]  # track_id is the last element in the detection from SORT
         if not (track_id in traj_collection):
