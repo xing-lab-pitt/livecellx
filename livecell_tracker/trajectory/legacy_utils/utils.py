@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import PIL
-import png
 import scipy.stats
 import skimage
 import skimage.io
