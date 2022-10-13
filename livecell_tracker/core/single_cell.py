@@ -1,10 +1,11 @@
 import json
-from typing import Callable, Dict
+from typing import Callable, Dict, Union
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
+import pandas as pd
 from skimage.measure._regionprops import RegionProperties
 
 from livecell_tracker.core.datasets import LiveCellImageDataset
@@ -128,6 +129,41 @@ class SingleCellStatic:
             ax = plt.gca()
         ax.imshow(self.get_img_crop(), **kwargs)
         return ax
+
+    def get_contour_mask(self):
+        import scipy.ndimage as ndimage
+
+        contour = self.contour
+        res_mask = np.zeros(self.raw_img.shape, dtype=bool)
+        # create a contour image by using the contour coordinates rounded to their nearest integer value
+        res_mask[np.round(contour[:, 0]).astype("int"), np.round(contour[:, 1]).astype("int")] = 1
+        # fill in the hole created by the contour boundary
+        res_mask = ndimage.binary_fill_holes(res_mask)
+        res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, res_mask)
+        return res_mask_crop
+
+    def get_contour_img(self, background_val=0):
+        contour_mask = self.get_contour_mask()
+        contour_img = self.get_img_crop()
+        contour_img[np.logical_not(contour_mask)] = background_val
+        return contour_img
+
+    def add_feature(self, name, features: Union[np.array, pd.Series]):
+        if not isinstance(features, (np.ndarray, pd.Series)):
+            raise TypeError("features must be a numpy array or pandas series")
+        self.feature_dict[name] = features
+
+    def get_all_feature_pd_series(self):
+        res_series = pd.Series()
+        for feature_name in self.feature_dict:
+            features = self.feature_dict[feature_name]
+            if isinstance(features, np.ndarray):
+                tmp_series = pd.Series(self.feature_dict[feature_name])
+            elif isinstance(features, pd.Series):
+                tmp_series = features
+            tmp_series.add_prefix(feature_name + "_")
+            res_series = res_series.append(tmp_series)
+        return res_series
 
 
 class SingleCellTrajectory:
