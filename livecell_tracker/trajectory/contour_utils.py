@@ -5,6 +5,7 @@ from livecell_tracker.core import (
     SingleCellTrajectoryCollection,
 )
 from livecell_tracker.trajectory.contour.contour_class import Contour
+import matplotlib.pyplot as plt
 
 
 def get_cellTool_contour_points(traj: SingleCellTrajectory, contour_num_points=500) -> List[Contour]:
@@ -18,3 +19,9 @@ def get_cellTool_contour_points(traj: SingleCellTrajectory, contour_num_points=5
         cellTool_contours.append(contour)
         # points = contour.points
     return cellTool_contours
+
+
+def viz_contours(cell_contours: List[Contour], **kwargs):
+    for contour in cell_contours:
+        plt.plot(contour.points[:, 0], contour.points[:, 1], **kwargs)
+    plt.show()
