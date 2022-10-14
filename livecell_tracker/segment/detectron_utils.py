@@ -14,6 +14,7 @@ from livecell_tracker.core.datasets import LiveCellImageDataset
 from PIL import Image, ImageSequence
 from tqdm import tqdm
 import json
+from livecell_tracker.preprocess.utils import normalize_img_by_zscore
 
 
 def gen_cfg(model_path=None, output_dir="./detectron_training_output", test_dataset_name="deepfashion_val"):
@@ -61,36 +62,69 @@ def convert_detectron_instances_to_label_masks(instance_pred_masks):
     return res_mask
 
 
-def convert_detectron_instances_to_binary_masks(instance_pred_masks):
+def convert_detectron_instance_pred_masks_to_binary_masks(instance_pred_masks):
     label_mask = convert_detectron_instances_to_label_masks(instance_pred_masks)
     label_mask[label_mask > 0] = 1
     return label_mask
 
 
-def detectron_segment_imgs(imgs: LiveCellImageDataset, out_dir: Path):
+def segment_by_detectron(img, detectron_predictor):
+    outputs = detectron_predictor(img)
+    return outputs
+
+
+def segment_detectron_wrapper(img):
+    if img.ndim == 2:
+        img = img[:, :, np.newaxis]
+    results = segment_by_detectron(normalize_img_by_zscore(img))
+    instances = results["instances"].to("cpu").pred_masks.numpy()
+    mask = convert_detectron_instance_pred_masks_to_binary_masks(instances)
+    return mask
+
+
+def segment_single_img_by_detectron_wrapper(img, predictor, return_detectron_results=True):
+    if img.ndim == 2:
+        img = img[:, :, np.newaxis]
+    results = segment_by_detectron(img, predictor)
+    instance_pred_masks = results["instances"].to("cpu").pred_masks.numpy()
+    if return_detectron_results:
+        return instance_pred_masks, results
+    return instance_pred_masks
+
+
+def segment_images_by_detectron(imgs: LiveCellImageDataset, cfg, out_dir: Path):
+    predictor = DefaultPredictor(cfg)
     segmentation_results = {}
-    print(type(imgs))
     for idx in tqdm(range(len(imgs))):
         img_path = imgs.get_img_path(idx)
         img = imgs[idx]
         original_img_filename = os.path.basename(img_path).split(".")[0]
         output_filename = original_img_filename + ".png"  # change extension to PNG
 
-        # save binary mask
-        mask, predictor_results = segment_raw_img_by_detectron_wrapper(img, return_detectron_results=True)
-        # convert mask to 8-bit binary mask
-        assert mask.max() < 2 ** 8, "more than 256 instances predicted?"
-        mask = mask.astype(np.uint8)
-        binary_mask_img = Image.fromarray(mask)
-        binary_mask_img.save(out_dir / output_filename)
+        instance_pred_masks, predictor_results = segment_single_img_by_detectron_wrapper(
+            img, predictor=predictor, return_detectron_results=True
+        )
+        if instance_pred_masks.max() >= 2 ** 8:
+            # TODO: logger
+            print("[WARNING] more than 256 instances predicted, potential overflow")
 
-        # save overlayed image
-        overlay_output_filename = "overlay_" + original_img_filename + ".png"  # change extension to PNG
-        # overlayed_img = overlay(img, mask, mask_channel_rgb_val=100, img_channel_rgb_val_factor=2)
-        overlayed_arr = detectron_visualize_img(img[:, :, np.newaxis], DETECTRON_CFG, predictor_results)
-        overlayed_img = Image.fromarray(overlayed_arr)
-        overlayed_img.save(out_dir / overlay_output_filename)
-        del overlayed_img, overlayed_arr, mask, binary_mask_img
+        # save binary mask
+        def _save_binary_mask():
+            binary_mask = convert_detectron_instance_pred_masks_to_binary_masks(instance_pred_masks)
+            # convert mask to 8-bit binary mask
+            binary_mask = binary_mask.astype(np.uint8)
+            binary_mask_img = Image.fromarray(binary_mask)
+            binary_mask_img.save(out_dir / output_filename)
+            del binary_mask, binary_mask_img
+
+        def _save_overlay_img():
+            # save overlayed image
+            overlay_output_filename = "overlay_" + original_img_filename + ".png"  # change extension to PNG
+            # overlayed_img = overlay(img, mask, mask_channel_rgb_val=100, img_channel_rgb_val_factor=2)
+            overlayed_arr = detectron_visualize_img(img[:, :, np.newaxis], cfg, predictor_results)
+            overlayed_img = Image.fromarray(overlayed_arr)
+            overlayed_img.save(out_dir / overlay_output_filename)
+            del overlayed_img, overlayed_arr
 
         def _save_instance_masks():
             # save predicted instance masks
@@ -100,10 +134,11 @@ def detectron_segment_imgs(imgs: LiveCellImageDataset, out_dir: Path):
                 pred_binary_mask_img = Image.fromarray(pred_binary_mask)
                 pred_binary_mask_img.save(out_dir / f"{original_img_filename}_instance_{idx}.png")
                 del pred_binary_mask, pred_binary_mask_img
-            del predictor_results, pred_binary_masks
+            del pred_binary_masks
 
+        _save_binary_mask()
         # _save_instance_masks()
-
+        _save_overlay_img()
         # generate contours and save to json
         contours = []
         for instance_mask in predictor_results["instances"].to("cpu").pred_masks.numpy():
@@ -111,7 +146,7 @@ def detectron_segment_imgs(imgs: LiveCellImageDataset, out_dir: Path):
                 instance_mask, level=0.5, fully_connected="low", positive_orientation="low"
             )
             if len(tmp_contours) != 1:
-                print("[WARN] more than 1 contour found in instance mask")
+                print("[WARN] more than 1 contour found in the instance mask")
             # convert to list for saving into json
             contours.extend([[list(coords) for coords in coord_arr] for coord_arr in tmp_contours])
         assert original_img_filename not in segmentation_results, "duplicate image filename?"
