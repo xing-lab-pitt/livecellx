@@ -1,5 +1,5 @@
 import numpy as np
-from detectron_utils import convert_detectron_instance_pred_masks_to_binary_masks
+from livecell_tracker.segment.detectron_utils import convert_detectron_instance_pred_masks_to_binary_masks
 
 from livecell_tracker.preprocess.utils import normalize_img_by_zscore
 

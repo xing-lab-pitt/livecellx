@@ -188,6 +188,14 @@ class SingleCellTrajectory:
         self.mask_dataset = mask_dataset
         self.extra_datasets = extra_datasets
 
+    def __len__(self):
+        return self.get_timeframe_span_length()
+
+    def __getitem__(self, timeframe: int):
+        if timeframe not in self.timeframe_set:
+            raise KeyError(f"single cell at timeframe {timeframe} does not exist in the trajectory")
+        return self.get_single_cell(timeframe)
+
     def add_timeframe_data(self, timeframe, cell: SingleCellStatic):
         self.timeframe_to_single_cell[timeframe] = cell
         self.timeframe_set.add(timeframe)
@@ -242,14 +250,14 @@ class SingleCellTrajectoryCollection:
     def __init__(self) -> None:
         self.track_id_to_trajectory = dict()
 
+    def __contains__(self, track_id):
+        return track_id in self.track_id_to_trajectory
+
     def add_trajectory(self, trajectory: SingleCellTrajectory):
         self.track_id_to_trajectory[trajectory.track_id] = trajectory
 
     def get_trajectory(self, track_id) -> SingleCellTrajectory:
         return self.track_id_to_trajectory[track_id]
-
-    def __contains__(self, track_id):
-        return track_id in self.track_id_to_trajectory
 
     def to_json_dict(self):
         return {

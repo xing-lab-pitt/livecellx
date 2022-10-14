@@ -92,7 +92,23 @@ def segment_single_img_by_detectron_wrapper(img, predictor, return_detectron_res
     return instance_pred_masks
 
 
-def segment_images_by_detectron(imgs: LiveCellImageDataset, cfg, out_dir: Path):
+def segment_images_by_detectron(imgs: LiveCellImageDataset, out_dir: Path, cfg=None):
+    """segment images by detectron2
+
+    Parameters
+    ----------
+    imgs : LiveCellImageDataset
+        _description_
+    cfg : _type_
+        _description_
+    out_dir : Path
+        _description_
+
+    Returns
+    -------
+    _type_
+        mapping from image path to contours
+    """
     predictor = DefaultPredictor(cfg)
     segmentation_results = {}
     for idx in tqdm(range(len(imgs))):
@@ -140,16 +156,22 @@ def segment_images_by_detectron(imgs: LiveCellImageDataset, cfg, out_dir: Path):
         # _save_instance_masks()
         _save_overlay_img()
         # generate contours and save to json
-        contours = []
-        for instance_mask in predictor_results["instances"].to("cpu").pred_masks.numpy():
-            tmp_contours = measure.find_contours(
-                instance_mask, level=0.5, fully_connected="low", positive_orientation="low"
-            )
-            if len(tmp_contours) != 1:
-                print("[WARN] more than 1 contour found in the instance mask")
-            # convert to list for saving into json
-            contours.extend([[list(coords) for coords in coord_arr] for coord_arr in tmp_contours])
+        contours = get_contours_from_pred_masks(instance_pred_masks)
+
         assert original_img_filename not in segmentation_results, "duplicate image filename?"
         segmentation_results[img_path] = {}
         segmentation_results[img_path]["contours"] = contours
     return segmentation_results
+
+
+def get_contours_from_pred_masks(instance_pred_masks):
+    contours = []
+    for instance_mask in instance_pred_masks:
+        tmp_contours = measure.find_contours(
+            instance_mask, level=0.5, fully_connected="low", positive_orientation="low"
+        )
+        if len(tmp_contours) != 1:
+            print("[WARN] more than 1 contour found in the instance mask")
+        # convert to list for saving into json
+        contours.extend([[list(coords) for coords in coord_arr] for coord_arr in tmp_contours])
+    return contours
