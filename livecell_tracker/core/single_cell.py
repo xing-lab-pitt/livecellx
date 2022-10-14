@@ -73,18 +73,20 @@ class SingleCellStatic:
     def get_bbox(self) -> np.array:
         return np.array(self.bbox)
 
-    def gen_skimage_bbox_img_crop(bbox, img):
+    def gen_skimage_bbox_img_crop(bbox, img, padding=0):
         min_x, max_x, min_y, max_y = (
             int(bbox[0]),
             int(bbox[2]),
             int(bbox[1]),
             int(bbox[3]),
         )
-        img_crop = img[min_x:max_x, min_y:max_y]
+        min_x = max(0, min_x - padding)
+        min_y = max(0, min_y - padding)
+        img_crop = img[min_x : max_x + padding, min_y : max_y + padding]
         return img_crop
 
-    def get_img_crop(self):
-        img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_img())
+    def get_img_crop(self, padding=0):
+        img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_img(), padding=padding)
         # TODO: enable in RAM mode
         # if self.img_crop is None:
         #     self.img_crop = img_crop
@@ -145,11 +147,16 @@ class SingleCellStatic:
         ax.imshow(self.get_img_crop(), **kwargs)
         return ax
 
+    def get_img_crop_contour_coords(self, padding=0):
+        xs = self.contour[:, 0] - max(0, self.bbox[0] - padding)
+        ys = self.contour[:, 1] - max(0, self.bbox[1] - padding)
+        return np.array([xs, ys]).T
+
     def get_contour_mask(self):
         import scipy.ndimage as ndimage
 
         contour = self.contour
-        res_mask = np.zeros(self.raw_img.shape, dtype=bool)
+        res_mask = np.zeros(self.get_img().shape, dtype=bool)
         # create a contour image by using the contour coordinates rounded to their nearest integer value
         res_mask[np.round(contour[:, 0]).astype("int"), np.round(contour[:, 1]).astype("int")] = 1
         # fill in the hole created by the contour boundary
@@ -168,8 +175,8 @@ class SingleCellStatic:
             raise TypeError("features must be a numpy array or pandas series")
         self.feature_dict[name] = features
 
-    def get_all_feature_pd_series(self):
-        res_series = pd.Series()
+    def get_feature_pd_series(self):
+        res_series = None
         for feature_name in self.feature_dict:
             features = self.feature_dict[feature_name]
             if isinstance(features, np.ndarray):
@@ -177,7 +184,10 @@ class SingleCellStatic:
             elif isinstance(features, pd.Series):
                 tmp_series = features
             tmp_series = tmp_series.add_prefix(feature_name + "_")
-            res_series = res_series.append(tmp_series)
+            if res_series is None:
+                res_series = tmp_series
+            else:
+                res_series = pd.concat([res_series, tmp_series])
         return res_series
 
 
@@ -210,6 +220,13 @@ class SingleCellTrajectory:
         if timeframe not in self.timeframe_set:
             raise KeyError(f"single cell at timeframe {timeframe} does not exist in the trajectory")
         return self.get_single_cell(timeframe)
+
+    def __iter__(self):
+        return iter(self.timeframe_to_single_cell.values())
+
+    def compute_features(self, feature_key: str, func: Callable):
+        for sc in iter(self.timeframe_to_single_cell.values()):
+            sc.add_feature(feature_key, func(sc))
 
     def add_timeframe_data(self, timeframe, cell: SingleCellStatic):
         self.timeframe_to_single_cell[timeframe] = cell
@@ -260,7 +277,7 @@ class SingleCellTrajectory:
         for timeframe, sc in json_dict["timeframe_to_single_cell"].items():
             self.timeframe_to_single_cell[int(timeframe)] = SingleCellStatic(
                 int(timeframe), img_dataset=self.raw_img_dataset
-            ).load_from_json_dict(sc, img_dataset=img_dataset)
+            ).load_from_json_dict(sc, img_dataset=self.raw_img_dataset)
             if img_dataset is None and share_img_dataset:
                 img_dataset = self.raw_img_dataset
         self.timeframe_set = set(self.timeframe_to_single_cell.keys())
