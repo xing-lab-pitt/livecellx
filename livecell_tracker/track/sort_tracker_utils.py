@@ -1,3 +1,4 @@
+from typing import Dict
 from livecell_tracker.core.datasets import LiveCellImageDataset
 from livecell_tracker.core.single_cell import (
     SingleCellStatic,
@@ -6,6 +7,8 @@ from livecell_tracker.core.single_cell import (
 )
 
 import numpy as np
+
+from livecell_tracker.track.sort_tracker import Sort
 
 SORT_EMPTY_TIMEFRAME_BBOX_DATA = np.empty((0, 5))
 
@@ -110,7 +113,41 @@ def update_traj_collection_by_SORT_tracker_detection(
             traj_collection.add_trajectory(new_traj)
 
         sc = SingleCellStatic(
-            timeframe, bbox=det[:4], img_dataset=raw_img_dataset, contour=det_contours[idx]
+            timeframe,
+            bbox=det[:4],
+            img_dataset=raw_img_dataset,
+            contour=det_contours[idx],
         )  # final column is track_id, ignore as we only need bbox here
         _traj = traj_collection.get_trajectory(track_id)
         _traj.add_timeframe_data(timeframe, sc)
+
+
+def track_SORT_bbox_from_contours(
+    path2contours: Dict[str, np.array],
+    raw_imgs: LiveCellImageDataset,
+    max_age=5,
+    min_hits=3,
+):
+    tracker = Sort(max_age=max_age, min_hits=min_hits)
+    traj_collection = SingleCellTrajectoryCollection()
+    all_track_bbs = []
+    for idx, img in enumerate(raw_imgs):
+        print("matching image path:", raw_imgs.get_img_path(idx))
+        img_path = raw_imgs.get_img_path(idx)
+        # TODO: fix in the future only for windows...Somehow json lib saved double slashes
+        contours = path2contours[raw_imgs.get_img_path(idx)]["contours"]
+
+        # TODO: for RPN based models, we may directly get bboxes from the model outputs
+        detections, contour_bbs = gen_SORT_detections_input_from_contours(contours)
+        track_bbs_ids = tracker.update(detections, ret_origin_bbox=True)
+        # print(track_bbs_ids)
+        all_track_bbs.append(track_bbs_ids)
+        update_traj_collection_by_SORT_tracker_detection(
+            traj_collection,
+            idx,
+            track_bbs_ids,
+            contours,
+            contour_bbs,
+            raw_img_dataset=raw_imgs,
+        )
+    return traj_collection

@@ -47,8 +47,10 @@ class SingleCellStatic:
         self.regionprops = regionprops
         self.timeframe = timeframe
         self.img_dataset = img_dataset
-        self.mask_dataset = mask_dataset
-        self.raw_img = self.get_img()
+
+        # TODO: discuss and decide whether to keep mask dataset
+        # self.mask_dataset = mask_dataset
+
         self.feature_dict = feature_dict
         self.bbox = bbox
         self.contour = np.array(contour, dtype=float)
@@ -56,8 +58,11 @@ class SingleCellStatic:
         # infer bbox from regionprops
         if (bbox is None) and (regionprops is not None):
             self.bbox = regionprops.bbox
-        self.img_crop = None
-        self.mask_crop = None
+
+        # TODO: enable img_crops caching ONLY in RAM mode, otherwise caching these causes memory issues
+        # self.raw_img = self.get_img()
+        # self.img_crop = None
+        # self.mask_crop = None
 
     def get_img(self):
         return self.img_dataset[self.timeframe]
@@ -79,38 +84,48 @@ class SingleCellStatic:
         return img_crop
 
     def get_img_crop(self):
-        if self.img_crop is None:
-            self.img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.raw_img)
-        return self.img_crop
+        img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_img())
+        # TODO: enable in RAM mode
+        # if self.img_crop is None:
+        #     self.img_crop = img_crop
+        return img_crop
 
     def get_mask_crop(self):
-        if self.mask_crop is None:
-            self.mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask())
-        return self.mask_crop
+        # TODO: enable in RAM mode
+        # if self.mask_crop is None:
+        #     self.mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask())
+        return SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask())
 
     def update_bbox(self, bbox):
         self.bbox = bbox
         self.img_crop = None
         self.mask_crop = None
 
-    def to_json_dict(self):
+    def to_json_dict(self, dataset_json=False):
         """returns a dict that can be converted to json"""
         res = {
             "timeframe": int(self.timeframe),
             "bbox": list(np.array(self.bbox, dtype=float)),
             "feature_dict": self.feature_dict,
-            "dataset_name": str(self.img_dataset.get_dataset_name()),
-            "dataset_path": str(self.img_dataset.get_dataset_path()),
             "contour": self.contour.tolist(),
         }
+        if dataset_json:
+            res["dataset_json"] = self.img_dataset.to_json_dict()
         return res
 
-    def load_from_json_dict(self, json_dict):
+    def load_from_json_dict(self, json_dict, img_dataset=None):
         self.timeframe = json_dict["timeframe"]
         self.bbox = np.array(json_dict["bbox"], dtype=float)
         self.feature_dict = json_dict["feature_dict"]
-        self.img_dataset = LiveCellImageDataset(dir_path=json_dict["dataset_path"], name=json_dict["dataset_name"])
-        self.mask_dataset = LiveCellImageDataset(json_dict["dataset_name"] + "_mask", json_dict["dataset_path"])
+        if img_dataset is None and "dataset_json" in json_dict:
+            self.img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict["dataset_json"])
+        else:
+            self.img_dataset = img_dataset
+
+        # TODO: discuss and decide whether to keep mask dataset
+        # self.mask_dataset = LiveCellImageDataset(
+        #     json_dict["dataset_name"] + "_mask", json_dict["dataset_path"]
+        # )
         self.contour = np.array(json_dict["contour"], dtype=float)
         return self
 
@@ -234,14 +249,20 @@ class SingleCellTrajectory:
             with open(path, "w+") as f:
                 json.dump(self.to_dict(), f)
 
-    def load_from_json_dict(self, json_dict):
+    def load_from_json_dict(self, json_dict, img_dataset=None, share_img_dataset=True):
         self.track_id = json_dict["track_id"]
-        self.raw_img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict["dataset_info"])
+        if img_dataset:
+            self.raw_img_dataset = img_dataset
+        else:
+            self.raw_img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict["dataset_info"])
         self.raw_total_timeframe = len(self.raw_img_dataset)
-        self.timeframe_to_single_cell = {
-            int(timeframe): SingleCellStatic(int(timeframe), img_dataset=self.raw_img_dataset).load_from_json_dict(sc)
-            for timeframe, sc in json_dict["timeframe_to_single_cell"].items()
-        }
+        self.timeframe_to_single_cell = {}
+        for timeframe, sc in json_dict["timeframe_to_single_cell"].items():
+            self.timeframe_to_single_cell[int(timeframe)] = SingleCellStatic(
+                int(timeframe), img_dataset=self.raw_img_dataset
+            ).load_from_json_dict(sc, img_dataset=img_dataset)
+            if img_dataset is None and share_img_dataset:
+                img_dataset = self.raw_img_dataset
         self.timeframe_set = set(self.timeframe_to_single_cell.keys())
         return self
 
@@ -249,9 +270,19 @@ class SingleCellTrajectory:
 class SingleCellTrajectoryCollection:
     def __init__(self) -> None:
         self.track_id_to_trajectory = dict()
+        self._iter_index = 0
 
     def __contains__(self, track_id):
         return track_id in self.track_id_to_trajectory
+
+    def __getitem__(self, track_id):
+        return self.get_trajectory(track_id)
+
+    def __len__(self):
+        return len(self.track_id_to_trajectory)
+
+    def __iter__(self):
+        return iter(self.track_id_to_trajectory.values())
 
     def add_trajectory(self, trajectory: SingleCellTrajectory):
         self.track_id_to_trajectory[trajectory.track_id] = trajectory
@@ -271,8 +302,19 @@ class SingleCellTrajectoryCollection:
             json.dump(self.to_json_dict(), f)
 
     def load_from_json_dict(self, json_dict):
-        self.track_id_to_trajectory = {
-            int(float(track_id)): SingleCellTrajectory().load_from_json_dict(trajectory_dict)
-            for track_id, trajectory_dict in json_dict["track_id_to_trajectory"].items()
-        }
+        self.track_id_to_trajectory = {}
+        for track_id, trajectory_dict in json_dict["track_id_to_trajectory"].items():
+            self.track_id_to_trajectory[int(float(track_id))] = SingleCellTrajectory().load_from_json_dict(
+                trajectory_dict
+            )
         return self
+
+    def histogram_traj_length(self, ax=None, **kwargs):
+        import seaborn as sns
+
+        id_to_sc_trajs = self.track_id_to_trajectory
+        all_traj_lengths = np.array([_traj.get_timeframe_span_length() for _traj in id_to_sc_trajs.values()])
+        if ax is None:
+            fig, ax = plt.subplots()
+        sns.histplot(all_traj_lengths, bins=100, ax=ax, **kwargs)
+        return ax

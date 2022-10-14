@@ -51,8 +51,8 @@ def detectron_visualize_img(img, cfg, detectron_outputs):
     v = Visualizer(img[:, :, ::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=1.2)
     v = v.draw_instance_predictions(detectron_outputs["instances"].to("cpu"))
     figure, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=80)
-    axis_img = ax.imshow(v.get_image()[:, :, ::-1])
-    return axis_img.get_array()
+    axis_img = v.get_image()[:, :, ::-1]
+    return axis_img
 
 
 def convert_detectron_instances_to_label_masks(instance_pred_masks):

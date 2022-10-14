@@ -26,7 +26,13 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     """Dataset that reads in various features"""
 
     def __init__(
-        self, dir_path=None, ext="tif", max_cache_size=50, name="livecell-base", num_imgs=None, force_posix_path=True
+        self,
+        dir_path=None,
+        ext="tif",
+        max_cache_size=50,
+        name="livecell-base",
+        num_imgs=None,
+        force_posix_path=True,
     ):
 
         if isinstance(dir_path, str):
@@ -105,12 +111,13 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             with open(path, "w+") as f:
                 json.dump(self.to_dict(), f)
 
-    def load_from_json_dict(self, json_dict):
+    def load_from_json_dict(self, json_dict, update_img_paths=False):
         self.name = json_dict["name"]
         self.data_dir_path = json_dict["data_dir_path"]
-        self.update_img_paths()
-
-        self.img_path_list = json_dict["img_path_list"]
-        self.max_cache_size = json_dict["max_cache_size"]
         self.ext = json_dict["ext"]
+        if update_img_paths:
+            self.update_img_paths()
+        else:
+            self.img_path_list = json_dict["img_path_list"]
+        self.max_cache_size = json_dict["max_cache_size"]
         return self
