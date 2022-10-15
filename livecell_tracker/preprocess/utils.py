@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from cellpose import models
 from cellpose.io import imread
-from PIL import Image, ImageSequence
+from PIL import Image, ImageSequence, ImageEnhance
 from tqdm import tqdm
 
 
@@ -82,3 +82,9 @@ def reserve_img_by_pixel_percentile(raw_img: np.array, percentile: float, target
         raise ValueError("Must specify either target_val or scale")
     flattened_img[np.logical_not(is_above_threshold)] = 0
     return flattened_img.reshape(raw_img.shape)
+
+
+def enhance_contrast(im, factor=5):
+    enhancer = ImageEnhance.Contrast(im)
+    im_output = enhancer.enhance(factor)
+    return im_output
