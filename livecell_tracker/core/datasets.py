@@ -104,6 +104,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             "ext": self.ext,
         }
 
+    # TODO: refactor
     def write_json(self, path=None):
         if path is None:
             return json.dumps(self.to_dict())
@@ -121,3 +122,8 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             self.img_path_list = json_dict["img_path_list"]
         self.max_cache_size = json_dict["max_cache_size"]
         return self
+
+
+    def to_dask(self):
+        import dask.array as da
+        return da.stack([da.from_array(img) for img in self])

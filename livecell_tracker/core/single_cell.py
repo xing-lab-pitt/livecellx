@@ -82,7 +82,7 @@ class SingleCellStatic:
         )
         min_x = max(0, min_x - padding)
         min_y = max(0, min_y - padding)
-        img_crop = img[min_x : max_x + padding, min_y : max_y + padding]
+        img_crop = img[min_x : max_x + padding, min_y : max_y + padding, ...]
         return img_crop
 
     def get_img_crop(self, padding=0):
@@ -190,6 +190,9 @@ class SingleCellStatic:
                 res_series = pd.concat([res_series, tmp_series])
         return res_series
 
+    def get_napari_shape_vec(self):
+        x1, y1, x2, y2 = self.bbox
+        return [[x1, y1], [x1, y2], [x2, y2], [x2, y1]]
 
 class SingleCellTrajectory:
     """
@@ -216,7 +219,7 @@ class SingleCellTrajectory:
     def __len__(self):
         return self.get_timeframe_span_length()
 
-    def __getitem__(self, timeframe: int):
+    def __getitem__(self, timeframe: int) -> SingleCellStatic:
         if timeframe not in self.timeframe_set:
             raise KeyError(f"single cell at timeframe {timeframe} does not exist in the trajectory")
         return self.get_single_cell(timeframe)
@@ -283,6 +286,28 @@ class SingleCellTrajectory:
         self.timeframe_set = set(self.timeframe_to_single_cell.keys())
         return self
 
+    def get_sc_feature_table(self):
+        feature_table = None
+        for sc in self:
+            feature_series = sc.get_feature_pd_series()
+            if feature_table is None:
+                feature_table = pd.DataFrame(feature_series, columns=[str(sc.timeframe)])
+            else:
+                feature_table[str(sc.timeframe)] = feature_series
+        feature_table = feature_table.transpose()
+        return feature_table
+
+    def get_sc_bboxes(self):
+        bbox_list = []
+        for sc in self:
+            bbox_list.append(sc.bbox)
+        return bbox_list
+
+    def get_sc_napari_shapes(self):
+        shape_dict = {}
+        for sc in self:
+            shape_dict[sc.timeframe] = sc.get_napari_shape_vec()
+        return shape_dict
 
 class SingleCellTrajectoryCollection:
     def __init__(self) -> None:
