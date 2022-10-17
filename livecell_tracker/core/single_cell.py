@@ -192,7 +192,11 @@ class SingleCellStatic:
 
     def get_napari_shape_vec(self):
         x1, y1, x2, y2 = self.bbox
-        return [[x1, y1], [x1, y2], [x2, y2], [x2, y1]]
+        coords = [[x1, y1], [x1, y2], [x2, y2], [x2, y1]]
+        
+        # TODO: napari convention discussion...looks weird
+        napari_shape_vec = [[self.timeframe] + coord for coord in coords]
+        return napari_shape_vec
 
 class SingleCellTrajectory:
     """
