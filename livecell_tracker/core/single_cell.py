@@ -191,8 +191,7 @@ class SingleCellStatic:
         return res_series
 
     def get_napari_shape_vec(self, coords):
-        
-        # TODO: napari convention discussion...looks weird
+        # TODO: napari shapes layer convention discussion...looks weird
         napari_shape_vec = [[self.timeframe] + coord for coord in coords]
         return napari_shape_vec
 
@@ -321,10 +320,11 @@ class SingleCellTrajectory:
         return bbox_list
 
     def get_sc_napari_shapes(self):
-        shape_dict = {}
+        shapes_data = []
         for sc in self:
-            shape_dict[sc.timeframe] = sc.get_napari_shape_bbox_vec()
-        return shape_dict
+            shapes_data.append(sc.get_napari_shape_bbox_vec())
+        return shapes_data
+
 
 class SingleCellTrajectoryCollection:
     def __init__(self) -> None:
@@ -341,7 +341,7 @@ class SingleCellTrajectoryCollection:
         return len(self.track_id_to_trajectory)
 
     def __iter__(self):
-        return iter(self.track_id_to_trajectory.values())
+        return iter(self.track_id_to_trajectory.items())
 
     def add_trajectory(self, trajectory: SingleCellTrajectory):
         self.track_id_to_trajectory[trajectory.track_id] = trajectory
