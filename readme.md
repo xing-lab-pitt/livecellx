@@ -12,7 +12,7 @@ The majority of our analysis methods/notebooks are in `https://github.com/xing-l
 **Pytorch**  
 `conda install pytorch torchvision -c pytorch`
 
-**Package requirements**  
+**General package requirements**  
 `pip install -r requirements.txt`
 
 **Detectron2**  
@@ -24,7 +24,7 @@ git clone https://github.com/facebookresearch/detectron2.git
 python -m pip install -e detectron2
 ```
 
-for {avi, mp4} movie generation  
+**{avi, mp4} movie generation**
 `conda install -c conda-forge ffmpeg`
 
 
@@ -47,6 +47,7 @@ Segmentation has two phase. If you already have pytorch or tensorflow models tra
 
 ### training phase
 input: COCO json files
+
 output: pytorch model (.pth file)
 
 ### prediction phase
@@ -67,8 +68,6 @@ input: SingleCellTrajectoryColletion
 
 output: 
 
-### Analyze trajectories based on specific research topics
-
 
 ### Visualizer
 track.movie: generate_single_trajectory_movie()
@@ -76,6 +75,10 @@ track.movie: generate_single_trajectory_movie()
 visualizer: viz_traj, viz_traj_collection
 
 {Documentation placeholder} [Move to docs/ and auto generate by readthedocs]
+
+### Analyze trajectories based on specific research topics
+
+
 ## SingleCellStatic  
 class designed to hold all information about a single cell at some timepoint  
 **attributes**
