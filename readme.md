@@ -5,7 +5,7 @@
 
 Livecell-tracker is a pure python framework for extracting sinlge cell trajectories from raw long live-cell imaging data, computing and analyzing single cell features in latent space.
 
-**This is a placeholder for livecell-tracker future releases. Currently this repo showcases a basic use case to segment images, track cells with cv/SORT and generate cell features in our CX-A label-free dataset.   
+**This is a placeholder for livecell-tracker future releases. Currently this repo showcases a basic use case to segment images, track cells with opencv/SORT and generate cell features in our CX-A label-free dataset.   
 The majority of our analysis methods/notebooks are in `https://github.com/xing-lab-pitt/xing-vimentin-dic-pipeline` maintained by Xing lab, and being added to this repo. Please check later in Nov. 2022 for a complete version with our manuscript.**
 ## Installation
 
