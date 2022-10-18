@@ -17,15 +17,20 @@ import json
 from livecell_tracker.preprocess.utils import normalize_img_by_zscore
 
 
-def gen_cfg(model_path=None, output_dir="./detectron_training_output", test_dataset_name="deepfashion_val"):
+def gen_cfg(
+    model_path=None,
+    output_dir="./detectron_training_output",
+    train_dataset_name="deepfashion_train",
+    test_dataset_name="deepfashion_val",
+    config_path="COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml",
+    checkpoint_url="COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml",
+):
     cfg = get_cfg()
 
-    cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
-    cfg.DATASETS.TRAIN = ("deepfashion_val",)
-    cfg.DATASETS.TEST = ()
-    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(
-        "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
-    )  # Let training initialize from model zoo
+    cfg.merge_from_file(model_zoo.get_config_file(config_path))
+    cfg.DATASETS.TRAIN = (train_dataset_name,)
+    cfg.DATASETS.TEST = (test_dataset_name,)
+    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(checkpoint_url)  # Let training initialize from model zoo
 
     cfg.SOLVER.IMS_PER_BATCH = 4
     cfg.SOLVER.BASE_LR = 0.001
@@ -120,7 +125,7 @@ def segment_images_by_detectron(imgs: LiveCellImageDataset, out_dir: Path, cfg=N
         instance_pred_masks, predictor_results = segment_single_img_by_detectron_wrapper(
             img, predictor=predictor, return_detectron_results=True
         )
-        if instance_pred_masks.max() >= 2 ** 8:
+        if instance_pred_masks.max() >= 2**8:
             # TODO: logger
             print("[WARNING] more than 256 instances predicted, potential overflow")
 

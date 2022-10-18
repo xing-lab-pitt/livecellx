@@ -35,7 +35,7 @@ def get_coco_from_labelme_folder(
     load images according to the following rules in order:
         1) if dataset_folder_path is provided, load images from datasets there
         2) if is_image_image_in_json_folder is True, then load image from the same folder as json, with extension replaced by image_file_ext
-        3) if is_image_image_in_json_folder is False, load from labelme's json data['imagePath']
+        3) otherwise try loading from labelme's json data['imagePath']
     Args:
         labelme_folder: folder that contains labelme annotations and image files
         coco_category_list: start from a predefined coco cateory list

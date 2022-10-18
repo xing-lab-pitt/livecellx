@@ -190,13 +190,26 @@ class SingleCellStatic:
                 res_series = pd.concat([res_series, tmp_series])
         return res_series
 
-    def get_napari_shape_vec(self):
-        x1, y1, x2, y2 = self.bbox
-        coords = [[x1, y1], [x1, y2], [x2, y2], [x2, y1]]
+    def get_napari_shape_vec(self, coords):
         
         # TODO: napari convention discussion...looks weird
         napari_shape_vec = [[self.timeframe] + coord for coord in coords]
         return napari_shape_vec
+
+    def get_napari_shape_bbox_vec(self):
+        x1, y1, x2, y2 = self.bbox
+        coords = [[x1, y1], [x1, y2], [x2, y2], [x2, y1]]
+        return self.get_napari_shape_vec(coords)
+    
+    def get_napari_shape_contour_vec(self):
+        return self.get_napari_shape_vec(self.contour)
+
+
+    def segment_by_detectron(self):
+        pass
+
+    def segment_by_cellpose(self):
+        pass
 
 class SingleCellTrajectory:
     """
@@ -310,7 +323,7 @@ class SingleCellTrajectory:
     def get_sc_napari_shapes(self):
         shape_dict = {}
         for sc in self:
-            shape_dict[sc.timeframe] = sc.get_napari_shape_vec()
+            shape_dict[sc.timeframe] = sc.get_napari_shape_bbox_vec()
         return shape_dict
 
 class SingleCellTrajectoryCollection:
