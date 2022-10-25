@@ -58,15 +58,7 @@ class SingleCellStatic:
         if (bbox is None) and (regionprops is not None):
             self.bbox = regionprops.bbox
         elif (bbox is None) and contour is not None:
-            # TODO: 3D?
-            self.bbox = np.array(
-                [
-                    np.min(self.contour[:, 0]),
-                    np.min(self.contour[:, 1]),
-                    np.max(self.contour[:, 0]),
-                    np.max(self.contour[:, 1]),
-                ]
-            )
+            self.update_contour(self.contour, update_bbox=True)
         # TODO: enable img_crops caching ONLY in RAM mode, otherwise caching these causes memory issues
         # self.raw_img = self.get_img()
         # self.img_crop = None
@@ -110,6 +102,19 @@ class SingleCellStatic:
         self.bbox = bbox
         self.img_crop = None
         self.mask_crop = None
+
+    def update_contour(self, contour, update_bbox=True):
+        self.contour = np.array(contour)
+        # TODO: 3D?
+        if update_bbox:
+            self.bbox = np.array(
+                [
+                    np.min(self.contour[:, 0]),
+                    np.min(self.contour[:, 1]),
+                    np.max(self.contour[:, 0]),
+                    np.max(self.contour[:, 1]),
+                ]
+            )
 
     def to_json_dict(self, dataset_json=True):
         """returns a dict that can be converted to json"""
@@ -218,6 +223,8 @@ class SingleCellStatic:
                 res_series = tmp_series
             else:
                 res_series = pd.concat([res_series, tmp_series])
+        # add time frame information
+        res_series["t"] = self.timeframe
         return res_series
 
     def get_napari_shape_vec(self, coords):
@@ -271,13 +278,13 @@ class SingleCellTrajectory:
         return self.get_single_cell(timeframe)
 
     def __iter__(self):
-        return iter(self.timeframe_to_single_cell.values())
+        return iter(self.timeframe_to_single_cell.items())
 
     def compute_features(self, feature_key: str, func: Callable):
         for sc in iter(self.timeframe_to_single_cell.values()):
             sc.add_feature(feature_key, func(sc))
 
-    def add_timeframe_data(self, timeframe, cell: SingleCellStatic):
+    def add_single_cell(self, timeframe, cell: SingleCellStatic):
         self.timeframe_to_single_cell[timeframe] = cell
         self.timeframe_set.add(timeframe)
 
@@ -297,6 +304,10 @@ class SingleCellTrajectory:
 
     def get_single_cell(self, timeframe: int) -> SingleCellStatic:
         return self.timeframe_to_single_cell[timeframe]
+
+    def pop_single_cell(self, timeframe: int):
+        self.timeframe_set.remove(timeframe)
+        return self.timeframe_to_single_cell.pop(timeframe)
 
     def to_dict(self):
         res = {
@@ -334,12 +345,14 @@ class SingleCellTrajectory:
 
     def get_sc_feature_table(self):
         feature_table = None
-        for sc in self:
+        for timeframe, sc in self:
+            assert timeframe == sc.timeframe, "timeframe mismatch"
             feature_series = sc.get_feature_pd_series()
+            row_idx = "_".join([str(self.track_id), str(sc.timeframe)])
             if feature_table is None:
-                feature_table = pd.DataFrame(feature_series, columns=[str(sc.timeframe)])
+                feature_table = pd.DataFrame({row_idx: feature_series})
             else:
-                feature_table[str(sc.timeframe)] = feature_series
+                feature_table[row_idx] = feature_series
         feature_table = feature_table.transpose()
         return feature_table
 
@@ -407,3 +420,14 @@ class SingleCellTrajectoryCollection:
             fig, ax = plt.subplots()
         sns.histplot(all_traj_lengths, bins=100, ax=ax, **kwargs)
         return ax
+
+    def get_feature_table(self) -> pd.DataFrame:
+        feature_table = None
+        for track_id, trajectory in self:
+            assert track_id == trajectory.track_id, "track_id mismatch"
+            sc_feature_table = trajectory.get_sc_feature_table()
+            if feature_table is None:
+                feature_table = sc_feature_table
+            else:
+                feature_table = pd.concat([feature_table, sc_feature_table])
+        return feature_table

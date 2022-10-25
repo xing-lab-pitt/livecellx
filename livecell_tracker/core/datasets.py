@@ -8,6 +8,7 @@ import time
 from collections import deque
 from datetime import timedelta
 from pathlib import Path, PurePosixPath
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -28,6 +29,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         dir_path=None,
+        img_path_list: List = None,
         ext="tif",
         max_cache_size=50,
         name="livecell-base",
@@ -43,7 +45,10 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
 
         self.data_dir_path = dir_path
         self.ext = ext
-        self.update_img_paths()
+        if img_path_list is None:
+            self.update_img_paths()  # add self.img_path_list
+        else:
+            self.img_path_list = img_path_list
 
         # force posix path
         if force_posix_path:
@@ -123,7 +128,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self.max_cache_size = json_dict["max_cache_size"]
         return self
 
-
     def to_dask(self):
         import dask.array as da
+
         return da.stack([da.from_array(img) for img in self])

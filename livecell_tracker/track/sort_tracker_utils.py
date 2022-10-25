@@ -42,7 +42,7 @@ def convert_sort_bbox_results_to_single_cell_trajs(all_track_bboxes, raw_img_dat
             # final column is track_id, ignore as we only need bbox here
             sc = SingleCellStatic(timeframe, bbox=obj[:4], img_dataset=raw_img_dataset)
             _traj = id_to_sc_trajs[track_id]
-            _traj.add_timeframe_data(timeframe, sc)
+            _traj.add_single_cell(timeframe, sc)
     return id_to_sc_trajs
 
 
@@ -119,7 +119,7 @@ def update_traj_collection_by_SORT_tracker_detection(
             contour=det_contours[idx],
         )  # final column is track_id, ignore as we only need bbox here
         _traj = traj_collection.get_trajectory(track_id)
-        _traj.add_timeframe_data(timeframe, sc)
+        _traj.add_single_cell(timeframe, sc)
 
 
 def track_SORT_bbox_from_contours(
