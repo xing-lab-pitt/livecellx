@@ -55,7 +55,6 @@ def gen_cfg(
 def detectron_visualize_img(img, cfg, detectron_outputs):
     v = Visualizer(img[:, :, ::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=1.2)
     v = v.draw_instance_predictions(detectron_outputs["instances"].to("cpu"))
-    figure, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=80)
     axis_img = v.get_image()[:, :, ::-1]
     return axis_img
 
@@ -97,7 +96,12 @@ def segment_single_img_by_detectron_wrapper(img, predictor, return_detectron_res
     return instance_pred_masks
 
 
-def segment_images_by_detectron(imgs: LiveCellImageDataset, out_dir: Path, cfg=None):
+def segment_images_by_detectron(
+    img_dataset: LiveCellImageDataset,
+    out_dir: Path,
+    cfg=None,
+    return_path_to_contours=True,
+):
     """segment images by detectron2
 
     Parameters
@@ -112,20 +116,26 @@ def segment_images_by_detectron(imgs: LiveCellImageDataset, out_dir: Path, cfg=N
     Returns
     -------
     _type_
-        mapping from image path to contours
+        if return path to contours is true, return a dictionary of image path to contours
+        else return a list of single cell objects
     """
+    if isinstance(out_dir, str):
+        out_dir = Path(out_dir)
+
     predictor = DefaultPredictor(cfg)
     segmentation_results = {}
-    for idx in tqdm(range(len(imgs))):
-        img_path = imgs.get_img_path(idx)
-        img = imgs[idx]
+    all_single_cells = []
+    for timeframe in tqdm(range(len(img_dataset))):
+        img_path = img_dataset.get_img_path(timeframe)
+        img = img_dataset[timeframe]
         original_img_filename = os.path.basename(img_path).split(".")[0]
         output_filename = original_img_filename + ".png"  # change extension to PNG
 
-        instance_pred_masks, predictor_results = segment_single_img_by_detectron_wrapper(
-            img, predictor=predictor, return_detectron_results=True
-        )
-        if instance_pred_masks.max() >= 2**8:
+        (
+            instance_pred_masks,
+            predictor_results,
+        ) = segment_single_img_by_detectron_wrapper(img, predictor=predictor, return_detectron_results=True)
+        if instance_pred_masks.max() >= 2 ** 8:
             # TODO: logger
             print("[WARNING] more than 256 instances predicted, potential overflow")
 
@@ -162,11 +172,17 @@ def segment_images_by_detectron(imgs: LiveCellImageDataset, out_dir: Path, cfg=N
         _save_overlay_img()
         # generate contours and save to json
         contours = get_contours_from_pred_masks(instance_pred_masks)
-
+        single_cells = [
+            SingleCellStatic(timeframe=timeframe, contour=contour, img_dataset=img_dataset) for contour in contours
+        ]
+        all_single_cells.extend(single_cells)
         assert original_img_filename not in segmentation_results, "duplicate image filename?"
         segmentation_results[img_path] = {}
         segmentation_results[img_path]["contours"] = contours
-    return segmentation_results
+    if return_path_to_contours:
+        return segmentation_results
+    else:
+        return single_cells
 
 
 def get_contours_from_pred_masks(instance_pred_masks):

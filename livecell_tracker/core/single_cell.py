@@ -1,5 +1,5 @@
 import json
-from typing import Callable, Dict, Union
+from typing import Callable, Dict, List, Union
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -9,7 +9,6 @@ import pandas as pd
 from skimage.measure._regionprops import RegionProperties
 
 from livecell_tracker.core.datasets import LiveCellImageDataset
-
 
 # TODO: possibly refactor load_from_json methods into a mixin class
 class SingleCellStatic:
@@ -21,7 +20,7 @@ class SingleCellStatic:
 
     def __init__(
         self,
-        timeframe: int,
+        timeframe: int = None,
         bbox: np.array = None,
         regionprops: RegionProperties = None,
         img_dataset: LiveCellImageDataset = None,
@@ -58,7 +57,16 @@ class SingleCellStatic:
         # infer bbox from regionprops
         if (bbox is None) and (regionprops is not None):
             self.bbox = regionprops.bbox
-
+        elif (bbox is None) and contour is not None:
+            # TODO: 3D?
+            self.bbox = np.array(
+                [
+                    np.min(self.contour[:, 0]),
+                    np.min(self.contour[:, 1]),
+                    np.max(self.contour[:, 0]),
+                    np.max(self.contour[:, 1]),
+                ]
+            )
         # TODO: enable img_crops caching ONLY in RAM mode, otherwise caching these causes memory issues
         # self.raw_img = self.get_img()
         # self.img_crop = None
@@ -103,7 +111,7 @@ class SingleCellStatic:
         self.img_crop = None
         self.mask_crop = None
 
-    def to_json_dict(self, dataset_json=False):
+    def to_json_dict(self, dataset_json=True):
         """returns a dict that can be converted to json"""
         res = {
             "timeframe": int(self.timeframe),
@@ -130,6 +138,28 @@ class SingleCellStatic:
         # )
         self.contour = np.array(json_dict["contour"], dtype=float)
         return self
+
+    @staticmethod
+    # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
+    def load_single_cells_json(path: str) -> List["SingleCellStatic"]:
+        """load single cells json file
+
+        Parameters
+        ----------
+        path :
+        path to json file
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
+        import json
+
+        with open(path, "r") as f:
+            sc_dict_list = json.load(f)
+        single_cells = [SingleCellStatic().load_from_json_dict(data) for data in sc_dict_list]
+        return sc_dict_list
 
     def write_json(self, path=None):
         if path is None:
@@ -199,16 +229,16 @@ class SingleCellStatic:
         x1, y1, x2, y2 = self.bbox
         coords = [[x1, y1], [x1, y2], [x2, y2], [x2, y1]]
         return self.get_napari_shape_vec(coords)
-    
+
     def get_napari_shape_contour_vec(self):
         return self.get_napari_shape_vec(self.contour)
-
 
     def segment_by_detectron(self):
         pass
 
     def segment_by_cellpose(self):
         pass
+
 
 class SingleCellTrajectory:
     """

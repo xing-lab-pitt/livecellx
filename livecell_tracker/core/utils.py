@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from skimage import measure
 
 
 def get_bbox_from_regionprops(regions):
