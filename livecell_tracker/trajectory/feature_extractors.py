@@ -73,7 +73,7 @@ SELECTED_SKIMAGE_REGIONPROPOS_COL_DTYPES = {
 
 def compute_skimage_regionprops(
     sc: SingleCellStatic, props=SELECTED_SKIMAGE_REGIONPROPOS_COL_DTYPES.keys()
-) -> Dict[str, float]:
+) -> pd.Series:
     label_mask = sc.get_contour_mask().astype(int)
     intensity_mask = sc.get_contour_img()
     regionprops_results = skimage.measure.regionprops_table(label_mask, intensity_mask, properties=props)
@@ -86,6 +86,7 @@ def compute_skimage_regionprops(
         if len(regionprops_results[key]) == 1:
             regionprops_results[key] = regionprops_results[key][0]
         elif len(regionprops_results[key]) != 1:
+            # TODO: Handle this case, probably by appending index suffix to key
             raise ValueError(
                 "Regionprops should only return one value per property, %s contains %d values"
                 % (key, len(regionprops_results[key]))
