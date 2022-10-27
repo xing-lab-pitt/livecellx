@@ -22,7 +22,7 @@ import os
 import matplotlib
 import numpy as np
 
-matplotlib.use("TkAgg")
+# matplotlib.use("TkAgg")
 import argparse
 import glob
 import time

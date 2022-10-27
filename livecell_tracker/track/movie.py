@@ -9,7 +9,7 @@ from livecell_tracker.core.single_cell import SingleCellStatic, SingleCellTrajec
 def generate_single_trajectory_movie(
     sc_traj: SingleCellTrajectory,
     raw_imgs,
-    save_path="./tmp.gif",
+    save_path="./tmp.mp4",
     min_length=10,
     ax=None,
     fig=None,
@@ -28,7 +28,7 @@ def generate_single_trajectory_movie(
 # TODO: refactor
 def generate_single_trajectory_movie(
     single_cell_trajectory,
-    save_path="./tmp.gif",
+    save_path="./tmp.mp4",
     min_length=None,
     ax=None,
     fig=None,
@@ -64,13 +64,8 @@ def generate_single_trajectory_movie(
     def init():
         return []
 
-    def default_update(sc_tp: SingleCellStatic):
-        frame_idx, raw_img, bbox, img_crop = (
-            sc_tp.timeframe,
-            sc_tp.raw_img,
-            sc_tp.bbox,
-            sc_tp.get_img_crop(),
-        )
+    def default_update(sc_tp: SingleCellStatic, draw_contour=True):
+        frame_idx, raw_img, bbox, img_crop = (sc_tp.timeframe, sc_tp.get_img(), sc_tp.bbox, sc_tp.get_img_crop())
         ax.cla()
         frame_text = ax.text(
             -10,
@@ -82,6 +77,10 @@ def generate_single_trajectory_movie(
             va="center",
         )
         ax.imshow(img_crop)
+
+        if draw_contour:
+            contour_coords = sc_tp.get_img_crop_contour_coords()
+            ax.scatter(contour_coords[:, 1], contour_coords[:, 0], s=2, c="r")
         return []
 
     if ani_update_func is None:

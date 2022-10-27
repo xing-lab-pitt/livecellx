@@ -358,13 +358,13 @@ class SingleCellTrajectory:
 
     def get_sc_bboxes(self):
         bbox_list = []
-        for sc in self:
+        for _, sc in self:
             bbox_list.append(sc.bbox)
         return bbox_list
 
     def get_sc_napari_shapes(self):
         shapes_data = []
-        for sc in self:
+        for _, sc in self:
             shapes_data.append(sc.get_napari_shape_bbox_vec())
         return shapes_data
 
@@ -434,3 +434,19 @@ class SingleCellTrajectoryCollection:
 
     def pop_trajectory(self, track_id):
         return self.track_id_to_trajectory.pop(track_id)
+
+    def get_track_ids(self):
+        return sorted(list(self.track_id_to_trajectory.keys()))
+
+    def subset(self, track_ids):
+        new_sc_traj_collection = SingleCellTrajectoryCollection()
+        for track_id in track_ids:
+            new_sc_traj_collection.add_trajectory(self.get_trajectory(track_id))
+        return new_sc_traj_collection
+
+    def subset_random(self, n):
+        import random
+
+        track_ids = self.get_track_ids()
+        random.shuffle(track_ids)
+        return self.subset(track_ids[:n])
