@@ -431,3 +431,6 @@ class SingleCellTrajectoryCollection:
             else:
                 feature_table = pd.concat([feature_table, sc_feature_table])
         return feature_table
+
+    def pop_trajectory(self, track_id):
+        return self.track_id_to_trajectory.pop(track_id)
