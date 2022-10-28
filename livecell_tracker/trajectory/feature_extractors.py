@@ -33,6 +33,7 @@ def compute_haralick_features(
     return Series(features.ravel(), index=feature_names)
 
 
+# https://scikit-image.org/docs/stable/api/skimage.measure.html
 SELECTED_SKIMAGE_REGIONPROPOS_COL_DTYPES = {
     "area": float,
     "area_bbox": float,
