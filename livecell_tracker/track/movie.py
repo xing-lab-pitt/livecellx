@@ -79,7 +79,7 @@ def generate_single_trajectory_movie(
         ax.imshow(img_crop)
 
         if draw_contour:
-            contour_coords = sc_tp.get_img_crop_contour_coords()
+            contour_coords = sc_tp.get_contour_coords_on_img_crop()
             ax.scatter(contour_coords[:, 1], contour_coords[:, 0], s=2, c="r")
         return []
 
@@ -89,8 +89,6 @@ def generate_single_trajectory_movie(
     frame_data = []
     for frame_idx in single_cell_trajectory.timeframe_to_single_cell:
         sc_timepoint = single_cell_trajectory.get_single_cell(frame_idx)
-        img = single_cell_trajectory.raw_img_dataset[frame_idx]
-        bbox = sc_timepoint.get_bbox()
         frame_data.append(sc_timepoint)
 
     ani = FuncAnimation(fig, default_update, frames=frame_data, init_func=init, blit=True)

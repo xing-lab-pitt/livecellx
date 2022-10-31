@@ -173,16 +173,24 @@ class SingleCellStatic:
             with open(path, "w+") as f:
                 json.dump(self.to_json_dict(), f)
 
-    def extract_feature(self):
-        raise NotImplementedError
-
     def show(self, ax: plt.Axes = None, **kwargs):
         if ax is None:
             ax = plt.gca()
         ax.imshow(self.get_img_crop(), **kwargs)
         return ax
 
-    def get_img_crop_contour_coords(self, padding=0):
+    def get_contour_coords_on_img_crop(self, padding=0) -> np.array:
+        """a utility function to calculate pixel coord in image crop's coordinate system
+            to draw contours on an image crop
+        Parameters
+        ----------
+        padding : int, optional
+            _description_, by default 0
+
+        Returns
+        -------
+            returns contour coordinates in the cropped image's coordinate system
+        """
         xs = self.contour[:, 0] - max(0, self.bbox[0] - padding)
         ys = self.contour[:, 1] - max(0, self.bbox[1] - padding)
         return np.array([xs, ys]).T

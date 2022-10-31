@@ -50,7 +50,7 @@ class Visualizer:
                 sc = trajectory.get_single_cell(timeframe)
                 sc_img = sc.get_img_crop(padding=bbox_padding)
                 ax.imshow(sc_img)
-                contour_coords = sc.get_img_crop_contour_coords(padding=bbox_padding)
+                contour_coords = sc.get_contour_coords_on_img_crop(padding=bbox_padding)
                 ax.scatter(contour_coords[:, 1], contour_coords[:, 0], s=1, c="r")
                 # trajectory_collection[timeframe].plot(axes[r, c])
                 ax.set_title(f"timeframe: {timeframe}")
