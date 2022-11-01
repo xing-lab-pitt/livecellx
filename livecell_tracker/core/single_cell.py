@@ -27,6 +27,7 @@ class SingleCellStatic:
         mask_dataset: LiveCellImageDataset = None,
         feature_dict: Dict[str, np.array] = dict(),
         contour: np.array = None,
+        meta: Dict[str, str] = None,
     ) -> None:
         """_summary_
 
@@ -63,6 +64,9 @@ class SingleCellStatic:
         # self.raw_img = self.get_img()
         # self.img_crop = None
         # self.mask_crop = None
+        self.meta = meta
+        if self.meta is None:
+            self.meta = dict()
 
     def get_img(self):
         return self.img_dataset[self.timeframe]
@@ -123,6 +127,7 @@ class SingleCellStatic:
             "bbox": list(np.array(self.bbox, dtype=float)),
             "feature_dict": self.feature_dict,
             "contour": self.contour.tolist(),
+            "meta": self.meta,
         }
         if dataset_json:
             res["dataset_json"] = self.img_dataset.to_json_dict()
@@ -132,6 +137,10 @@ class SingleCellStatic:
         self.timeframe = json_dict["timeframe"]
         self.bbox = np.array(json_dict["bbox"], dtype=float)
         self.feature_dict = json_dict["feature_dict"]
+        self.contour = np.array(json_dict["contour"], dtype=float)
+
+        if "meta" in json_dict:
+            self.meta = json_dict["meta"]
         if img_dataset is None and "dataset_json" in json_dict:
             self.img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict["dataset_json"])
         else:
@@ -141,13 +150,12 @@ class SingleCellStatic:
         # self.mask_dataset = LiveCellImageDataset(
         #     json_dict["dataset_name"] + "_mask", json_dict["dataset_path"]
         # )
-        self.contour = np.array(json_dict["contour"], dtype=float)
         return self
 
     @staticmethod
     # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
     def load_single_cells_json(path: str) -> List["SingleCellStatic"]:
-        """load single cells json file
+        """load a json file containing a list of single cells
 
         Parameters
         ----------
@@ -164,7 +172,21 @@ class SingleCellStatic:
         with open(path, "r") as f:
             sc_dict_list = json.load(f)
         single_cells = [SingleCellStatic().load_from_json_dict(data) for data in sc_dict_list]
-        return sc_dict_list
+        return single_cells
+
+    @staticmethod
+    def write_single_cells_json(single_cells: List["SingleCellStatic"], path: str):
+        """write a json file containing a list of single cells
+
+        Parameters
+        ----------
+        path :
+        path to json file
+        """
+        import json
+
+        with open(path, "w+") as f:
+            json.dump([sc.to_json_dict() for sc in single_cells], f)
 
     def write_json(self, path=None):
         if path is None:
@@ -195,7 +217,8 @@ class SingleCellStatic:
         ys = self.contour[:, 1] - max(0, self.bbox[1] - padding)
         return np.array([xs, ys]).T
 
-    def get_contour_mask(self):
+    def get_contour_mask_closed_form(self, padding=0) -> np.array:
+        """If contour points are pixel-wise closed, use this function to fill the contour."""
         import scipy.ndimage as ndimage
 
         contour = self.contour
@@ -204,7 +227,18 @@ class SingleCellStatic:
         res_mask[np.round(contour[:, 0]).astype("int"), np.round(contour[:, 1]).astype("int")] = 1
         # fill in the hole created by the contour boundary
         res_mask = ndimage.binary_fill_holes(res_mask)
-        res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, res_mask)
+        res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, res_mask, padding=padding)
+        return res_mask_crop
+
+    def get_contour_mask(self, padding=0) -> np.array:
+        """if contour points are not closed, use this function to fill the polygon points in self.contour"""
+        from skimage.draw import line, polygon
+
+        contour = self.contour
+        res_mask = np.zeros(self.get_img().shape, dtype=bool)
+        rows, cols = polygon(contour[:, 0], contour[:, 1])
+        res_mask[rows, cols] = 255
+        res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, res_mask, padding=padding)
         return res_mask_crop
 
     def get_contour_img(self, background_val=0):

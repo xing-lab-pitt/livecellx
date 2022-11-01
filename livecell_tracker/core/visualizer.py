@@ -16,17 +16,17 @@ class Visualizer:
 
         span_range = trajectory.get_timeframe_span_range()
         traj_start, traj_end = span_range
-        nr = int(np.ceil((traj_end - start_timeframe + 1) / nc))
-
-        fig, axes = plt.subplots(nr, nc, figsize=(nc * 4, nr * 4))
-        # axes are 1d array if nr=1. transform to 2d array
-        if nr == 1:
-            axes = np.array([axes])
         if start_timeframe < traj_start:
             print(
                 "start timeframe larger than the first timeframe of the trajectory, replace start_timeframe with the first timeframe..."
             )
             start_timeframe = span_range[0]
+        nr = int(np.ceil((traj_end - start_timeframe + 1) / (nc * time_interval)))
+        print("nc, nr:", nc, nr)
+        fig, axes = plt.subplots(nr, nc, figsize=(nc * 4, nr * 4))
+        # axes are 1d array if nr=1. transform to 2d array
+        if nr == 1:
+            axes = np.array([axes])
 
         for r in range(nr):
             for c in range(nc):

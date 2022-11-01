@@ -1,10 +1,14 @@
 import os
 from pathlib import Path
+from typing import List
 
 import numpy as np
 from matplotlib import pyplot as plt
 from PIL import Image
 from pycocotools.coco import COCO
+
+from livecell_tracker.core.datasets import LiveCellImageDataset
+from livecell_tracker.core.single_cell import SingleCellStatic
 
 
 def convert_coco_category_to_mask(coco_annotation: COCO, cat_id: int, output_dir: str):
@@ -35,3 +39,42 @@ def convert_coco_category_to_mask(coco_annotation: COCO, cat_id: int, output_dir
         # plt.show()
         img = Image.fromarray(mask)
         img.save(Path(output_dir) / f"{img_id}.png")
+
+
+def coco_to_sc(coco_data: COCO) -> List[SingleCellStatic]:
+    img_metas = coco_data.imgs
+    sc_list = []
+    # constrcut dataset
+    img_id_to_img_path = {}
+    for img_id, img_meta in coco_data.imgs.items():
+        img_path = img_meta["file_name"]
+        img_id_to_img_path[img_id] = img_path
+
+    dataset = LiveCellImageDataset(time2path=img_id_to_img_path, max_cache_size=0)
+    for ann_key in coco_data.anns:
+        ann = coco_data.anns[ann_key]
+
+        # https://github.com/cocodataset/cocoapi/issues/102
+        # [x,y,width,height]
+        # x, y: the upper-left coordinates of the bounding box
+        # width, height: the dimensions of your bounding box
+        bbox = list(ann["bbox"])
+        x, y, width, height = bbox
+        bbox = [y, x, y + height, x + width]  # change to row-column format
+
+        # TODO: use the first contour instead of raising an error here?
+        # TODO: or create multiple contours for a single annotation?
+        assert len(ann["segmentation"]) == 1, "more than 1 contour contained in the segmentation?"
+        segmentation_flattened = ann["segmentation"][0]
+        tmp_contour = np.array(segmentation_flattened).reshape(-1, 2)
+        contour = tmp_contour.copy()
+        contour[:, 0], contour[:, 1] = tmp_contour[:, 1], tmp_contour[:, 0]  # change to row-column format
+        img_id = ann["image_id"]
+        path = img_metas[img_id]["file_name"]
+        meta = {
+            "img_id": img_id,
+            "path": path,
+        }
+        sc = SingleCellStatic(timeframe=img_id, bbox=bbox, contour=contour, meta=meta, img_dataset=dataset)
+        sc_list.append(sc)
+    return sc_list
