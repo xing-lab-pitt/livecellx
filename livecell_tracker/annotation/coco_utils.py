@@ -50,7 +50,7 @@ def coco_to_sc(coco_data: COCO) -> List[SingleCellStatic]:
         img_path = img_meta["file_name"]
         img_id_to_img_path[img_id] = img_path
 
-    dataset = LiveCellImageDataset(time2path=img_id_to_img_path, max_cache_size=0)
+    dataset = LiveCellImageDataset(time2url=img_id_to_img_path, max_cache_size=0)
     for ann_key in coco_data.anns:
         ann = coco_data.anns[ann_key]
 

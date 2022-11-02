@@ -13,8 +13,8 @@ def test_posix_paths():
     imgs = LiveCellImageDataset(TestUtils.RAW_DATASET_PATH, ext="png")
     print("dataset path: %s" % (imgs.get_dataset_path()))
     print("dataset name: %s" % (imgs.get_dataset_name()))
-    print("dataset img list: %s" % str(imgs.time2path))
-    all_paths_cat = "**".join(imgs.time2path)
+    print("dataset img list: %s" % str(imgs.time2url))
+    all_paths_cat = "**".join(imgs.time2url)
     assert all_paths_cat.find("\\") == -1
 
 

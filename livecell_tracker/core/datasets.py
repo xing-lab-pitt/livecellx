@@ -24,12 +24,12 @@ from torch.utils.data import DataLoader, random_split
 
 
 class LiveCellImageDataset(torch.utils.data.Dataset):
-    """Dataset that reads in various features"""
+    """Dataset containing a dictionary of images"""
 
     def __init__(
         self,
         dir_path=None,
-        time2path: Dict[int, str] = None,
+        time2url: Dict[int, str] = None,
         ext="tif",
         max_cache_size=50,
         name="livecell-base",
@@ -45,39 +45,39 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
 
         self.data_dir_path = dir_path
         self.ext = ext
-        if time2path is None:
-            self.update_time2path_from_dir_path()
-        elif time2path is list:
-            self.time2path = {i: path for i, path in enumerate(time2path)}
+        if time2url is None:
+            self.update_time2url_from_dir_path()
+        elif isinstance(time2url, list):
+            self.time2url = {i: path for i, path in enumerate(time2url)}
         else:
-            self.time2path = time2path
+            self.time2url = time2url
 
         # force posix path
         if force_posix_path:
             # TODO: fix pathlib issues on windows;
             # TODO should work without .replace('\\', '/'), but it doesn't on Ke's windows py3.8; need confirmation
-            self.time2path = {
-                time: str(PurePosixPath(path)).replace("\\", "/") for time, path in dict(self.time2path).items()
+            self.time2url = {
+                time: str(Path(path).as_posix()).replace("\\", "/") for time, path in self.time2url.items()
             }
         if num_imgs is not None:
-            self.time2path = self.time2path[:num_imgs]
+            self.time2url = self.time2url[:num_imgs]
         self.img_idx2img = {}
         self.max_cache_size = max_cache_size
         self.img_idx_queue = deque()
         self.name = name
 
-    def update_time2path_from_dir_path(self):
+    def update_time2url_from_dir_path(self):
         if self.data_dir_path is None:
-            self.time2path = {}
+            self.time2url = {}
             return
         assert self.ext, "ext must be specified"
-        self.time2path = sorted(glob.glob(str((Path(self.data_dir_path) / Path("*.%s" % (self.ext))))))
-        self.time2path = {i: path for i, path in enumerate(self.time2path)}
+        self.time2url = sorted(glob.glob(str((Path(self.data_dir_path) / Path("*.%s" % (self.ext))))))
+        self.time2url = {i: path for i, path in enumerate(self.time2url)}
         # print("%d %s img file paths loaded: " % (len(self.img_path_list), self.ext))
-        return self.time2path
+        return self.time2url
 
     def __len__(self):
-        return len(self.time2path)
+        return len(self.time2url)
 
     def insert_cache(self, img, idx):
         self.img_idx2img[idx] = img
@@ -91,7 +91,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             del pop_img
 
     def get_img_path(self, idx):
-        return self.time2path[idx]
+        return self.time2url[idx]
 
     def get_dataset_name(self):
         return self.name
@@ -102,7 +102,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         if idx in self.img_idx2img:
             return self.img_idx2img[idx]
-        img = Image.open(self.time2path[idx])
+        img = Image.open(self.time2url[idx])
         img = np.array(img)
         self.insert_cache(img, idx)
         return img
@@ -112,7 +112,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         return {
             "name": self.name,
             "data_dir_path": str(self.data_dir_path),
-            "img_path_list": self.time2path,
+            "img_path_list": self.time2url,
             "max_cache_size": int(self.max_cache_size),
             "ext": self.ext,
         }
@@ -130,9 +130,9 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self.data_dir_path = json_dict["data_dir_path"]
         self.ext = json_dict["ext"]
         if update_img_paths:
-            self.update_time2path_from_dir_path()
+            self.update_time2url_from_dir_path()
         else:
-            self.time2path = json_dict["img_path_list"]
+            self.time2url = json_dict["img_path_list"]
         self.max_cache_size = json_dict["max_cache_size"]
         return self
 
@@ -141,19 +141,19 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
 
         return da.stack([da.from_array(img) for img in self])
 
-    def get_img_by_url(self, url: str, sub_str=True):
+    def get_img_by_url(self, url: str, substr=True, return_path_and_time=False, ignore_missing=False):
         found_url = None
         found_time = None
 
         def _cmp_equal(x, y):
             return x == y
 
-        def _cmp_sub_str(x, y):
+        def _cmp_substr(x, y):
             return x in y
 
-        cmp_func = _cmp_sub_str if sub_str else _cmp_equal
+        cmp_func = _cmp_substr if substr else _cmp_equal
 
-        for time, full_url in self.time2path.items():
+        for time, full_url in self.time2url.items():
             if (found_url is not None) and cmp_func(url, full_url):
                 raise ValueError("Duplicate url found: %s" % url)
             if cmp_func(url, full_url):
@@ -161,5 +161,11 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
                 found_time = time
 
         if found_url is None:
-            raise ValueError("url not found")
+            if ignore_missing:
+                return None, None, None if return_path_and_time else None
+            else:
+                raise ValueError("url not found: %s" % url)
+
+        if return_path_and_time:
+            return self[found_time], found_url, found_time
         return self[found_time]

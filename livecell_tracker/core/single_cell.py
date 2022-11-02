@@ -25,6 +25,7 @@ class SingleCellStatic:
         regionprops: RegionProperties = None,
         img_dataset: LiveCellImageDataset = None,
         mask_dataset: LiveCellImageDataset = None,
+        dataset_dict: Dict[str, LiveCellImageDataset] = None,
         feature_dict: Dict[str, np.array] = dict(),
         contour: np.array = None,
         meta: Dict[str, str] = None,
@@ -49,7 +50,7 @@ class SingleCellStatic:
         self.img_dataset = img_dataset
 
         # TODO: discuss and decide whether to keep mask dataset
-        # self.mask_dataset = mask_dataset
+        self.mask_dataset = mask_dataset
 
         self.feature_dict = feature_dict
         self.bbox = bbox
@@ -68,10 +69,20 @@ class SingleCellStatic:
         if self.meta is None:
             self.meta = dict()
 
+        if dataset_dict:
+            self.dataset_dict = dataset_dict
+        else:
+            self.dataset_dict = dict()
+
+        if "raw" not in self.dataset_dict:
+            self.dataset_dict["raw"] = self.img_dataset
+
     def get_img(self):
         return self.img_dataset[self.timeframe]
 
     def get_mask(self):
+        if self.mask_dataset is None:
+            raise ValueError("mask dataset is None")
         return self.mask_dataset[self.timeframe]
 
     def get_bbox(self) -> np.array:
@@ -87,7 +98,7 @@ class SingleCellStatic:
         )
         min_x = max(0, min_x - padding)
         min_y = max(0, min_y - padding)
-        img_crop = img[min_x : max_x + padding, min_y : max_y + padding, ...]
+        img_crop = img[min_x : max_x + padding + 1, min_y : max_y + padding + 1, ...]
         return img_crop
 
     def get_img_crop(self, padding=0):
@@ -97,11 +108,11 @@ class SingleCellStatic:
         #     self.img_crop = img_crop
         return img_crop
 
-    def get_mask_crop(self):
+    def get_mask_crop(self, **kwargs):
         # TODO: enable in RAM mode
         # if self.mask_crop is None:
         #     self.mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask())
-        return SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask())
+        return SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask(), **kwargs)
 
     def update_bbox(self, bbox):
         self.bbox = bbox
@@ -196,12 +207,6 @@ class SingleCellStatic:
             with open(path, "w+") as f:
                 json.dump(self.to_json_dict(), f)
 
-    def show(self, ax: plt.Axes = None, **kwargs):
-        if ax is None:
-            ax = plt.gca()
-        ax.imshow(self.get_img_crop(), **kwargs)
-        return ax
-
     def get_contour_coords_on_img_crop(self, padding=0) -> np.array:
         """a utility function to calculate pixel coord in image crop's coordinate system
             to draw contours on an image crop
@@ -249,10 +254,11 @@ class SingleCellStatic:
         else:
             return res_mask
 
-    def get_contour_img(self, background_val=0):
-        contour_mask = self.get_contour_mask()
-        contour_img = self.get_img_crop()
-        contour_img[np.logical_not(contour_mask)] = background_val
+    def get_contour_img(self, crop=True, bg_val=0):
+        """return a contour image with background set to background_val"""
+        contour_mask = self.get_contour_mask(crop=crop)
+        contour_img = self.get_img_crop() if crop else self.get_img()
+        contour_img[np.logical_not(contour_mask)] = bg_val
         return contour_img
 
     def add_feature(self, name, features: Union[np.array, pd.Series]):
@@ -295,6 +301,30 @@ class SingleCellStatic:
 
     def segment_by_cellpose(self):
         pass
+
+    def show(self, ax: plt.Axes = None, **kwargs):
+        if ax is None:
+            ax = plt.gca()
+        ax.imshow(self.get_img_crop(), **kwargs)
+        return ax
+
+    def show_mask(self, ax: plt.Axes = None, **kwargs):
+        if ax is None:
+            ax = plt.gca()
+        ax.imshow(self.get_mask_crop(), **kwargs)
+        return ax
+
+    def show_contour_mask(self, ax: plt.Axes = None, crop=True, **kwargs):
+        if ax is None:
+            ax = plt.gca()
+        ax.imshow(self.get_contour_mask(crop=crop), **kwargs)
+        return ax
+
+    def show_contour_img(self, ax: plt.Axes = None, crop=True, **kwargs):
+        if ax is None:
+            ax = plt.gca()
+        ax.imshow(self.get_contour_img(crop=crop), **kwargs)
+        return ax
 
 
 class SingleCellTrajectory:

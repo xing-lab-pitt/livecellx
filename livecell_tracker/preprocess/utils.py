@@ -9,6 +9,7 @@ from cellpose import models
 from cellpose.io import imread
 from PIL import Image, ImageSequence, ImageEnhance
 from tqdm import tqdm
+import cv2 as cv
 
 
 def normalize_img_to_uint8(img: np.array) -> np.array:
@@ -95,3 +96,19 @@ def enhance_contrast(img: np.array, factor=5):
     enhancer = ImageEnhance.Contrast(im)
     im_output = enhancer.enhance(factor)
     return np.array(im_output)
+
+
+def dilate_or_erode_mask(cropped_mask: np.array, scale_factor):
+    """https://docs.opencv.org/3.4/db/df6/tutorial_erosion_dilatation.html"""
+    mask_area = np.sum(cropped_mask)
+    mask_radius = np.sqrt(mask_area / np.pi)
+    len_kernel = int(np.ceil(2 * mask_radius * np.abs(scale_factor) + 1))
+
+    kernel = np.ones(shape=(len_kernel, len_kernel))
+    if scale_factor < 0:
+        s_cropped_mask = cv.erode(cropped_mask, kernel=kernel)
+    elif scale_factor == 0:
+        s_cropped_mask = cropped_mask.copy()
+    else:  # quality_model_type_param > 0
+        s_cropped_mask = cv.dilate(cropped_mask, kernel=kernel)
+    return s_cropped_mask

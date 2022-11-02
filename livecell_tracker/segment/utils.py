@@ -25,8 +25,8 @@ def get_contours_from_pred_masks(instance_pred_masks):
 
 
 # TODO: docs
-def match_mask_labels_by_intersection(seg_mask, gt_mask, bg_label=0):
-    """compute the similarity between segmentation mask and ground truth mask
+def match_mask_labels_by_iou(seg_mask, gt_mask, bg_label=0):
+    """compute the similarity between segmentation mask and ground truth mask by intersection over union
 
     Parameters
     ----------
@@ -59,7 +59,7 @@ def match_mask_labels_by_intersection(seg_mask, gt_mask, bg_label=0):
         temp_gt_mask[temp_gt_mask != gt_label] = 0
         temp_gt_mask[temp_gt_mask != 0] = 1
 
-        best_overlap_percent = 0
+        best_iou = 0
         manual_label_key = gt_label
         manual2seg_map[manual_label_key] = {}
         for seg_label in seg_labels:
@@ -71,9 +71,11 @@ def match_mask_labels_by_intersection(seg_mask, gt_mask, bg_label=0):
             temp_seg_mask[temp_seg_mask != 0] = 1
 
             matching_rows, matching_columns = np.where(temp_seg_mask == 1)
-            percent_overlap = (temp_gt_mask[matching_rows, matching_columns] == 1).mean()
-            if percent_overlap > best_overlap_percent:
-                best_overlap_percent = percent_overlap
-                manual2seg_map[manual_label_key]["best_percent_overlap"] = percent_overlap
+            intersection_area = (temp_gt_mask[matching_rows, matching_columns] == 1).sum()
+            union_area = temp_gt_mask.sum() + temp_seg_mask.sum() - intersection_area
+            iou = intersection_area / union_area
+            if iou > best_iou:
+                best_iou = iou
+                manual2seg_map[manual_label_key]["best_iou"] = iou
                 manual2seg_map[manual_label_key]["seg_label"] = seg_label
     return manual2seg_map

@@ -25,7 +25,7 @@ def compute_haralick_features(
     list
         A list of texture features.
     """
-    image = sc.get_contour_img()
+    image = sc.get_contour_img_crop()
     features = mahotas.features.texture.haralick(image, ignore_zeros=ignore_zeros, return_mean=return_mean, **kwargs)
     if ret_arr:
         return features
@@ -76,7 +76,7 @@ def compute_skimage_regionprops(
     sc: SingleCellStatic, props=SELECTED_SKIMAGE_REGIONPROPOS_COL_DTYPES.keys()
 ) -> pd.Series:
     label_mask = sc.get_contour_mask().astype(int)
-    intensity_mask = sc.get_contour_img()
+    intensity_mask = sc.get_contour_img_crop()
     regionprops_results = skimage.measure.regionprops_table(label_mask, intensity_mask, properties=props)
     feature_keys = list(regionprops_results.keys())
 
