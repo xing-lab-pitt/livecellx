@@ -1,7 +1,7 @@
 import numpy as np
 from livecell_tracker.segment.detectron_utils import convert_detectron_instance_pred_masks_to_binary_masks
 
-from livecell_tracker.preprocess.utils import normalize_img_by_zscore
+from livecell_tracker.preprocess.utils import normalize_img_to_uint8
 
 
 def segment_single_image_by_cellpose(image, model, channels=[[0, 0]], diameter=150) -> np.array:

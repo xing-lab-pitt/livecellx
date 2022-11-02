@@ -14,7 +14,7 @@ from livecell_tracker.core.datasets import LiveCellImageDataset
 from PIL import Image, ImageSequence
 from tqdm import tqdm
 import json
-from livecell_tracker.preprocess.utils import normalize_img_by_zscore
+from livecell_tracker.preprocess.utils import normalize_img_to_uint8
 from livecell_tracker.segment.utils import get_contours_from_pred_masks
 
 
@@ -81,7 +81,7 @@ def segment_by_detectron(img, detectron_predictor):
 def segment_detectron_wrapper(img):
     if img.ndim == 2:
         img = img[:, :, np.newaxis]
-    results = segment_by_detectron(normalize_img_by_zscore(img))
+    results = segment_by_detectron(normalize_img_to_uint8(img))
     instances = results["instances"].to("cpu").pred_masks.numpy()
     mask = convert_detectron_instance_pred_masks_to_binary_masks(instances)
     return mask
@@ -136,7 +136,7 @@ def segment_images_by_detectron(
             instance_pred_masks,
             predictor_results,
         ) = segment_single_img_by_detectron_wrapper(img, predictor=predictor, return_detectron_results=True)
-        if instance_pred_masks.max() >= 2 ** 8:
+        if instance_pred_masks.max() >= 2**8:
             # TODO: logger
             print("[WARNING] more than 256 instances predicted, potential overflow")
 

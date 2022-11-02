@@ -77,6 +77,7 @@ class SingleCellStatic:
     def get_bbox(self) -> np.array:
         return np.array(self.bbox)
 
+    @staticmethod
     def gen_skimage_bbox_img_crop(bbox, img, padding=0):
         min_x, max_x, min_y, max_y = (
             int(bbox[0]),
@@ -217,7 +218,7 @@ class SingleCellStatic:
         ys = self.contour[:, 1] - max(0, self.bbox[1] - padding)
         return np.array([xs, ys]).T
 
-    def get_contour_mask_closed_form(self, padding=0) -> np.array:
+    def get_contour_mask_closed_form(self, padding=0, crop=True) -> np.array:
         """If contour points are pixel-wise closed, use this function to fill the contour."""
         import scipy.ndimage as ndimage
 
@@ -227,10 +228,13 @@ class SingleCellStatic:
         res_mask[np.round(contour[:, 0]).astype("int"), np.round(contour[:, 1]).astype("int")] = 1
         # fill in the hole created by the contour boundary
         res_mask = ndimage.binary_fill_holes(res_mask)
-        res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, res_mask, padding=padding)
-        return res_mask_crop
+        if crop:
+            res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, res_mask, padding=padding)
+            return res_mask_crop
+        else:
+            return res_mask
 
-    def get_contour_mask(self, padding=0) -> np.array:
+    def get_contour_mask(self, padding=0, crop=True) -> np.array:
         """if contour points are not closed, use this function to fill the polygon points in self.contour"""
         from skimage.draw import line, polygon
 
@@ -239,7 +243,11 @@ class SingleCellStatic:
         rows, cols = polygon(contour[:, 0], contour[:, 1])
         res_mask[rows, cols] = 255
         res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, res_mask, padding=padding)
-        return res_mask_crop
+        if crop:
+            res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, res_mask, padding=padding)
+            return res_mask_crop
+        else:
+            return res_mask
 
     def get_contour_img(self, background_val=0):
         contour_mask = self.get_contour_mask()

@@ -29,7 +29,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         dir_path=None,
-        time2path: Union[List, Dict] = None,
+        time2path: Dict[int, str] = None,
         ext="tif",
         max_cache_size=50,
         name="livecell-base",
@@ -140,3 +140,26 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         import dask.array as da
 
         return da.stack([da.from_array(img) for img in self])
+
+    def get_img_by_url(self, url: str, sub_str=True):
+        found_url = None
+        found_time = None
+
+        def _cmp_equal(x, y):
+            return x == y
+
+        def _cmp_sub_str(x, y):
+            return x in y
+
+        cmp_func = _cmp_sub_str if sub_str else _cmp_equal
+
+        for time, full_url in self.time2path.items():
+            if (found_url is not None) and cmp_func(url, full_url):
+                raise ValueError("Duplicate url found: %s" % url)
+            if cmp_func(url, full_url):
+                found_url = full_url
+                found_time = time
+
+        if found_url is None:
+            raise ValueError("url not found")
+        return self[found_time]

@@ -11,7 +11,7 @@ from PIL import Image, ImageSequence, ImageEnhance
 from tqdm import tqdm
 
 
-def normalize_img_by_zscore(img: np.array) -> np.array:
+def normalize_img_to_uint8(img: np.array) -> np.array:
     """calculate z score of img and normalize to range [0, 255]
 
     Parameters
@@ -27,18 +27,18 @@ def normalize_img_by_zscore(img: np.array) -> np.array:
     img = (img - np.mean(img.flatten())) / np.std(img.flatten())
     img = img + abs(np.min(img.flatten()))
     img = img / np.max(img) * 255
-    return img
+    return img.astype(np.uint8)
 
 
 def livetracker_standard_normalize(img):
-    img = normalize_img_by_zscore(img)
+    img = normalize_img_to_uint8(img)
     return img
 
 
 def overlay(image, mask, mask_channel_rgb_val=100, img_channel_rgb_val_factor=1):
     mask = mask.astype(np.uint8)
     mask[mask > 0] = mask_channel_rgb_val
-    image = normalize_img_by_zscore(image).astype(np.uint8)
+    image = normalize_img_to_uint8(image).astype(np.uint8)
     image = image * img_channel_rgb_val_factor
     res = np.zeros(list(mask.shape) + [3])
     res[:, :, 2] = image
@@ -84,7 +84,14 @@ def reserve_img_by_pixel_percentile(raw_img: np.array, percentile: float, target
     return flattened_img.reshape(raw_img.shape)
 
 
-def enhance_contrast(im, factor=5):
+def _enhance_contrast(im: Image, factor=5):
     enhancer = ImageEnhance.Contrast(im)
     im_output = enhancer.enhance(factor)
     return im_output
+
+
+def enhance_contrast(img: np.array, factor=5):
+    im = Image.fromarray(img)
+    enhancer = ImageEnhance.Contrast(im)
+    im_output = enhancer.enhance(factor)
+    return np.array(im_output)
