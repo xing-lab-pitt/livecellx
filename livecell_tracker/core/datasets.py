@@ -28,11 +28,11 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
 
     def __init__(
         self,
+        name="livecell-base",
         dir_path=None,
         time2url: Dict[int, str] = None,
         ext="tif",
         max_cache_size=50,
-        name="livecell-base",
         num_imgs=None,
         force_posix_path=True,
     ):
