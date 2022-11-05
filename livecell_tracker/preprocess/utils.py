@@ -99,7 +99,10 @@ def enhance_contrast(img: np.array, factor=5):
 
 
 def dilate_or_erode_mask(cropped_mask: np.array, scale_factor):
-    """https://docs.opencv.org/3.4/db/df6/tutorial_erosion_dilatation.html"""
+    """
+    # TODO ensure reproducibility with different values of padding
+    cv's erode and dilation definition:  https://docs.opencv.org/3.4/db/df6/tutorial_erosion_dilatation.html
+    """
     mask_area = np.sum(cropped_mask)
     mask_radius = np.sqrt(mask_area / np.pi)
     len_kernel = int(np.ceil(2 * mask_radius * np.abs(scale_factor) + 1))

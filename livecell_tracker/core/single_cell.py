@@ -76,6 +76,12 @@ class SingleCellStatic:
 
         if "raw" not in self.dataset_dict:
             self.dataset_dict["raw"] = self.img_dataset
+        if "mask" not in self.dataset_dict:
+            self.dataset_dict["mask"] = self.mask_dataset
+        if self.img_dataset is None and "raw" in self.dataset_dict:
+            self.img_dataset = self.dataset_dict["raw"]
+        if self.mask_dataset is None and "mask" in self.dataset_dict:
+            self.mask_dataset = self.dataset_dict["mask"]
 
     def get_img(self):
         return self.img_dataset[self.timeframe]

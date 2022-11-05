@@ -24,7 +24,10 @@ from torch.utils.data import DataLoader, random_split
 
 
 class LiveCellImageDataset(torch.utils.data.Dataset):
-    """Dataset containing a dictionary of images"""
+    """Dataset for loading images into RAM, possibly cache images and load them on demand.
+    This class only contains one channel's imaging data. For multichannel data, we assume you have a single image for each channel.
+    For the case where your images are instored in a single file, #TODO: you can use the MultiChannelImageDataset class.
+    """
 
     def __init__(
         self,
@@ -142,6 +145,31 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         return da.stack([da.from_array(img) for img in self])
 
     def get_img_by_url(self, url: str, substr=True, return_path_and_time=False, ignore_missing=False):
+        """Get image by url
+
+        Parameters
+        ----------
+        url : str
+            _description_
+        substr : bool, optional
+            if true, match by substring. (url in _url or _url in url), by default True
+        return_path_and_time : bool, optional
+            if True return paths and time in the return values, , by default False
+        ignore_missing : bool, optional
+            ignore failure of matching and return None(s), by default False
+
+        Returns
+        -------
+        _type_
+            _description_
+
+        Raises
+        ------
+        ValueError
+            _description_
+        ValueError
+            _description_
+        """
         found_url = None
         found_time = None
 
@@ -149,7 +177,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             return x == y
 
         def _cmp_substr(x, y):
-            return x in y
+            return (x in y) or (y in x)
 
         cmp_func = _cmp_substr if substr else _cmp_equal
 
@@ -169,3 +197,6 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         if return_path_and_time:
             return self[found_time], found_url, found_time
         return self[found_time]
+
+
+# class MultiChannelImageDataset(torch.utils.data.Dataset):
