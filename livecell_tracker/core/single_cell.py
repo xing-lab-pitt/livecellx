@@ -38,6 +38,7 @@ class SingleCellStatic:
             _description_
         bbox : np.array, optional
             [x1, y1, x2, y2], by default None
+            follwoing skimage convention: "Bounding box (min_row, min_col, max_row, max_col). Pixels belonging to the bounding box are in the half-open interval [min_row; max_row) and [min_col; max_col)."
         regionprops : RegionProperties, optional
             _description_, by default None
         img_dataset : _type_, optional
@@ -104,7 +105,7 @@ class SingleCellStatic:
         )
         min_x = max(0, min_x - padding)
         min_y = max(0, min_y - padding)
-        img_crop = img[min_x : max_x + padding + 1, min_y : max_y + padding + 1, ...]
+        img_crop = img[min_x : max_x + padding, min_y : max_y + padding, ...]
         return img_crop
 
     def get_img_crop(self, padding=0):
@@ -213,6 +214,11 @@ class SingleCellStatic:
             with open(path, "w+") as f:
                 json.dump(self.to_json_dict(), f)
 
+    def get_contour_coords_on_crop(self, bbox, padding=0):
+        xs = self.contour[:, 0] - max(0, bbox[0] - padding)
+        ys = self.contour[:, 1] - max(0, bbox[1] - padding)
+        return np.array([xs, ys]).T
+
     def get_contour_coords_on_img_crop(self, padding=0) -> np.array:
         """a utility function to calculate pixel coord in image crop's coordinate system
             to draw contours on an image crop
@@ -260,10 +266,10 @@ class SingleCellStatic:
         else:
             return res_mask
 
-    def get_contour_img(self, crop=True, bg_val=0):
+    def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.array:
         """return a contour image with background set to background_val"""
-        contour_mask = self.get_contour_mask(crop=crop)
-        contour_img = self.get_img_crop() if crop else self.get_img()
+        contour_mask = self.get_contour_mask(crop=crop, **kwargs)
+        contour_img = self.get_img_crop(**kwargs) if crop else self.get_img(**kwargs)
         contour_img[np.logical_not(contour_mask)] = bg_val
         return contour_img
 
