@@ -8,7 +8,7 @@ import time
 from collections import deque
 from datetime import timedelta
 from pathlib import Path, PurePosixPath
-from typing import List, Dict, Union
+from typing import Callable, List, Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -23,10 +23,16 @@ from torch.nn import init
 from torch.utils.data import DataLoader, random_split
 
 
+def read_img_default(url: str) -> np.ndarray:
+    img = Image.open(url)
+    img = np.array(img)
+    return img
+
+
 class LiveCellImageDataset(torch.utils.data.Dataset):
     """Dataset for loading images into RAM, possibly cache images and load them on demand.
     This class only contains one channel's imaging data. For multichannel data, we assume you have a single image for each channel.
-    For the case where your images are instored in a single file, #TODO: you can use the MultiChannelImageDataset class.
+    For the case where your images are stored in a single file, #TODO: you can use the MultiChannelImageDataset class.
     """
 
     def __init__(
@@ -38,7 +44,9 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         max_cache_size=50,
         num_imgs=None,
         force_posix_path=True,
+        read_img_url_func: Callable = read_img_default,
     ):
+        self.read_img_url_func = read_img_url_func
 
         if isinstance(dir_path, str):
             # dir_path = Path(dir_path)
@@ -68,6 +76,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             tmp_tuples = sorted(tmp_tuples, key=lambda x: x[0])
             tmp_tuples = tmp_tuples[:num_imgs]
             self.time2url = {time: path for time, path in tmp_tuples}
+        self.times = list(self.time2url.keys())
 
         self.cache_img_idx_to_img = {}
         self.max_cache_size = max_cache_size
@@ -81,6 +90,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         assert self.ext, "ext must be specified"
         self.time2url = sorted(glob.glob(str((Path(self.data_dir_path) / Path("*.%s" % (self.ext))))))
         self.time2url = {i: path for i, path in enumerate(self.time2url)}
+        self.times = list(self.time2url.keys())
         print("%d %s img file paths loaded: " % (len(self.time2url), self.ext))
         return self.time2url
 
@@ -111,11 +121,9 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         if idx in self.cache_img_idx_to_img:
             return self.cache_img_idx_to_img[idx]
 
-        # TODO optimize
-        time = list(self.time2url.keys())[idx]
-        img = Image.open(self.time2url[time])
-        img = np.array(img)
-        self.insert_cache(img, idx)
+        # TODO: optimize
+        time = list(sorted(self.time2url.keys()))[idx]
+        img = self.read_img_url_func(self.time2url[time])
         return img
 
     def to_json_dict(self) -> dict:
@@ -151,6 +159,9 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         import dask.array as da
 
         return da.stack([da.from_array(img) for img in self])
+
+    def get_img_by_time(self, time):
+        return self.read_img_url_func(self.time2url[time])
 
     def get_img_by_url(self, url: str, substr=True, return_path_and_time=False, ignore_missing=False):
         """Get image by url
@@ -203,8 +214,8 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
                 raise ValueError("url not found: %s" % url)
 
         if return_path_and_time:
-            return self[found_time], found_url, found_time
-        return self[found_time]
+            return self.get_img_by_time(found_time), found_url, found_time
+        return self.get_img_by_time(found_time)
 
 
 # class MultiChannelImageDataset(torch.utils.data.Dataset):
