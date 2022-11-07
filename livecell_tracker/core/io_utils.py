@@ -3,7 +3,7 @@ import glob
 import numpy as np
 
 
-def save_png(img: np.array, path: str, mode="L"):
+def save_png(path: str, img: np.array, mode="L"):
     """save image to png file
 
     Parameters
@@ -16,11 +16,11 @@ def save_png(img: np.array, path: str, mode="L"):
     save_general(path=path, img=img, mode=mode)
 
 
-def save_tiff(path: str, img: np.array, mode="L"):
+def save_tiff(img: np.array, path: str, mode="L"):
     save_general(path=path, img=img, mode=mode)
 
 
-def save_general(path: str, img: np.array, mode="L"):
+def save_general(img: np.array, path: str, mode="L"):
     """save image to tiff file
 
     Parameters
@@ -30,12 +30,17 @@ def save_general(path: str, img: np.array, mode="L"):
     img : np.array
         image to save
     """
-    if np.unique(img).size >= 256:
+    # TODO: discuss whether it is caller's responsibility to make img's mode correct
+    if mode == "L" and np.unique(img).shape[0] >= 256:
         mode = "I"
         print(
             "Warning: saving image with more than 256 unique values as 8-bit, use I mode to save as 32-bit signed integer"
         )
-    else:
+    elif mode == "L":
         img = img.astype(np.uint8)
-    img = Image.fromarray(img, mode=mode)
+
+    if mode == "I":
+        img = Image.fromarray(img.astype(np.int32), mode=mode)
+    else:
+        img = Image.fromarray(img, mode=mode)
     img.save(path)

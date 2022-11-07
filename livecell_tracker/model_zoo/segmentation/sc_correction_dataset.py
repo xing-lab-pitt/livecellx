@@ -41,6 +41,10 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         self.seg_mask_paths = seg_mask_paths
         self.gt_mask_paths = gt_mask_paths
 
+        assert (
+            len(self.raw_img_paths) == len(self.seg_mask_paths) == len(self.gt_mask_paths)
+        ), "The number of images, segmentation masks and ground truth masks must be the same."
+
     def __getitem__(self, idx):
         raw_img = Image.open(self.raw_img_paths[idx])
         seg_mask = Image.open(self.seg_mask_paths[idx])
@@ -55,6 +59,9 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             "seg_mask": seg_mask,
             "gt_mask": gt_mask,
         }
+
+    def __len__(self):
+        return len(self.raw_img_paths)
 
 
 # class MultiChannelImageDataset(torch.utils.data.Dataset):
