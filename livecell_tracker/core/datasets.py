@@ -45,8 +45,10 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         num_imgs=None,
         force_posix_path=True,
         read_img_url_func: Callable = read_img_default,
+        index_by_time=True,
     ):
         self.read_img_url_func = read_img_url_func
+        self.index_by_time = index_by_time
 
         if isinstance(dir_path, str):
             # dir_path = Path(dir_path)
@@ -117,13 +119,14 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     def get_dataset_path(self):
         return self.data_dir_path
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> np.ndarray:
         if idx in self.cache_img_idx_to_img:
             return self.cache_img_idx_to_img[idx]
-
         # TODO: optimize
-        time = list(sorted(self.time2url.keys()))[idx]
-        img = self.read_img_url_func(self.time2url[time])
+        if self.index_by_time:
+            img = self.get_img_by_idx(idx)
+        else:
+            img = self.get_img_by_time(idx)
         return img
 
     def to_json_dict(self) -> dict:
@@ -158,7 +161,12 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     def to_dask(self):
         import dask.array as da
 
-        return da.stack([da.from_array(img) for img in self])
+        return da.stack([da.from_array(self.get_img_by_time(time)) for time in self.time2url.keys()])
+
+    def get_img_by_idx(self, idx):
+        time = self.times[idx]
+        img = self.read_img_url_func(self.time2url[time])
+        return img
 
     def get_img_by_time(self, time):
         return self.read_img_url_func(self.time2url[time])

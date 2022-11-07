@@ -85,12 +85,12 @@ class SingleCellStatic:
             self.mask_dataset = self.dataset_dict["mask"]
 
     def get_img(self):
-        return self.img_dataset[self.timeframe]
+        return self.img_dataset.get_img_by_time(self.timeframe)
 
     def get_mask(self):
         if self.mask_dataset is None:
             raise ValueError("mask dataset is None")
-        return self.mask_dataset[self.timeframe]
+        return self.mask_dataset.get_img_by_time(self.timeframe)
 
     def get_bbox(self) -> np.array:
         return np.array(self.bbox)
@@ -373,6 +373,15 @@ class SingleCellTrajectory:
         return iter(self.timeframe_to_single_cell.items())
 
     def compute_features(self, feature_key: str, func: Callable):
+        """_summary_
+
+        Parameters
+        ----------
+        feature_key : str
+            _description_
+        func : Callable
+            _description_
+        """
         for sc in iter(self.timeframe_to_single_cell.values()):
             sc.add_feature(feature_key, func(sc))
 
