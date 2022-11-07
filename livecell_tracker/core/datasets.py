@@ -62,9 +62,14 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             self.time2url = {
                 time: str(Path(path).as_posix()).replace("\\", "/") for time, path in self.time2url.items()
             }
+
         if num_imgs is not None:
-            self.time2url = self.time2url[:num_imgs]
-        self.img_idx2img = {}
+            tmp_tuples = list(self.time2url.items())
+            tmp_tuples = sorted(tmp_tuples, key=lambda x: x[0])
+            tmp_tuples = tmp_tuples[:num_imgs]
+            self.time2url = {time: path for time, path in tmp_tuples}
+
+        self.cache_img_idx_to_img = {}
         self.max_cache_size = max_cache_size
         self.img_idx_queue = deque()
         self.name = name
@@ -76,21 +81,21 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         assert self.ext, "ext must be specified"
         self.time2url = sorted(glob.glob(str((Path(self.data_dir_path) / Path("*.%s" % (self.ext))))))
         self.time2url = {i: path for i, path in enumerate(self.time2url)}
-        # print("%d %s img file paths loaded: " % (len(self.img_path_list), self.ext))
+        print("%d %s img file paths loaded: " % (len(self.time2url), self.ext))
         return self.time2url
 
     def __len__(self):
         return len(self.time2url)
 
     def insert_cache(self, img, idx):
-        self.img_idx2img[idx] = img
+        self.cache_img_idx_to_img[idx] = img
         self.img_idx_queue.append(idx)
 
         # Do not move this block to the top of the function: corner case for max_cache_size = 0
-        if len(self.img_idx2img) > self.max_cache_size:
+        if len(self.cache_img_idx_to_img) > self.max_cache_size:
             pop_index = self.img_idx_queue.popleft()
-            pop_img = self.img_idx2img[pop_index]
-            self.img_idx2img.pop(pop_index)
+            pop_img = self.cache_img_idx_to_img[pop_index]
+            self.cache_img_idx_to_img.pop(pop_index)
             del pop_img
 
     def get_img_path(self, idx):
@@ -103,9 +108,12 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         return self.data_dir_path
 
     def __getitem__(self, idx):
-        if idx in self.img_idx2img:
-            return self.img_idx2img[idx]
-        img = Image.open(self.time2url[idx])
+        if idx in self.cache_img_idx_to_img:
+            return self.cache_img_idx_to_img[idx]
+
+        # TODO optimize
+        time = list(self.time2url.keys())[idx]
+        img = Image.open(self.time2url[time])
         img = np.array(img)
         self.insert_cache(img, idx)
         return img
