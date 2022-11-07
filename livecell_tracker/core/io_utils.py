@@ -3,7 +3,7 @@ import glob
 import numpy as np
 
 
-def save_png(path: str, img: np.array):
+def save_png(img: np.array, path: str, mode="L"):
     """save image to png file
 
     Parameters
@@ -14,7 +14,7 @@ def save_png(path: str, img: np.array):
         image to save
     """
     img = img.astype(np.uint8)
-    img = Image.fromarray(img, mode="L")
+    img = Image.fromarray(img, mode=mode)
     img.save(path)
 
 
