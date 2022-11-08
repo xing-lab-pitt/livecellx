@@ -36,11 +36,12 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         raw_img_paths: List[str],
         seg_mask_paths: List[str],
         gt_mask_paths: List[str],
+        transform=None,
     ):
         self.raw_img_paths = raw_img_paths
         self.seg_mask_paths = seg_mask_paths
         self.gt_mask_paths = gt_mask_paths
-
+        self.transform = transform
         assert (
             len(self.raw_img_paths) == len(self.seg_mask_paths) == len(self.gt_mask_paths)
         ), "The number of images, segmentation masks and ground truth masks must be the same."
@@ -50,13 +51,22 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         seg_mask = Image.open(self.seg_mask_paths[idx])
         gt_mask = Image.open(self.gt_mask_paths[idx])
 
-        raw_img = torch.tensor(np.array(raw_img))
-        seg_mask = torch.tensor(np.array(seg_mask))
-        gt_mask = torch.tensor(np.array(gt_mask))
+        raw_img = torch.tensor(np.array(raw_img)).float()
+        seg_mask = torch.tensor(np.array(seg_mask)).float()
+        gt_mask = torch.tensor(np.array(gt_mask)[np.newaxis, :, :]).long()
 
+        input_img = torch.stack([raw_img, seg_mask, seg_mask], dim=0)
+        input_img = input_img.float()
+        if self.transform:
+            input_img = self.transform(input_img)
+            gt_mask = self.transform(gt_mask)
+            gt_mask = gt_mask.squeeze(0)  # remove the first dimension added for Resize
+            gt_mask[gt_mask > 0.5] = 1
+            gt_mask[gt_mask <= 0.5] = 0
         return {
-            "raw_img": raw_img,
-            "seg_mask": seg_mask,
+            "input": input_img,
+            # "raw_img": raw_img,
+            # "seg_mask": seg_mask,
             "gt_mask": gt_mask,
         }
 

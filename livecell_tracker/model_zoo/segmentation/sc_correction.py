@@ -26,10 +26,11 @@ class CorrectSegNet(LightningModule):
         self,
         lr=1e-3,
         batch_size=5,
-        class_weights=[],
+        class_weights=[1, 1],
         model_type=None,
         num_workers=16,
         train_input_paths=None,
+        train_transforms=None,
     ):
         """_summary_
 
@@ -54,9 +55,9 @@ class CorrectSegNet(LightningModule):
         self.class_weights = torch.tensor(class_weights).cuda()
         self.model_type = model_type
         self.model = torchvision.models.segmentation.deeplabv3_resnet50(weights="DeepLabV3_ResNet50_Weights.DEFAULT")
-        self.model.classifier[4] = nn.Conv2d(256, 4, kernel_size=(1, 1), stride=(1, 1))
+        self.model.classifier[4] = nn.Conv2d(256, 2, kernel_size=(1, 1), stride=(1, 1))
 
-        self.loss_func = nn.CrossEntropyLoss(weight=self.class_weights)
+        self.loss_func = nn.CrossEntropyLoss()
         self.learning_rate = lr
         self.batch_size = batch_size
         self.generator = torch.Generator().manual_seed(42)
@@ -64,17 +65,21 @@ class CorrectSegNet(LightningModule):
         self.dims = (1, 412, 412)
         self.num_workers = num_workers
         self.train_input_paths = train_input_paths
+        self.train_transforms = train_transforms
 
         self.save_hyperparameters()
         self.val_accuracy = Accuracy()
         self.test_accuracy = Accuracy()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
+        # print("[in forward] x shape: ", x.shape)
         x = self.model(x)
         x = x["out"]
         return nn.functional.softmax(x, dim=1)
 
     def training_step(self, batch, batch_idx):
+        # print("[train_step] x shape: ", batch["input"].shape)
+        # print("[train_step] y shape: ", batch["gt_mask"].shape)
         x, y = batch["input"], batch["gt_mask"]
         y_hat = self(x)
         loss = self.loss_func(y_hat, y)
@@ -82,6 +87,8 @@ class CorrectSegNet(LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        # print("[validation_step] x shape: ", batch["input"].shape)
+        # print("[validation_step] y shape: ", batch["gt_mask"].shape)
         x, y = batch["input"], batch["gt_mask"]
         logits = self(x)
         loss = self.loss_func(logits, y)
@@ -108,7 +115,7 @@ class CorrectSegNet(LightningModule):
     def setup(self, stage=None):
         ################### datasets settings ###################
         img_paths, mask_paths, gt_paths = list(zip(*self.train_input_paths))
-        self.full_dataset = CorrectSegNetDataset(img_paths, mask_paths, gt_paths)
+        self.full_dataset = CorrectSegNetDataset(img_paths, mask_paths, gt_paths, transform=self.train_transforms)
         num_train_samples = int(len(self.full_dataset) * 0.7)
         num_val_samples = int((len(self.full_dataset) - num_train_samples) / 2)
         num_test_samples = len(self.full_dataset) - num_train_samples - num_val_samples
