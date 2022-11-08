@@ -31,6 +31,7 @@ class CorrectSegNet(LightningModule):
         num_workers=16,
         train_input_paths=None,
         train_transforms=None,
+        seed=99,
     ):
         """_summary_
 
@@ -51,7 +52,7 @@ class CorrectSegNet(LightningModule):
         """
 
         super().__init__()
-
+        self.generator = torch.Generator().manual_seed(seed)
         self.class_weights = torch.tensor(class_weights).cuda()
         self.model_type = model_type
         self.model = torchvision.models.segmentation.deeplabv3_resnet50(weights="DeepLabV3_ResNet50_Weights.DEFAULT")
@@ -60,7 +61,6 @@ class CorrectSegNet(LightningModule):
         self.loss_func = nn.CrossEntropyLoss()
         self.learning_rate = lr
         self.batch_size = batch_size
-        self.generator = torch.Generator().manual_seed(42)
 
         self.dims = (1, 412, 412)
         self.num_workers = num_workers
@@ -90,9 +90,9 @@ class CorrectSegNet(LightningModule):
         # print("[validation_step] x shape: ", batch["input"].shape)
         # print("[validation_step] y shape: ", batch["gt_mask"].shape)
         x, y = batch["input"], batch["gt_mask"]
-        logits = self(x)
-        loss = self.loss_func(logits, y)
-        self.val_accuracy.update(logits, y.long())
+        output = self(x)
+        loss = self.loss_func(output, y)
+        self.val_accuracy.update(output, y.long())
 
         self.log("val_loss", loss, prog_bar=True)
         self.log("val_acc", self.val_accuracy, prog_bar=True, batch_size=self.batch_size)
@@ -100,10 +100,9 @@ class CorrectSegNet(LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = batch["input"], batch["gt_mask"]
 
-        logits = self(x)
-
-        loss = self.loss_func(logits, y)
-        self.test_accuracy.update(logits, y.long())
+        output = self(x)
+        loss = self.loss_func(output, y)
+        self.test_accuracy.update(output, y.long())
 
         self.log("test_loss", loss, prog_bar=True)
         self.log("test_acc", self.test_accuracy, prog_bar=True, batch_size=self.batch_size)
