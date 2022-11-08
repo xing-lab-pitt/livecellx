@@ -36,15 +36,25 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         raw_img_paths: List[str],
         seg_mask_paths: List[str],
         gt_mask_paths: List[str],
+        raw_seg_paths: List[str],
+        scales: List[float],
         transform=None,
     ):
         self.raw_img_paths = raw_img_paths
         self.seg_mask_paths = seg_mask_paths
         self.gt_mask_paths = gt_mask_paths
         self.transform = transform
+        self.raw_seg_paths = raw_seg_paths
+        self.scales = scales
         assert (
             len(self.raw_img_paths) == len(self.seg_mask_paths) == len(self.gt_mask_paths)
         ), "The number of images, segmentation masks and ground truth masks must be the same."
+
+    def get_raw_seg(self, idx) -> np.array:
+        return np.array(Image.open(self.raw_seg_paths[idx]))
+
+    def get_scale(self, idx):
+        return self.scales[idx]
 
     def __getitem__(self, idx):
         raw_img = Image.open(self.raw_img_paths[idx])

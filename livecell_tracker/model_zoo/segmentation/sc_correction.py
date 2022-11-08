@@ -114,15 +114,8 @@ class CorrectSegNet(LightningModule):
 
     def setup(self, stage=None):
         ################### datasets settings ###################
-        img_paths, mask_paths, gt_paths = list(zip(*self.train_input_paths))
-        self.full_dataset = CorrectSegNetDataset(img_paths, mask_paths, gt_paths, transform=self.train_transforms)
-        num_train_samples = int(len(self.full_dataset) * 0.7)
-        num_val_samples = int((len(self.full_dataset) - num_train_samples) / 2)
-        num_test_samples = len(self.full_dataset) - num_train_samples - num_val_samples
-
-        self.train_dataset, self.val_dataset, self.test_dataset = random_split(
-            self.full_dataset, [num_train_samples, num_val_samples, num_test_samples]
-        )
+        # img_paths, mask_paths, gt_paths = list(zip(*self.train_input_paths))
+        pass
 
     def train_dataloader(self):
         return DataLoader(
@@ -153,19 +146,9 @@ class CorrectSegNet(LightningModule):
 
     def predict_step(self, batch):
         x, y = batch["input"], batch["gt_mask"]
-        img_file_path, mask_file_path, img_idx = (
-            batch["img_file_path"],
-            batch["mask_file_path"],
-            batch["index"],
-        )
 
-        logits = self(x)
-        preds = torch.argmax(logits, dim=1)
-        return [x, np.argmax(y, axis=1), preds], [
-            img_file_path,
-            mask_file_path,
-            img_idx,
-        ]
+        output = self(x)
+        return output
 
 
 def parse_csn_args():

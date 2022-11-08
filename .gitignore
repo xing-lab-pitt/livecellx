@@ -1,3 +1,4 @@
+**/lightning_logs/**
 *.pth
 notebook_results
 external_repos
