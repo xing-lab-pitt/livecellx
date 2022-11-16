@@ -32,6 +32,10 @@ class CorrectSegNet(LightningModule):
         train_input_paths=None,
         train_transforms=None,
         seed=99,
+        train_dataset=None,
+        val_dataset=None,
+        test_dataset=None,
+        kernel_size=(1, 1),
     ):
         """_summary_
 
@@ -55,8 +59,9 @@ class CorrectSegNet(LightningModule):
         self.generator = torch.Generator().manual_seed(seed)
         self.class_weights = torch.tensor(class_weights).cuda()
         self.model_type = model_type
-        self.model = torchvision.models.segmentation.deeplabv3_resnet50(weights="DeepLabV3_ResNet50_Weights.DEFAULT")
-        self.model.classifier[4] = nn.Conv2d(256, 2, kernel_size=(1, 1), stride=(1, 1))
+        # self.model = torchvision.models.segmentation.deeplabv3_resnet50(weights="DeepLabV3_ResNet50_Weights.DEFAULT")
+        self.model = torchvision.models.segmentation.deeplabv3_resnet50(pretrained=True)
+        self.model.classifier[4] = nn.Conv2d(256, 2, kernel_size=kernel_size, stride=(1, 1))
 
         self.loss_func = nn.CrossEntropyLoss()
         self.learning_rate = lr
@@ -68,21 +73,28 @@ class CorrectSegNet(LightningModule):
         self.train_transforms = train_transforms
 
         self.save_hyperparameters()
-        self.val_accuracy = Accuracy()
-        self.test_accuracy = Accuracy()
+        self.val_accuracy = Accuracy(top_k=1)
+        self.test_accuracy = Accuracy(top_k=1)
+
+        self.train_dataset = train_dataset
+        self.val_dataset = val_dataset
+        self.test_dataset = test_dataset
 
     def forward(self, x: torch.Tensor):
         # print("[in forward] x shape: ", x.shape)
         x = self.model(x)
         x = x["out"]
-        return nn.functional.softmax(x, dim=1)
+        # return nn.functional.softmax(x, dim=1)
+        return x
 
     def training_step(self, batch, batch_idx):
         # print("[train_step] x shape: ", batch["input"].shape)
         # print("[train_step] y shape: ", batch["gt_mask"].shape)
         x, y = batch["input"], batch["gt_mask"]
-        y_hat = self(x)
-        loss = self.loss_func(y_hat, y)
+        output = self(x)
+        loss = self.loss_func(output, y)
+
+        predicted_labels = torch.argmax(output, dim=1)
         self.log("train_loss", loss, batch_size=self.batch_size)
         return loss
 
@@ -92,6 +104,14 @@ class CorrectSegNet(LightningModule):
         x, y = batch["input"], batch["gt_mask"]
         output = self(x)
         loss = self.loss_func(output, y)
+        # print("[val acc update] output shape: ", output.shape)
+        # print("[val acc update] y shape: ", y.shape)
+
+        # TODO: predicted_labels for pytorch ignite version accuracy
+        # predicted_labels = torch.argmax(output, dim=1)
+        # print("[val acc update] predicted_labels shape: ", predicted_labels.shape)
+        # self.val_accuracy.update(predicted_labels.long(), y.long())
+
         self.val_accuracy.update(output, y.long())
 
         self.log("val_loss", loss, prog_bar=True)
