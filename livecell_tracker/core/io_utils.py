@@ -36,6 +36,9 @@ def save_general(img: np.array, path: str, mode="L"):
         print(
             "Warning: saving image with more than 256 unique values as 8-bit, use I mode to save as 32-bit signed integer"
         )
+    elif mode == "L" and (img < 0).any():
+        mode = "I"
+        print("Warning: saving image with negative values as 8-bit, use I mode to save as 32-bit signed integer")
     elif mode == "L":
         img = img.astype(np.uint8)
 
