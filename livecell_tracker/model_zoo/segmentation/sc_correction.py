@@ -37,6 +37,7 @@ class CorrectSegNet(LightningModule):
         test_dataset=None,
         kernel_size=(1, 1),
         loss_func=nn.CrossEntropyLoss(),
+        num_classes=3,
     ):
         """_summary_
 
@@ -62,7 +63,7 @@ class CorrectSegNet(LightningModule):
         self.model_type = model_type
         # self.model = torchvision.models.segmentation.deeplabv3_resnet50(weights="DeepLabV3_ResNet50_Weights.DEFAULT")
         self.model = torchvision.models.segmentation.deeplabv3_resnet50(pretrained=True)
-        self.model.classifier[4] = nn.Conv2d(256, 2, kernel_size=kernel_size, stride=(1, 1))
+        self.model.classifier[4] = nn.Conv2d(256, num_classes, kernel_size=kernel_size, stride=(1, 1))
 
         self.loss_func = loss_func
         self.learning_rate = lr
@@ -74,8 +75,8 @@ class CorrectSegNet(LightningModule):
         self.train_transforms = train_transforms
 
         self.save_hyperparameters()
-        self.val_accuracy = Accuracy(top_k=1)
-        self.test_accuracy = Accuracy(top_k=1)
+        self.val_accuracy = Accuracy()
+        self.test_accuracy = Accuracy()
 
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
@@ -102,6 +103,7 @@ class CorrectSegNet(LightningModule):
     def validation_step(self, batch, batch_idx):
         # print("[validation_step] x shape: ", batch["input"].shape)
         # print("[validation_step] y shape: ", batch["gt_mask"].shape)
+
         x, y = batch["input"], batch["gt_mask"]
         output = self(x)
         loss = self.loss_func(output, y)

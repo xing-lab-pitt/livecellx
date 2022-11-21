@@ -70,18 +70,22 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
 
         raw_img = torch.tensor(np.array(raw_img)).float()
         scaled_seg_mask = torch.tensor(np.array(scaled_seg_mask)).float()
-        gt_mask = torch.tensor(np.array(gt_mask)[np.newaxis, :, :]).long()
+        gt_mask = torch.tensor(np.array(gt_mask)).long()
+        raw_transformed_img = torch.tensor(np.array(raw_transformed_img)).float()
+        aug_diff_img = torch.tensor(np.array(aug_diff_img)).float()
 
         input_img = torch.stack([raw_img, scaled_seg_mask, scaled_seg_mask], dim=0)
         input_img = input_img.float()
 
         if self.transform:
             # remove the first dimension added for Resize
-            concat_img = torch.cat(
-                [raw_img, raw_transformed_img, scaled_seg_mask, gt_mask.float(), aug_diff_img.float()], dim=0
+            concat_img = torch.stack(
+                [raw_img, raw_transformed_img, scaled_seg_mask, gt_mask.float(), aug_diff_img], dim=0
             )
             concat_img = self.transform(concat_img)
 
+            raw_img = concat_img[0]
+            raw_transformed_img = concat_img[1]
             input_img = concat_img[:3, :, :]
             gt_mask = concat_img[3, :, :]
             # TODO if use EDT or other gt, disable the following line
@@ -91,14 +95,15 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             aug_diff_img = concat_img[4, :, :]
             aug_diff_overseg = aug_diff_img < 0
             aug_diff_underseg = aug_diff_img > 0
-            combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0)
+            combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0).float()
 
         return {
             "input": input_img,
-            "raw_derived": raw_img,
-            "seg_mask": scaled_seg_mask,
-            "gt_mask": gt_mask,
-            "combined_gt": combined_gt,
+            # "raw_img": raw_img,
+            # "raw_derived": raw_transformed_img,
+            # "seg_mask": scaled_seg_mask,
+            # "gt_mask": gt_mask,
+            "gt_mask": combined_gt,
         }
 
     def __len__(self):
