@@ -22,8 +22,12 @@ def parse_args():
     parser.add_argument("--batch_size", dest="batch_size", type=int, default=2)
     parser.add_argument("--translation", dest="translation", type=float, default=0.5)
     parser.add_argument("--degrees", dest="degrees", type=int, default=180)
+    parser.add_argument("--aug_scale", dest="aug_scale", type=str, default="0.5,1.5")
+    parser.add_argument("--split_seed", dest="split_seed", type=int, default=237)
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.aug_scale = [float(x) for x in args.aug_scale.split(",")]
+    return args
 
 
 def main_train():
@@ -55,21 +59,24 @@ def main_train():
 
     train_transforms = transforms.Compose(
         [
-            # transforms.Resize((412, 412)),
+            transforms.Resize((412, 412)),
             transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomAffine(degrees=degrees, translate=translation_range, scale=(0.5, 1.5)),
+            transforms.RandomAffine(degrees=degrees, translate=translation_range, scale=args.aug_scale),
             transforms.RandomCrop((412, 412), pad_if_needed=True),
         ]
     )
 
-    img_paths, mask_paths, gt_paths, seg_paths, scales = list(zip(*train_input_tuples))
+    img_paths, scaled_mask_paths, gt_paths, seg_paths, scales = list(zip(*train_input_tuples))
     dataset = CorrectSegNetDataset(
-        img_paths, mask_paths, gt_paths, raw_seg_paths=seg_paths, scales=scales, transform=train_transforms
+        img_paths, scaled_mask_paths, gt_paths, raw_seg_paths=seg_paths, scales=scales, transform=train_transforms
     )
 
     train_sample_num = int(len(dataset) * 0.8)
     val_sample_num = len(dataset) - train_sample_num
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_sample_num, val_sample_num])
+    split_generator = torch.Generator().manual_seed(args.split_seed)
+    train_dataset, val_dataset = torch.utils.data.random_split(
+        dataset, [train_sample_num, val_sample_num], generator=split_generator
+    )
 
     model = CorrectSegNet(
         train_input_paths=train_input_tuples,

@@ -36,6 +36,7 @@ class CorrectSegNet(LightningModule):
         val_dataset=None,
         test_dataset=None,
         kernel_size=(1, 1),
+        loss_func=nn.CrossEntropyLoss(),
     ):
         """_summary_
 
@@ -63,7 +64,7 @@ class CorrectSegNet(LightningModule):
         self.model = torchvision.models.segmentation.deeplabv3_resnet50(pretrained=True)
         self.model.classifier[4] = nn.Conv2d(256, 2, kernel_size=kernel_size, stride=(1, 1))
 
-        self.loss_func = nn.CrossEntropyLoss()
+        self.loss_func = loss_func
         self.learning_rate = lr
         self.batch_size = batch_size
 

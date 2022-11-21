@@ -39,15 +39,20 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         raw_seg_paths: List[str],
         scales: List[float],
         transform=None,
+        raw_transformed_img_paths: List[str] = None,
+        aug_diff_img_paths: List[str] = None,
     ):
         self.raw_img_paths = raw_img_paths
-        self.seg_mask_paths = seg_mask_paths
+        self.scaled_seg_mask_paths = seg_mask_paths
         self.gt_mask_paths = gt_mask_paths
         self.transform = transform
         self.raw_seg_paths = raw_seg_paths
+        self.raw_transformed_img_paths = raw_transformed_img_paths
+        self.aug_diff_img_paths = aug_diff_img_paths
+
         self.scales = scales
         assert (
-            len(self.raw_img_paths) == len(self.seg_mask_paths) == len(self.gt_mask_paths)
+            len(self.raw_img_paths) == len(self.scaled_seg_mask_paths) == len(self.gt_mask_paths)
         ), "The number of images, segmentation masks and ground truth masks must be the same."
 
     def get_raw_seg(self, idx) -> np.array:
@@ -58,26 +63,42 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         raw_img = Image.open(self.raw_img_paths[idx])
-        seg_mask = Image.open(self.seg_mask_paths[idx])
+        scaled_seg_mask = Image.open(self.scaled_seg_mask_paths[idx])
         gt_mask = Image.open(self.gt_mask_paths[idx])
+        raw_transformed_img = Image.open(self.raw_transformed_img_paths[idx])
+        aug_diff_img = Image.open(self.aug_diff_img_paths[idx])
 
         raw_img = torch.tensor(np.array(raw_img)).float()
-        seg_mask = torch.tensor(np.array(seg_mask)).float()
+        scaled_seg_mask = torch.tensor(np.array(scaled_seg_mask)).float()
         gt_mask = torch.tensor(np.array(gt_mask)[np.newaxis, :, :]).long()
 
-        input_img = torch.stack([raw_img, seg_mask, seg_mask], dim=0)
+        input_img = torch.stack([raw_img, scaled_seg_mask, scaled_seg_mask], dim=0)
         input_img = input_img.float()
+
         if self.transform:
-            input_img = self.transform(input_img)
-            gt_mask = self.transform(gt_mask)
-            gt_mask = gt_mask.squeeze(0)  # remove the first dimension added for Resize
+            # remove the first dimension added for Resize
+            concat_img = torch.cat(
+                [raw_img, raw_transformed_img, scaled_seg_mask, gt_mask.float(), aug_diff_img.float()], dim=0
+            )
+            concat_img = self.transform(concat_img)
+
+            input_img = concat_img[:3, :, :]
+            gt_mask = concat_img[3, :, :]
+            # TODO if use EDT or other gt, disable the following line
             gt_mask[gt_mask > 0.5] = 1
             gt_mask[gt_mask <= 0.5] = 0
+
+            aug_diff_img = concat_img[4, :, :]
+            aug_diff_overseg = aug_diff_img < 0
+            aug_diff_underseg = aug_diff_img > 0
+            combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0)
+
         return {
             "input": input_img,
-            # "raw_img": raw_img,
-            # "seg_mask": seg_mask,
+            "raw_derived": raw_img,
+            "seg_mask": scaled_seg_mask,
             "gt_mask": gt_mask,
+            "combined_gt": combined_gt,
         }
 
     def __len__(self):
