@@ -77,25 +77,22 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         input_img = torch.stack([raw_img, scaled_seg_mask, scaled_seg_mask], dim=0)
         input_img = input_img.float()
 
+        concat_img = torch.stack([raw_img, raw_transformed_img, scaled_seg_mask, gt_mask.float(), aug_diff_img], dim=0)
         if self.transform:
-            # remove the first dimension added for Resize
-            concat_img = torch.stack(
-                [raw_img, raw_transformed_img, scaled_seg_mask, gt_mask.float(), aug_diff_img], dim=0
-            )
             concat_img = self.transform(concat_img)
 
-            raw_img = concat_img[0]
-            raw_transformed_img = concat_img[1]
-            input_img = concat_img[:3, :, :]
-            gt_mask = concat_img[3, :, :]
-            # TODO if use EDT or other gt, disable the following line
-            gt_mask[gt_mask > 0.5] = 1
-            gt_mask[gt_mask <= 0.5] = 0
+        raw_img = concat_img[0]
+        raw_transformed_img = concat_img[1]
+        input_img = concat_img[:3, :, :]
+        gt_mask = concat_img[3, :, :]
+        # TODO if use EDT or other gt, disable the following line
+        gt_mask[gt_mask > 0.5] = 1
+        gt_mask[gt_mask <= 0.5] = 0
 
-            aug_diff_img = concat_img[4, :, :]
-            aug_diff_overseg = aug_diff_img < 0
-            aug_diff_underseg = aug_diff_img > 0
-            combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0).float()
+        aug_diff_img = concat_img[4, :, :]
+        aug_diff_overseg = aug_diff_img < 0
+        aug_diff_underseg = aug_diff_img > 0
+        combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0).float()
 
         return {
             "input": input_img,
@@ -104,6 +101,16 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             # "seg_mask": scaled_seg_mask,
             # "gt_mask": gt_mask,
             "gt_mask": combined_gt,
+        }
+
+    def get_paths(self, idx):
+        return {
+            "raw_img": self.raw_img_paths[idx],
+            "scaled_seg_mask": self.scaled_seg_mask_paths[idx],
+            "gt_mask": self.gt_mask_paths[idx],
+            "raw_seg": self.raw_seg_paths[idx],
+            "raw_transformed_img": self.raw_transformed_img_paths[idx] if self.raw_transformed_img_paths else None,
+            "aug_diff_img": self.aug_diff_img_paths[idx] if self.aug_diff_img_paths else None,
         }
 
     def __len__(self):

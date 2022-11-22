@@ -45,19 +45,12 @@ def main_train():
     degrees = args.degrees
 
     raw_img_paths = list(train_df["raw"])
-    seg_mask_paths = list(train_df["seg"])
+    scaled_seg_mask_paths = list(train_df["seg"])
     gt_mask_paths = list(train_df["gt"])
     raw_seg_paths = list(train_df["raw_seg"])
     scales = list(train_df["scale"])
     aug_diff_img_paths = list(train_df["aug_diff_mask"])
     raw_transformed_img_paths = list(train_df["raw_transformed_img"])
-
-    train_input_tuples = list(zip(raw_img_paths, seg_mask_paths, gt_mask_paths, raw_seg_paths, scales))
-    train_input_tuples[:1]
-
-    # sample train input tuples
-    for data in list(zip(*train_input_tuples)):
-        print(data[0])
 
     train_transforms = transforms.Compose(
         [
@@ -68,12 +61,11 @@ def main_train():
         ]
     )
 
-    img_paths, scaled_mask_paths, gt_paths, seg_paths, scales = list(zip(*train_input_tuples))
     dataset = CorrectSegNetDataset(
-        img_paths,
-        scaled_mask_paths,
-        gt_paths,
-        raw_seg_paths=seg_paths,
+        raw_img_paths,
+        scaled_seg_mask_paths,
+        gt_mask_paths,
+        raw_seg_paths=raw_seg_paths,
         scales=scales,
         transform=train_transforms,
         raw_transformed_img_paths=raw_transformed_img_paths,
