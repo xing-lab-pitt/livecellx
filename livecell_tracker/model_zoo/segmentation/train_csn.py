@@ -24,6 +24,7 @@ def parse_args():
     parser.add_argument("--degrees", dest="degrees", type=int, default=180)
     parser.add_argument("--aug_scale", dest="aug_scale", type=str, default="0.5,1.5")
     parser.add_argument("--split_seed", dest="split_seed", type=int, default=237)
+    parser.add_argument("--epochs", dest="epochs", type=int, default=1000)
 
     args = parser.parse_args()
     args.aug_scale = [float(x) for x in args.aug_scale.split(",")]
@@ -80,7 +81,7 @@ def main_train():
     )
 
     model = CorrectSegNet(
-        train_input_paths=train_input_tuples,
+        # train_input_paths=train_input_tuples,
         num_workers=1,
         batch_size=args.batch_size,
         train_transforms=train_transforms,
@@ -89,7 +90,7 @@ def main_train():
         test_dataset=val_dataset,
         kernel_size=kernel_size,
     )
-    trainer = Trainer(gpus=1, max_epochs=500)
+    trainer = Trainer(gpus=1, max_epochs=args.epochs)
     trainer.fit(model)
 
 
