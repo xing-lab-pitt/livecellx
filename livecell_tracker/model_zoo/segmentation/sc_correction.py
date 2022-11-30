@@ -38,6 +38,9 @@ class CorrectSegNet(LightningModule):
         kernel_size=(1, 1),
         loss_func=nn.CrossEntropyLoss(),
         num_classes=3,
+        # the following args handled by dataset class
+        input_type=None,
+        apply_gt_seg_edt=False,
     ):
         """_summary_
 
@@ -58,6 +61,7 @@ class CorrectSegNet(LightningModule):
         """
 
         super().__init__()
+        self.save_hyperparameters()
         self.generator = torch.Generator().manual_seed(seed)
         self.class_weights = torch.tensor(class_weights).cuda()
         self.model_type = model_type

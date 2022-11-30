@@ -21,6 +21,8 @@ from PIL import Image
 from torch import Tensor
 from torch.nn import init
 from torch.utils.data import DataLoader, random_split
+import scipy.ndimage
+
 
 # class CorrectSegNetData(data.Dataset):
 #     def __init__(self, livecell_dataset: LiveCellImageDataset, segnet_dataset: LiveCellImageDataset):
@@ -41,6 +43,8 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         transform=None,
         raw_transformed_img_paths: List[str] = None,
         aug_diff_img_paths: List[str] = None,
+        input_type="raw_aug_seg",
+        apply_gt_seg_edt=False,
     ):
         self.raw_img_paths = raw_img_paths
         self.scaled_seg_mask_paths = seg_mask_paths
@@ -54,6 +58,9 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         assert (
             len(self.raw_img_paths) == len(self.scaled_seg_mask_paths) == len(self.gt_mask_paths)
         ), "The number of images, segmentation masks and ground truth masks must be the same."
+        self.input_type = input_type
+        self.apply_gt_seg_edt = apply_gt_seg_edt
+        print("input type:", self.input_type)
 
     def get_raw_seg(self, idx) -> np.array:
         return np.array(Image.open(self.raw_seg_paths[idx]))
@@ -62,32 +69,55 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         return self.scales[idx]
 
     def __getitem__(self, idx):
-        raw_img = Image.open(self.raw_img_paths[idx])
+        augmented_raw_img = Image.open(self.raw_img_paths[idx])
         scaled_seg_mask = Image.open(self.scaled_seg_mask_paths[idx])
         gt_mask = Image.open(self.gt_mask_paths[idx])
-        raw_transformed_img = Image.open(self.raw_transformed_img_paths[idx])
+        augmented_raw_transformed_img = Image.open(self.raw_transformed_img_paths[idx])
         aug_diff_img = Image.open(self.aug_diff_img_paths[idx])
 
-        raw_img = torch.tensor(np.array(raw_img)).float()
+        augmented_raw_img = torch.tensor(np.array(augmented_raw_img)).float()
         scaled_seg_mask = torch.tensor(np.array(scaled_seg_mask)).float()
         gt_mask = torch.tensor(np.array(gt_mask)).long()
-        raw_transformed_img = torch.tensor(np.array(raw_transformed_img)).float()
+        augmented_raw_transformed_img = torch.tensor(np.array(augmented_raw_transformed_img)).float()
         aug_diff_img = torch.tensor(np.array(aug_diff_img)).float()
 
-        input_img = torch.stack([raw_img, scaled_seg_mask, scaled_seg_mask], dim=0)
         input_img = input_img.float()
 
-        concat_img = torch.stack([raw_img, raw_transformed_img, scaled_seg_mask, gt_mask.float(), aug_diff_img], dim=0)
+        # prepare for augmentation
+        concat_img = torch.stack(
+            [augmented_raw_img, augmented_raw_transformed_img, scaled_seg_mask, gt_mask.float(), aug_diff_img], dim=0
+        )
         if self.transform:
             concat_img = self.transform(concat_img)
 
-        raw_img = concat_img[0]
-        raw_transformed_img = concat_img[1]
-        input_img = concat_img[:3, :, :]
+        augmented_raw_img = concat_img[0]
+        augmented_raw_transformed_img = concat_img[1]
+        augmented_scaled_seg_mask = concat_img[2]
+
+        if self.input_type == "raw_aug_seg":
+            input_img = torch.stack(
+                [augmented_raw_img, augmented_raw_transformed_img, augmented_scaled_seg_mask], dim=0
+            )
+        elif self.input_type == "raw_aug_duplicate":
+            input_img = torch.stack(
+                [augmented_raw_transformed_img, augmented_raw_transformed_img, augmented_raw_transformed_img], dim=0
+            )
+        elif self.input_type == "edt_v0":
+            # TODO edt transform
+            augmented_scaled_seg_mask = scipy.ndimage.distance_transform_edt(augmented_scaled_seg_mask)
+            input_img = torch.stack(
+                [augmented_raw_transformed_img, augmented_raw_transformed_img, augmented_scaled_seg_mask], dim=0
+            )
+        else:
+            raise NotImplementedError
+
         gt_mask = concat_img[3, :, :]
         # TODO if use EDT or other gt, disable the following line
         gt_mask[gt_mask > 0.5] = 1
         gt_mask[gt_mask <= 0.5] = 0
+
+        if self.apply_gt_seg_edt:
+            gt_mask = torch.tensor(scipy.ndimage.distance_transform_edt(gt_mask[0, :, :]))
 
         aug_diff_img = concat_img[4, :, :]
         aug_diff_overseg = aug_diff_img < 0
@@ -96,9 +126,9 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
 
         return {
             "input": input_img,
-            # "raw_img": raw_img,
-            # "raw_derived": raw_transformed_img,
-            # "seg_mask": scaled_seg_mask,
+            # "raw_img": augmented_raw_img,
+            # "raw_derived": augmented_raw_transformed_img,
+            # "seg_mask": augmented_scaled_seg_mask,
             # "gt_mask": gt_mask,
             "gt_mask": combined_gt,
         }

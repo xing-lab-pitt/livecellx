@@ -25,6 +25,8 @@ def parse_args():
     parser.add_argument("--aug_scale", dest="aug_scale", type=str, default="0.5,1.5")
     parser.add_argument("--split_seed", dest="split_seed", type=int, default=237)
     parser.add_argument("--epochs", dest="epochs", type=int, default=1000)
+    parser.add_argument("--input_type", dest="input_type", type=str, default="raw_aug_seg")
+    parser.add_argument("--apply_gt_seg_edt", dest="apply_gt_seg_edt", type=bool, default=False)
 
     args = parser.parse_args()
     args.aug_scale = [float(x) for x in args.aug_scale.split(",")]
@@ -33,6 +35,7 @@ def parse_args():
 
 def main_train():
     args = parse_args()
+    print("[Args] ", args)
     # train_dir = Path("./notebook_results/a549_ccp_vim/train_data_v1")
     train_dir = Path(args.train_dir)
     train_csv = train_dir / "train_data.csv"
@@ -71,6 +74,8 @@ def main_train():
         transform=train_transforms,
         raw_transformed_img_paths=raw_transformed_img_paths,
         aug_diff_img_paths=aug_diff_img_paths,
+        input_type=args.input_type,
+        apply_gt_seg_edt=args.apply_gt_seg_edt,
     )
 
     train_sample_num = int(len(dataset) * 0.8)
@@ -89,6 +94,9 @@ def main_train():
         val_dataset=val_dataset,
         test_dataset=val_dataset,
         kernel_size=kernel_size,
+        # only for record keeping purposes
+        input_type=args.input_type,
+        apply_gt_seg_edt=args.apply_gt_seg_edt,
     )
     trainer = Trainer(gpus=1, max_epochs=args.epochs)
     trainer.fit(model)
