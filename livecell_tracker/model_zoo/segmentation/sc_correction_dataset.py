@@ -61,6 +61,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         self.input_type = input_type
         self.apply_gt_seg_edt = apply_gt_seg_edt
         print("input type:", self.input_type)
+        print("if apply_gt_seg_edt:", self.apply_gt_seg_edt)
 
     def get_raw_seg(self, idx) -> np.array:
         return np.array(Image.open(self.raw_seg_paths[idx]))
@@ -80,8 +81,6 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask = torch.tensor(np.array(gt_mask)).long()
         augmented_raw_transformed_img = torch.tensor(np.array(augmented_raw_transformed_img)).float()
         aug_diff_img = torch.tensor(np.array(aug_diff_img)).float()
-
-        input_img = input_img.float()
 
         # prepare for augmentation
         concat_img = torch.stack(
@@ -110,6 +109,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             )
         else:
             raise NotImplementedError
+        input_img = input_img.float()
 
         gt_mask = concat_img[3, :, :]
         # TODO if use EDT or other gt, disable the following line
@@ -117,7 +117,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask[gt_mask <= 0.5] = 0
 
         if self.apply_gt_seg_edt:
-            gt_mask = torch.tensor(scipy.ndimage.distance_transform_edt(gt_mask[0, :, :]))
+            gt_mask = torch.tensor(scipy.ndimage.distance_transform_edt(gt_mask[:, :]))
 
         aug_diff_img = concat_img[4, :, :]
         aug_diff_overseg = aug_diff_img < 0

@@ -36,8 +36,8 @@ class CorrectSegNet(LightningModule):
         val_dataset=None,
         test_dataset=None,
         kernel_size=(1, 1),
-        loss_func=nn.CrossEntropyLoss(),
         num_classes=3,
+        loss_type="CE",
         # the following args handled by dataset class
         input_type=None,
         apply_gt_seg_edt=False,
@@ -63,13 +63,23 @@ class CorrectSegNet(LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.generator = torch.Generator().manual_seed(seed)
-        self.class_weights = torch.tensor(class_weights).cuda()
+        self.class_weights = class_weights
         self.model_type = model_type
         # self.model = torchvision.models.segmentation.deeplabv3_resnet50(weights="DeepLabV3_ResNet50_Weights.DEFAULT")
         self.model = torchvision.models.segmentation.deeplabv3_resnet50(pretrained=True)
         self.model.classifier[4] = nn.Conv2d(256, num_classes, kernel_size=kernel_size, stride=(1, 1))
 
-        self.loss_func = loss_func
+        self.loss_type = loss_type
+        self.loss_func = None
+        if self.loss_type == "CE":
+            print(">>> Using CE loss, weights:", self.class_weights)
+            self.loss_func = torch.nn.CrossEntropyLoss(weight=torch.tensor(self.class_weights))
+        elif self.loss_type == "MSE":
+            print(">>> Using MSE loss")
+            self.loss_func = torch.nn.MSELoss()
+        else:
+            raise NotImplementedError("Loss:%s not implemented", loss_type)
+
         self.learning_rate = lr
         self.batch_size = batch_size
 
@@ -77,8 +87,6 @@ class CorrectSegNet(LightningModule):
         self.num_workers = num_workers
         self.train_input_paths = train_input_paths
         self.train_transforms = train_transforms
-
-        self.save_hyperparameters()
         self.val_accuracy = Accuracy()
         self.test_accuracy = Accuracy()
 
@@ -119,10 +127,12 @@ class CorrectSegNet(LightningModule):
         # print("[val acc update] predicted_labels shape: ", predicted_labels.shape)
         # self.val_accuracy.update(predicted_labels.long(), y.long())
 
-        self.val_accuracy.update(output, y.long())
-
+        if self.loss_type == "CE":
+            self.val_accuracy.update(output, y.long())
+            self.log("val_acc", self.val_accuracy, prog_bar=True, batch_size=self.batch_size)
+        elif self.loss_type == "MSE":
+            pass
         self.log("val_loss", loss, prog_bar=True)
-        self.log("val_acc", self.val_accuracy, prog_bar=True, batch_size=self.batch_size)
 
     def test_step(self, batch, batch_idx):
         x, y = batch["input"], batch["gt_mask"]
@@ -182,32 +192,11 @@ def parse_csn_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--lr", dest="lr", type=float, default=1e-3, help="The actor's learning rate.")
     parser.add_argument("--batch-size", dest="batch_size", type=int, default=4, help="The value of N in N-step A2C.")
-    parser.add_argument("--class-weights", dest="class_weights", type=list, default=None, help="")
 
     parser.add_argument("--model-type", dest="model_type", type=str, default=None, help="")  # TODO: no used for now
 
     return parser.parse_args()
 
 
-def main_train():
-    model = CorrectSegNet(
-        lr=config.lr,
-        batch_size=config.batch_size,
-        class_weights=config.class_weights,
-        model_type=config.model_type,
-    )
-
-    trainer = Trainer(
-        accelerator="auto",
-        devices=1 if torch.cuda.is_available() else None,
-        max_epochs=config.num_epochs,
-        check_val_every_n_epoch=config.check_val_every_n_epoch,
-        callbacks=[TQDMProgressBar(refresh_rate=20)],
-    )
-    trainer.fit(model)
-    trainer.test()
-
-
 if __name__ == "__main__":
-    config = parse_csn_args()
-    main_train()
+    pass

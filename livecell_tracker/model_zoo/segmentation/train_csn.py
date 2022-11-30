@@ -18,18 +18,25 @@ def parse_args():
     parser.add_argument("--train_dir", dest="train_dir", type=str, required=True)
     parser.add_argument("--kernel_size", dest="kernel_size", type=int, default=1)
     parser.add_argument("--model", dest="model_file", type=str)
-    parser.add_argument("--lr", dest="lr", type=float, default=5e-4)
+    parser.add_argument("--lr", dest="lr", type=float, default=1e-3)
     parser.add_argument("--batch_size", dest="batch_size", type=int, default=2)
     parser.add_argument("--translation", dest="translation", type=float, default=0.5)
     parser.add_argument("--degrees", dest="degrees", type=int, default=180)
     parser.add_argument("--aug_scale", dest="aug_scale", type=str, default="0.5,1.5")
     parser.add_argument("--split_seed", dest="split_seed", type=int, default=237)
     parser.add_argument("--epochs", dest="epochs", type=int, default=1000)
-    parser.add_argument("--input_type", dest="input_type", type=str, default="raw_aug_seg")
-    parser.add_argument("--apply_gt_seg_edt", dest="apply_gt_seg_edt", type=bool, default=False)
 
+    parser.add_argument(
+        "--input_type", dest="input_type", type=str, default="raw_aug_seg", choices=["raw_aug_seg", "raw_aug_duplicate"]
+    )
+    parser.add_argument("--apply_gt_seg_edt", dest="apply_gt_seg_edt", default=False, action="store_true")
+    parser.add_argument("--class-weights", dest="class_weights", type=str, default="1,1,1")
+    parser.add_argument("--loss", dest="loss", type=str, default="CE", choices=["CE", "MSE"])
     args = parser.parse_args()
+
+    # convert string to list
     args.aug_scale = [float(x) for x in args.aug_scale.split(",")]
+    args.class_weights = [float(x) for x in args.class_weights.split(",")]
     return args
 
 
@@ -87,6 +94,7 @@ def main_train():
 
     model = CorrectSegNet(
         # train_input_paths=train_input_tuples,
+        lr=args.lr,
         num_workers=1,
         batch_size=args.batch_size,
         train_transforms=train_transforms,
@@ -94,6 +102,7 @@ def main_train():
         val_dataset=val_dataset,
         test_dataset=val_dataset,
         kernel_size=kernel_size,
+        loss_type=args.loss,
         # only for record keeping purposes
         input_type=args.input_type,
         apply_gt_seg_edt=args.apply_gt_seg_edt,
