@@ -5,12 +5,18 @@
 
 Livecell-tracker is a pure python framework for extracting sinlge cell trajectories from raw long live-cell imaging data, computing and analyzing single cell features in latent space.
 
-**This is a placeholder for livecell-tracker future releases. Currently this repo showcases a basic use case to segment images, track cells with opencv/SORT and generate cell features in our CX-A label-free dataset.   
+**This is a placeholder for livecell-tracker future releases. Currently this repo showcases a basic use case to segment images, track cells with opencv/SORT/btrack and generate cell features in our CX-A label-free dataset.   
 The majority of our analysis methods/notebooks are in `https://github.com/xing-lab-pitt/xing-vimentin-dic-pipeline` maintained by Xing lab, and being added to this repo. Please check later in Nov. 2022 for a complete version with our manuscript.**
 ## Installation
 
 **Pytorch**  
-`conda install pytorch torchvision -c pytorch`
+Please refer to [Pytorch Official Website](https://pytorch.org/get-started/locally) to receive most recent installation instructions. Here we simply provide two examples used in our cases.  
+
+Install via pip:  
+`conda install pytorch torchvision -c pytorch`  
+
+On our 2080Ti/3090 workstations and CUDA 11.7:  
+`conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia`
 
 **General package requirements**  
 `pip install -r requirements.txt`
