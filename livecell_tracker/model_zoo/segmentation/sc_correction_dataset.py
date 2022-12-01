@@ -45,7 +45,35 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         aug_diff_img_paths: List[str] = None,
         input_type="raw_aug_seg",
         apply_gt_seg_edt=False,
+        exclude_raw_input_bg=False,
     ):
+        """_summary_
+
+        Parameters
+        ----------
+        raw_img_paths : List[str]
+            _description_
+        seg_mask_paths : List[str]
+            _description_
+        gt_mask_paths : List[str]
+            _description_
+        raw_seg_paths : List[str]
+            _description_
+        scales : List[float]
+            _description_
+        transform : _type_, optional
+            _description_, by default None
+        raw_transformed_img_paths : List[str], optional
+            _description_, by default None
+        aug_diff_img_paths : List[str], optional
+            _description_, by default None
+        input_type : str, optional
+            _description_, by default "raw_aug_seg"
+        apply_gt_seg_edt : bool, optional
+            _description_, by default False
+        exclude_raw_bg : bool, optional
+            if True, exclude all background pixels (including cells in bg) in input, by default False
+        """
         self.raw_img_paths = raw_img_paths
         self.scaled_seg_mask_paths = seg_mask_paths
         self.gt_mask_paths = gt_mask_paths
@@ -60,6 +88,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         ), "The number of images, segmentation masks and ground truth masks must be the same."
         self.input_type = input_type
         self.apply_gt_seg_edt = apply_gt_seg_edt
+        self.exclude_raw_input_bg = exclude_raw_input_bg
         print("input type:", self.input_type)
         print("if apply_gt_seg_edt:", self.apply_gt_seg_edt)
 
@@ -107,8 +136,15 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             input_img = torch.stack(
                 [augmented_raw_transformed_img, augmented_raw_transformed_img, augmented_scaled_seg_mask], dim=0
             )
+        elif self.input_type == "raw_duplicate":
+            input_img = torch.stack([augmented_raw_img, augmented_raw_img, augmented_raw_img], dim=0)
         else:
             raise NotImplementedError
+
+        if self.exclude_raw_input_bg:
+            bg_mask = augmented_raw_img == 0
+            input_img[:, bg_mask] = 0
+
         input_img = input_img.float()
 
         gt_mask = concat_img[3, :, :]

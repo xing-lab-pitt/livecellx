@@ -44,3 +44,6 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 
 # model 76
 nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=0 --translation=0 --aug_scale="1,1" --input_type=raw_aug_duplicate --apply_gt_seg_edt --loss=MSE >train_out_v4_model76.out 2>&1 &
+
+# model 77
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=0 --translation=0 --aug_scale="1,1" --input_type=raw_duplicate --loss=CE >train_out_v4_model77.out 2>&1 &
