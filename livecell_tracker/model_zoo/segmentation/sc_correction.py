@@ -26,7 +26,7 @@ class CorrectSegNet(LightningModule):
         self,
         lr=1e-3,
         batch_size=5,
-        class_weights=[1, 1],
+        class_weights=[1, 1, 1],
         model_type=None,
         num_workers=16,
         train_input_paths=None,
