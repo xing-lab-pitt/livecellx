@@ -94,6 +94,10 @@ class CorrectSegNet(LightningModule):
         self.val_dataset = val_dataset
         self.test_dataset = test_dataset
 
+        # the following attributes not used; handled by dataset class
+        self.apply_gt_seg_edt = apply_gt_seg_edt
+        self.input_type = input_type
+
     def forward(self, x: torch.Tensor):
         # print("[in forward] x shape: ", x.shape)
         x = self.model(x)
