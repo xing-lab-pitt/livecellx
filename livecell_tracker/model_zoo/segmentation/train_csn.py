@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument("--apply_gt_seg_edt", dest="apply_gt_seg_edt", default=False, action="store_true")
     parser.add_argument("--class-weights", dest="class_weights", type=str, default="1,1,1")
     parser.add_argument("--loss", dest="loss", type=str, default="CE", choices=["CE", "MSE"])
+    parser.add_argument("--exclude_raw_input_bg", dest="exclude_raw_input_bg", default=False, action="store_true")
     args = parser.parse_args()
 
     # convert string to list
@@ -87,6 +88,7 @@ def main_train():
         aug_diff_img_paths=aug_diff_img_paths,
         input_type=args.input_type,
         apply_gt_seg_edt=args.apply_gt_seg_edt,
+        exclude_raw_input_bg=args.exclude_raw_input_bg,
     )
 
     train_sample_num = int(len(dataset) * 0.8)
@@ -107,9 +109,10 @@ def main_train():
         test_dataset=val_dataset,
         kernel_size=kernel_size,
         loss_type=args.loss,
-        # only for record keeping purposes
+        # only for record keeping purposes; handled by the dataset
         input_type=args.input_type,
         apply_gt_seg_edt=args.apply_gt_seg_edt,
+        exclude_raw_input_bg=args.exclude_raw_input_bg,
     )
     trainer = Trainer(gpus=1, max_epochs=args.epochs)
     trainer.fit(model)
