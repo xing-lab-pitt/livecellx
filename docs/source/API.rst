@@ -16,20 +16,20 @@ Core
 Single Cell Classes
 ------------------
     .. autosummary::
-    :toctree: _autosummary
-    :template: class.rst
+        :toctree: _autosummary
+        :template: class.rst
 
-        livecell_tracker.core.SingleCellStatic
-        livecell_tracker.core.SingleCellTrajectory
-        livecell_tracker.core.SingleCellTrajectoryCollection
+            livecell_tracker.core.SingleCellStatic
+            livecell_tracker.core.SingleCellTrajectory
+            livecell_tracker.core.SingleCellTrajectoryCollection
 
 Dataset Classes
 ------------------
     .. autosummary::
-    :toctree: _autosummary
-    :template: class.rst
+        :toctree: _autosummary
+        :template: class.rst
 
-        livecell_tracker.core.datasets.LiveCellImageDataset
+            livecell_tracker.core.datasets.LiveCellImageDataset
 
 
 Data IO

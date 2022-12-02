@@ -36,7 +36,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     """
 
     def __init__(
-        self,        
+        self,
         dir_path=None,
         time2url: Dict[int, str] = None,
         name="livecell-base",
@@ -47,6 +47,30 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         read_img_url_func: Callable = read_img_default,
         index_by_time=True,
     ):
+        """Initialize the dataset.
+
+        Parameters
+        ----------
+        dir_path : _type_, optional
+            _description_, by default None
+        time2url : Dict[int, str], optional
+            _description_, by default None
+        name : str, optional
+            _description_, by default "livecell-base"
+        ext : str, optional
+            _description_, by default "tif"
+        max_cache_size : int, optional
+            _description_, by default 50
+        num_imgs : _type_, optional
+            _description_, by default None
+        force_posix_path : bool, optional
+            _description_, by default True
+        read_img_url_func : Callable, optional
+            _description_, by default read_img_default
+        index_by_time : bool, optional
+            _description_, by default True
+        """
+
         self.read_img_url_func = read_img_url_func
         self.index_by_time = index_by_time
 
@@ -86,6 +110,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self.name = name
 
     def update_time2url_from_dir_path(self):
+        """Update the time2url dictionary from the directory path"""
         if self.data_dir_path is None:
             self.time2url = {}
             return
@@ -110,13 +135,27 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             self.cache_img_idx_to_img.pop(pop_index)
             del pop_img
 
-    def get_img_path(self, idx):
-        return self.time2url[idx]
+    # TODO: refactor path -> url
+    def get_img_path(self, time) -> str:
+        """Get the path of the image at some time
+
+        Parameters
+        ----------
+        time : _type_
+            _description_
+
+        Returns
+        -------
+        str
+            _description_
+        """
+        return self.time2url[time]
 
     def get_dataset_name(self):
         return self.name
 
     def get_dataset_path(self):
+
         return self.data_dir_path
 
     def __getitem__(self, idx) -> np.ndarray:
@@ -130,6 +169,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         return img
 
     def to_json_dict(self) -> dict:
+        """Return the dataset info as a dictionary object"""
         # img_path_list = [str(PurePosixPath(path)) for path in self.img_path_list]
         return {
             "name": self.name,
@@ -141,17 +181,32 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
 
     # TODO: refactor
     def write_json(self, path=None):
+        """Write the dataset info to a local json file."""
         if path is None:
             return json.dumps(self.to_dict())
         else:
             with open(path, "w+") as f:
                 json.dump(self.to_dict(), f)
 
-    def load_from_json_dict(self, json_dict, update_img_paths=False):
+    def load_from_json_dict(self, json_dict, update_time2url_from_dir_path=False):
+        """Load from a json dict. If update_img_paths is True, then we will update the img_path_list based on the data_dir_path.
+
+        Parameters
+        ----------
+        json_dict : _type_
+            _description_
+        update_img_paths : bool, optional
+            _description_, by default False
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         self.name = json_dict["name"]
         self.data_dir_path = json_dict["data_dir_path"]
         self.ext = json_dict["ext"]
-        if update_img_paths:
+        if update_time2url_from_dir_path:
             self.update_time2url_from_dir_path()
         else:
             self.time2url = json_dict["img_path_list"]
@@ -159,16 +214,19 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         return self
 
     def to_dask(self):
+        """convert to a dask array for napari visualization"""
         import dask.array as da
 
         return da.stack([da.from_array(self.get_img_by_time(time)) for time in self.time2url.keys()])
 
     def get_img_by_idx(self, idx):
+        """Get an image by some index in the times list"""
         time = self.times[idx]
         img = self.read_img_url_func(self.time2url[time])
         return img
 
     def get_img_by_time(self, time):
+        """Get an image by time"""
         return self.read_img_url_func(self.time2url[time])
 
     def get_img_by_url(self, url: str, substr=True, return_path_and_time=False, ignore_missing=False):
@@ -226,4 +284,5 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         return self.get_img_by_time(found_time)
 
 
+# TODO
 # class MultiChannelImageDataset(torch.utils.data.Dataset):
