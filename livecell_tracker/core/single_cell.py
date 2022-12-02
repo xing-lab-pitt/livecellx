@@ -12,7 +12,7 @@ from livecell_tracker.core.datasets import LiveCellImageDataset
 
 # TODO: possibly refactor load_from_json methods into a mixin class
 class SingleCellStatic:
-    """Single cell at one time frame."""
+    """Single cell at one time frame"""
 
     HARALICK_FEATURE_KEY = "_haralick"
     MORPHOLOGY_FEATURE_KEY = "_morphology"
