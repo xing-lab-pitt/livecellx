@@ -147,27 +147,32 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
 
         input_img = input_img.float()
 
-        gt_mask = concat_img[3, :, :]
-        # TODO if use EDT or other gt, disable the following line
-        gt_mask[gt_mask > 0.5] = 1
-        gt_mask[gt_mask <= 0.5] = 0
-
-        if self.apply_gt_seg_edt:
-            gt_mask = torch.tensor(scipy.ndimage.distance_transform_edt(gt_mask[:, :]))
-
         aug_diff_img = concat_img[4, :, :]
         aug_diff_overseg = aug_diff_img < 0
         aug_diff_underseg = aug_diff_img > 0
+
+        gt_mask = concat_img[3, :, :]
+        gt_mask[gt_mask > 0.5] = 1
+        gt_mask[gt_mask <= 0.5] = 0
+        gt_binary = gt_mask
+        gt_mask_edt = None
+        if self.apply_gt_seg_edt:
+            gt_mask = torch.tensor(scipy.ndimage.distance_transform_edt(gt_mask[:, :]))
+            gt_mask_edt = gt_mask
+
         combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0).float()
 
-        return {
+        res = {
             "input": input_img,
             # "raw_img": augmented_raw_img,
-            # "raw_derived": augmented_raw_transformed_img,
-            # "seg_mask": augmented_scaled_seg_mask,
-            # "gt_mask": gt_mask,
+            # "raw_transformed": augmented_raw_transformed_img,
+            "seg_mask": augmented_scaled_seg_mask,
+            "gt_mask_binary": gt_binary,
             "gt_mask": combined_gt,
         }
+        if self.apply_gt_seg_edt:
+            res["gt_mask_edt"] = gt_mask_edt
+        return res
 
     def get_paths(self, idx):
         return {

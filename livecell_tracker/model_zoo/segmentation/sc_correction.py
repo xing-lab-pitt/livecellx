@@ -39,8 +39,9 @@ class CorrectSegNet(LightningModule):
         num_classes=3,
         loss_type="CE",
         # the following args handled by dataset class
-        input_type=None,
+        input_type="raw_aug_seg",  # WARNING: do not change: be consistent with dataset class
         apply_gt_seg_edt=False,
+        exclude_raw_input_bg=False,
     ):
         """_summary_
 
@@ -58,6 +59,9 @@ class CorrectSegNet(LightningModule):
             _description_, by default 16
         train_input_paths : _type_, optional
             a list of (raw_path, seg_mask_path, gt_path), by default None
+        input_type : str, optional
+            WARNING: do not change this default value
+            input_type arg here should be consistent with what is used in dataset class
         """
 
         super().__init__()
@@ -97,6 +101,7 @@ class CorrectSegNet(LightningModule):
         # the following attributes not used; handled by dataset class
         self.apply_gt_seg_edt = apply_gt_seg_edt
         self.input_type = input_type
+        self.exclude_raw_input_bg = exclude_raw_input_bg
 
     def forward(self, x: torch.Tensor):
         # print("[in forward] x shape: ", x.shape)
