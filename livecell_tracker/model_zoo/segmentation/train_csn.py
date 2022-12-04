@@ -109,6 +109,7 @@ def main_train():
         test_dataset=val_dataset,
         kernel_size=kernel_size,
         loss_type=args.loss,
+        class_weights=args.class_weights,
         # only for record keeping purposes; handled by the dataset
         input_type=args.input_type,
         apply_gt_seg_edt=args.apply_gt_seg_edt,
