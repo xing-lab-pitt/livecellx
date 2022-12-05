@@ -110,13 +110,39 @@ class CorrectSegNet(LightningModule):
         # return nn.functional.softmax(x, dim=1)
         return x
 
+    def compute_loss(self, output: torch.tensor, target: torch.tensor):
+        """Compute loss fuction
+
+        Parameters
+        ----------
+        output : torch.tensor
+            prediction output with shape batch size x num classes x height x width
+        target : torch.tensor
+            _description_
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
+        assert len(output.shape) == 4
+        if self.loss_type == "CE":
+            return self.loss_func(output, target.long())
+        elif self.loss_type == "MSE":
+            total_loss = 0
+            num_classes = output.shape[1]
+            for cat_dim in range(0, num_classes):
+                temp_target = target[:, cat_dim, ...]
+                temp_output = output[:, cat_dim, ...]
+                total_loss += self.loss_func(temp_output, temp_target) * self.class_weights[cat_dim]
+            return total_loss
+
     def training_step(self, batch, batch_idx):
         # print("[train_step] x shape: ", batch["input"].shape)
         # print("[train_step] y shape: ", batch["gt_mask"].shape)
         x, y = batch["input"], batch["gt_mask"]
         output = self(x)
-        loss = self.loss_func(output, y)
-
+        loss = self.compute_loss(output, y)
         predicted_labels = torch.argmax(output, dim=1)
         self.log("train_loss", loss, batch_size=self.batch_size)
         return loss
@@ -127,7 +153,7 @@ class CorrectSegNet(LightningModule):
 
         x, y = batch["input"], batch["gt_mask"]
         output = self(x)
-        loss = self.loss_func(output, y)
+        loss = self.compute_loss(output, y)
         # print("[val acc update] output shape: ", output.shape)
         # print("[val acc update] y shape: ", y.shape)
 

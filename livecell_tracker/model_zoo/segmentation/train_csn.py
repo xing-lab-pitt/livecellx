@@ -9,6 +9,7 @@ import torch
 import torch.utils.data
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import TQDMProgressBar
+from pytorch_lightning.loggers import TensorBoardLogger
 from livecell_tracker.model_zoo.segmentation.sc_correction import CorrectSegNet
 from livecell_tracker.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
 
@@ -18,6 +19,7 @@ def parse_args():
     parser.add_argument("--train_dir", dest="train_dir", type=str, required=True)
     parser.add_argument("--kernel_size", dest="kernel_size", type=int, default=1)
     parser.add_argument("--model", dest="model_file", type=str)
+    parser.add_argument("--model_ckpt", dest="model_ckpt", type=str, default=None)
     parser.add_argument("--lr", dest="lr", type=float, default=1e-3)
     parser.add_argument("--batch_size", dest="batch_size", type=int, default=2)
     parser.add_argument("--translation", dest="translation", type=float, default=0.5)
@@ -37,6 +39,8 @@ def parse_args():
     parser.add_argument("--class-weights", dest="class_weights", type=str, default="1,1,1")
     parser.add_argument("--loss", dest="loss", type=str, default="CE", choices=["CE", "MSE"])
     parser.add_argument("--exclude_raw_input_bg", dest="exclude_raw_input_bg", default=False, action="store_true")
+
+    parser.add_argument("--debug", dest="debug", default=False, action="store_true")
     args = parser.parse_args()
 
     # convert string to list
@@ -115,7 +119,11 @@ def main_train():
         apply_gt_seg_edt=args.apply_gt_seg_edt,
         exclude_raw_input_bg=args.exclude_raw_input_bg,
     )
-    trainer = Trainer(gpus=1, max_epochs=args.epochs)
+    logger = TensorBoardLogger(save_dir=".", name="lightning_logs")
+    if args.debug:
+        logger = TensorBoardLogger(save_dir=".", name="test_logs")
+
+    trainer = Trainer(gpus=1, max_epochs=args.epochs, resume_from_checkpoint=args.model_ckpt, logger=logger)
     trainer.fit(model)
 
 
