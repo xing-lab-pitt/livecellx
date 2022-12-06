@@ -127,7 +127,7 @@ class CorrectSegNet(LightningModule):
         """
         assert len(output.shape) == 4
         if self.loss_type == "CE":
-            return self.loss_func(output, target.long())
+            return self.loss_func(output, target)
         elif self.loss_type == "MSE":
             total_loss = 0
             num_classes = output.shape[1]
