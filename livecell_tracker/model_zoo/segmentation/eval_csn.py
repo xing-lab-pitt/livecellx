@@ -11,7 +11,8 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import TQDMProgressBar
 import pandas as pd
 import os
-
+import time
+import random
 from livecell_tracker.model_zoo.segmentation.sc_correction import CorrectSegNet
 from livecell_tracker.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
 
@@ -117,84 +118,6 @@ def compute_metrics(dataset, model, out_threshold=0.6):
     return train_metrics
 
 
-def parse_eval_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Correct Segmentation Net Evaluation")
-    parser.add_argument("--name", type=str, help="name of the evaluation", required=True)
-    parser.add_argument("--ckpt", dest="ckpt", type=str, required=True, help="path to model checkpoint")
-    parser.add_argument("--train_dir", type=str, help="./notebook_results/a549_ccp_vim/train_data_v4/")
-    parser.add_argument("--test_dir", type=str, help="./notebook_results/a549_ccp_vim/test_data_v4/")
-    parser.add_argument(
-        "--out_threshold",
-        type=float,
-        default=0.6,
-        help="threshold for output mask; [0, 1] for binary logits prediction, >=1 for edt regression prediction",
-    )
-    parser.add_argument("--save_dir", type=str, default="./eval_results/")
-    parser.add_argument("--debug", dest="debug", default=False, action="store_true")
-
-    args = parser.parse_args()
-    return args
-
-
-def eval_main(cuda=True):
-    args = parse_eval_args()
-    result_dir = Path(args.save_dir) / args.name
-
-    model = CorrectSegNet.load_from_checkpoint(args.ckpt)
-    if cuda:
-        model = model.cuda()
-    # Use pytorch lightning API to load the model including hparams
-    model.eval()
-
-    train_df = pd.read_csv(os.path.join(args.train_dir, "train_data.csv"))
-
-    # TODO: refactor later regarding inappropriate file name train_data.csv
-    test_df = pd.read_csv(os.path.join(args.test_dir, "train_data.csv"))
-    train_dataset, val_dataset, test_dataset = assemble_train_test_dataset(train_df, test_df, model)
-
-    if args.debug:
-        train_dataset = torch.utils.data.Subset(train_dataset, range(10))
-        val_dataset = torch.utils.data.Subset(val_dataset, range(10))
-        test_dataset = torch.utils.data.Subset(test_dataset, range(10))
-
-    # compute metrics
-    print("[EVAL] computing metrics with threshold {}".format(args.out_threshold))
-    train_metrics = compute_metrics(train_dataset, model, out_threshold=args.out_threshold)
-    val_metrics = compute_metrics(val_dataset, model, out_threshold=args.out_threshold)
-    test_metrics = compute_metrics(test_dataset, model, out_threshold=args.out_threshold)
-
-    # save metrics
-    print("[EVAL] saving metrics")
-    os.makedirs(result_dir, exist_ok=True)
-
-    avg_train_metrics = {key: np.mean(value) for key, value in train_metrics.items()}
-    avg_val_metrics = {key: np.mean(value) for key, value in val_metrics.items()}
-    avg_test_metrics = {key: np.mean(value) for key, value in test_metrics.items()}
-
-    metrics_df = pd.DataFrame(
-        {
-            "train": pd.Series(avg_train_metrics),
-            "val": pd.Series(avg_val_metrics),
-            "test": pd.Series(avg_test_metrics),
-        }
-    )
-
-    metrics_df.to_csv(result_dir / "metrics.csv")
-    print("[EVAL] metrics done")
-
-    viz_fig_path = result_dir / "sample_viz"
-    os.makedirs(viz_fig_path, exist_ok=True)
-
-    # visualize samples
-    print("[EVAL] visualizing samples")
-    for i, sample in enumerate(tqdm.tqdm(train_dataset)):
-        viz_sample_v3(
-            sample, model, out_threshold=args.out_threshold, save_path=viz_fig_path / "sample-{}.png".format(i)
-        )
-
-    print("[EVAL] done")
-
-
 def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0.6, save_path=None):
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -292,6 +215,101 @@ def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0
 
     if save_path is not None:
         plt.savefig(save_path)
+
+
+def parse_eval_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Correct Segmentation Net Evaluation")
+    parser.add_argument("--name", type=str, help="name of the evaluation", required=True)
+    parser.add_argument("--ckpt", dest="ckpt", type=str, required=True, help="path to model checkpoint")
+    parser.add_argument("--train_dir", type=str, help="./notebook_results/a549_ccp_vim/train_data_v4/")
+    parser.add_argument("--test_dir", type=str, help="./notebook_results/a549_ccp_vim/test_data_v4/")
+    parser.add_argument(
+        "--out_threshold",
+        type=float,
+        default=0.6,
+        help="threshold for output mask; [0, 1] for binary logits prediction, >=1 for edt regression prediction",
+    )
+    parser.add_argument("--save_dir", type=str, default="./eval_results/")
+    parser.add_argument("--debug", dest="debug", default=False, action="store_true")
+    parser.add_argument("--wait_for_gpu_mem", dest="wait_for_gpu_mem", default=False, action="store_true")
+
+    args = parser.parse_args()
+    return args
+
+
+def get_cuda_free_memory():
+    """Get the free memory of the GPU in bytes"""
+    global_free, occupied = torch.cuda.mem_get_info()
+    print("free memory: %fGB" % (global_free / 1024**3))
+    print("occupied memory: %fGB" % (occupied / 1024**3))
+    return global_free
+
+
+def eval_main(cuda=True):
+    args = parse_eval_args()
+    if args.wait_for_gpu_mem and get_cuda_free_memory() < 5000 * 1024 * 1024:
+        print("free memory: %fGB" % (get_cuda_free_memory() / 1024**3))
+        print("not enough memory, sleeping for 30s ~ 60s")
+        time.sleep(30 + random.random() * 30)
+
+    result_dir = Path(args.save_dir) / args.name
+    if os.path.exists(result_dir):
+        print("[WARNING] result dir <%s> already exists, will be overwritten" % result_dir)
+
+    os.makedirs(result_dir, exist_ok=True)
+
+    model = CorrectSegNet.load_from_checkpoint(args.ckpt)
+    if cuda:
+        model = model.cuda()
+    # Use pytorch lightning API to load the model including hparams
+    model.eval()
+
+    train_df = pd.read_csv(os.path.join(args.train_dir, "train_data.csv"))
+
+    # TODO: refactor later regarding inappropriate file name train_data.csv
+    test_df = pd.read_csv(os.path.join(args.test_dir, "train_data.csv"))
+    train_dataset, val_dataset, test_dataset = assemble_train_test_dataset(train_df, test_df, model)
+
+    if args.debug:
+        train_dataset = torch.utils.data.Subset(train_dataset, range(10))
+        val_dataset = torch.utils.data.Subset(val_dataset, range(10))
+        test_dataset = torch.utils.data.Subset(test_dataset, range(10))
+
+    # compute metrics
+    print("[EVAL] computing metrics with threshold {}".format(args.out_threshold))
+    train_metrics = compute_metrics(train_dataset, model, out_threshold=args.out_threshold)
+    val_metrics = compute_metrics(val_dataset, model, out_threshold=args.out_threshold)
+    test_metrics = compute_metrics(test_dataset, model, out_threshold=args.out_threshold)
+
+    # save metrics
+    print("[EVAL] saving metrics")
+
+    avg_train_metrics = {key: np.mean(value) for key, value in train_metrics.items()}
+    avg_val_metrics = {key: np.mean(value) for key, value in val_metrics.items()}
+    avg_test_metrics = {key: np.mean(value) for key, value in test_metrics.items()}
+
+    metrics_df = pd.DataFrame(
+        {
+            "train": pd.Series(avg_train_metrics),
+            "val": pd.Series(avg_val_metrics),
+            "test": pd.Series(avg_test_metrics),
+        }
+    )
+
+    metrics_df.to_csv(result_dir / "metrics.csv")
+    print("[EVAL] metrics done")
+
+    viz_fig_path = result_dir / "sample_viz"
+    os.makedirs(viz_fig_path, exist_ok=True)
+
+    # visualize samples
+    print("[EVAL] visualizing samples")
+    for i, sample in enumerate(tqdm.tqdm(train_dataset)):
+        viz_sample_v3(
+            sample, model, out_threshold=args.out_threshold, save_path=viz_fig_path / "sample-{}.png".format(i)
+        )
+
+    print("[EVAL] done")
 
 
 if __name__ == "__main__":

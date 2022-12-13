@@ -1,4 +1,7 @@
 **/lightning_logs/**
+**/eval_results/**
+**/test_logs/**
+
 *.pth
 notebook_results
 external_repos

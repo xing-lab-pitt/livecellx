@@ -39,7 +39,7 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=30 --translation=0.2 --aug_scale="0.8,1.2" >train_out_v4_aug_medium_run1.out 2>&1 &
 
 # model 75
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=0 --translation=0 --aug_scale="1,1" --input_type=raw_aug_duplicate >train_out_v4_model74.out 2>&1 &
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=0 --translation=0 --aug_scale="1,1" --input_type=raw_aug_duplicate >train_out_v4_model75.out 2>&1 &
 
 
 # model 76
