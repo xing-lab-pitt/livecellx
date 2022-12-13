@@ -308,6 +308,9 @@ def eval_main(cuda=True):
 
     viz_fig_path = result_dir / "sample_viz"
     os.makedirs(viz_fig_path, exist_ok=True)
+    os.makedirs(viz_fig_path / "train", exist_ok=True)
+    os.makedirs(viz_fig_path / "val", exist_ok=True)
+    os.makedirs(viz_fig_path / "test", exist_ok=True)
 
     print("[EVAL] visualizing samples")
     _viz_samples(train_dataset, viz_fig_path / "train")
