@@ -299,16 +299,20 @@ def eval_main(cuda=True):
     metrics_df.to_csv(result_dir / "metrics.csv")
     print("[EVAL] metrics done")
 
+    # visualize samples
+    def _viz_samples(dataset, save_path):
+        for i, sample in enumerate(tqdm.tqdm(dataset)):
+            viz_sample_v3(
+                sample, model, out_threshold=args.out_threshold, save_path=save_path / "sample-{}.png".format(i)
+            )
+
     viz_fig_path = result_dir / "sample_viz"
     os.makedirs(viz_fig_path, exist_ok=True)
 
-    # visualize samples
     print("[EVAL] visualizing samples")
-    for i, sample in enumerate(tqdm.tqdm(train_dataset)):
-        viz_sample_v3(
-            sample, model, out_threshold=args.out_threshold, save_path=viz_fig_path / "sample-{}.png".format(i)
-        )
-
+    _viz_samples(train_dataset, viz_fig_path / "train")
+    _viz_samples(val_dataset, viz_fig_path / "val")
+    _viz_samples(test_dataset, viz_fig_path / "test")
     print("[EVAL] done")
 
 
