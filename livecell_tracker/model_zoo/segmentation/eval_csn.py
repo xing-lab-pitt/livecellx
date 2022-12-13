@@ -1,0 +1,298 @@
+import argparse
+from pathlib import Path
+import matplotlib.pyplot as plt
+import numpy as np
+
+import torch
+import torch
+import torch.utils.data
+import tqdm
+from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import TQDMProgressBar
+import pandas as pd
+import os
+
+from livecell_tracker.model_zoo.segmentation.sc_correction import CorrectSegNet
+from livecell_tracker.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
+
+
+def assemble_dataset(df: pd.DataFrame, apply_gt_seg_edt=False, exclude_raw_input_bg=False, input_type=None):
+    assert input_type is not None
+    raw_img_paths = list(df["raw"])
+    scaled_seg_mask_paths = list(df["seg"])
+    gt_mask_paths = list(df["gt"])
+    raw_seg_paths = list(df["raw_seg"])
+    scales = list(df["scale"])
+    aug_diff_img_paths = list(df["aug_diff_mask"])
+    raw_transformed_img_paths = list(df["raw_transformed_img"])
+
+    split_seed = 237
+
+    dataset = CorrectSegNetDataset(
+        raw_img_paths,
+        scaled_seg_mask_paths,
+        gt_mask_paths,
+        raw_seg_paths=raw_seg_paths,
+        scales=scales,
+        transform=None,
+        raw_transformed_img_paths=raw_transformed_img_paths,
+        aug_diff_img_paths=aug_diff_img_paths,
+        apply_gt_seg_edt=apply_gt_seg_edt,
+        exclude_raw_input_bg=exclude_raw_input_bg,
+        input_type=input_type,
+    )
+    return dataset
+
+
+def assemble_train_test_dataset(train_df, test_df, model):
+    split_seed = 237  # default seed used in our CSN paper
+
+    dataset = assemble_dataset(
+        train_df,
+        apply_gt_seg_edt=model.apply_gt_seg_edt,
+        exclude_raw_input_bg=model.exclude_raw_input_bg,
+        input_type=model.input_type,
+    )
+    train_sample_num = int(len(dataset) * 0.8)
+    val_sample_num = len(dataset) - train_sample_num
+    split_generator = torch.Generator().manual_seed(split_seed)
+    train_dataset, val_dataset = torch.utils.data.random_split(
+        dataset, [train_sample_num, val_sample_num], generator=split_generator
+    )
+
+    test_dataset = assemble_dataset(
+        test_df,
+        apply_gt_seg_edt=model.apply_gt_seg_edt,
+        exclude_raw_input_bg=model.exclude_raw_input_bg,
+        input_type=model.input_type,
+    )
+    return train_dataset, val_dataset, test_dataset
+
+
+def evaluate_sample_v3_underseg(sample: dict, model: CorrectSegNet, raw_seg=None, scale=None, out_threshold=0.6):
+    # TODO: check if cuda is available
+    out_mask = model(sample["input"].unsqueeze(0).cuda())
+    original_input_mask = sample["seg_mask"].numpy().squeeze()
+    original_input_mask = original_input_mask.astype(bool)
+    gt_seg_mask = sample["gt_mask_binary"].numpy().squeeze().astype(bool)
+
+    assert set(np.unique(gt_seg_mask).tolist()) == set([0, 1]), "gt seg mask should be binary"
+
+    # get first batch
+    out_mask = out_mask[0].cpu().detach().numpy()
+    assert out_mask.shape[0] == 3
+    combined_over_under_seg = np.zeros([3] + list(out_mask.shape[1:]))
+    combined_over_under_seg[0, out_mask[1, :] > out_threshold] = 1
+    combined_over_under_seg[1, out_mask[2, :] > out_threshold] = 1
+
+    # ignore pixels outside an area, only works for undersegmentation
+    out_mask_predicted = out_mask[0] > out_threshold
+    out_mask_predicted[original_input_mask < 0.5] = 0
+    out_mask_predicted = out_mask_predicted.astype(bool)
+
+    metrics_dict = {}
+    metrics_dict["out_mask_accuracy"] = (out_mask_predicted == gt_seg_mask).sum() / np.prod(out_mask_predicted.shape)
+    metrics_dict["original_mask_accuracy"] = (original_input_mask == gt_seg_mask).sum() / np.prod(
+        out_mask_predicted.shape
+    )
+    metrics_dict["out_mask_iou"] = (out_mask_predicted & gt_seg_mask).sum() / (out_mask_predicted | gt_seg_mask).sum()
+    metrics_dict["original_mask_iou"] = (original_input_mask & gt_seg_mask).sum() / (
+        original_input_mask | gt_seg_mask
+    ).sum()
+    return metrics_dict
+
+
+def compute_metrics(dataset, model, out_threshold=0.6):
+    train_metrics = {}
+    for i, sample in enumerate(tqdm.tqdm(dataset)):
+        # print(sample.keys())
+        single_sample_metrics = evaluate_sample_v3_underseg(sample, model, out_threshold=out_threshold)
+        for metric, value in single_sample_metrics.items():
+            if metric not in train_metrics:
+                train_metrics[metric] = []
+            train_metrics[metric].append(value)
+
+    for key in train_metrics:
+        train_metrics[key] = np.array(train_metrics[key])
+    return train_metrics
+
+
+def parse_eval_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Correct Segmentation Net Evaluation")
+    parser.add_argument("--name", type=str, help="name of the evaluation", required=True)
+    parser.add_argument("--ckpt", dest="ckpt", type=str, required=True, help="path to model checkpoint")
+    parser.add_argument("--train_dir", type=str, help="./notebook_results/a549_ccp_vim/train_data_v4/")
+    parser.add_argument("--test_dir", type=str, help="./notebook_results/a549_ccp_vim/test_data_v4/")
+    parser.add_argument(
+        "--out_threshold",
+        type=float,
+        default=0.6,
+        help="threshold for output mask; [0, 1] for binary logits prediction, >=1 for edt regression prediction",
+    )
+    parser.add_argument("--save_dir", type=str, default="./eval_results/")
+    parser.add_argument("--debug", dest="debug", default=False, action="store_true")
+
+    args = parser.parse_args()
+    return args
+
+
+def eval_main(cuda=True):
+    args = parse_eval_args()
+    result_dir = Path(args.save_dir) / args.name
+
+    model = CorrectSegNet.load_from_checkpoint(args.ckpt)
+    if cuda:
+        model = model.cuda()
+    # Use pytorch lightning API to load the model including hparams
+    model.eval()
+
+    train_df = pd.read_csv(os.path.join(args.train_dir, "train_data.csv"))
+
+    # TODO: refactor later regarding inappropriate file name train_data.csv
+    test_df = pd.read_csv(os.path.join(args.test_dir, "train_data.csv"))
+    train_dataset, val_dataset, test_dataset = assemble_train_test_dataset(train_df, test_df, model)
+
+    if args.debug:
+        train_dataset = torch.utils.data.Subset(train_dataset, range(10))
+        val_dataset = torch.utils.data.Subset(val_dataset, range(10))
+        test_dataset = torch.utils.data.Subset(test_dataset, range(10))
+
+    # compute metrics
+    print("[EVAL] computing metrics with threshold {}".format(args.out_threshold))
+    train_metrics = compute_metrics(train_dataset, model, out_threshold=args.out_threshold)
+    val_metrics = compute_metrics(val_dataset, model, out_threshold=args.out_threshold)
+    test_metrics = compute_metrics(test_dataset, model, out_threshold=args.out_threshold)
+
+    # save metrics
+    print("[EVAL] saving metrics")
+    os.makedirs(result_dir, exist_ok=True)
+
+    avg_train_metrics = {key: np.mean(value) for key, value in train_metrics.items()}
+    avg_val_metrics = {key: np.mean(value) for key, value in val_metrics.items()}
+    avg_test_metrics = {key: np.mean(value) for key, value in test_metrics.items()}
+
+    metrics_df = pd.DataFrame(
+        {
+            "train": pd.Series(avg_train_metrics),
+            "val": pd.Series(avg_val_metrics),
+            "test": pd.Series(avg_test_metrics),
+        }
+    )
+
+    metrics_df.to_csv(result_dir / "metrics.csv")
+    print("[EVAL] metrics done")
+
+    viz_fig_path = result_dir / "sample_viz"
+    os.makedirs(viz_fig_path, exist_ok=True)
+
+    # visualize samples
+    print("[EVAL] visualizing samples")
+    for i, sample in enumerate(tqdm.tqdm(train_dataset)):
+        viz_sample_v3(
+            sample, model, out_threshold=args.out_threshold, save_path=viz_fig_path / "sample-{}.png".format(i)
+        )
+
+    print("[EVAL] done")
+
+
+def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0.6, save_path=None):
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+    def add_colorbar(im, ax, fig):
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="3%", pad=0.05)
+        fig.colorbar(im, cax=cax, orientation="vertical")
+
+    out_mask = model(sample["input"].unsqueeze(0).cuda())
+    original_input_mask = sample["input"].numpy().squeeze()[2]
+    original_input_mask = original_input_mask.astype(bool)
+
+    gt_mask = sample["gt_mask"].numpy().squeeze()
+    out_mask = out_mask[0].cpu().detach().numpy()
+    fig, axes = plt.subplots(1, 12, figsize=(12 * 7, 6))
+
+    ax_idx = 0
+    ax = axes[ax_idx]
+    ax.imshow(sample["input"][0])
+    ax.set_title("input: dim0")
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    ax.imshow(sample["input"][1])
+    ax.set_title("input: dim1")
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    ax.imshow(sample["input"][2])
+    ax.set_title("input:dim2")
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    im2 = ax.imshow(out_mask[0, :])
+    ax.set_title("out0seg")
+    add_colorbar(im2, ax, fig)
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    ax.imshow(gt_mask[0, :])
+    ax.set_title("gt0 seg")
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    im4 = ax.imshow(out_mask[1, :])
+    ax.set_title("out1seg")
+    add_colorbar(im4, ax, fig)
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    im5 = ax.imshow(gt_mask[1, :])
+    add_colorbar(im5, ax, fig)
+    ax.set_title("gt1 seg")
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    im6 = ax.imshow(out_mask[2, :])
+    add_colorbar(im6, ax, fig)
+    ax.set_title("out2 seg")
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    im7 = ax.imshow(gt_mask[2, :])
+    add_colorbar(im7, ax, fig)
+    ax.set_title("gt2 seg")
+
+    combined_over_under_seg = np.zeros([3] + list(out_mask.shape[1:]))
+    combined_over_under_seg[0, out_mask[1, :] > out_threshold] = 1
+    combined_over_under_seg[1, out_mask[2, :] > out_threshold] = 1
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    im = ax.imshow(np.moveaxis(combined_over_under_seg, 0, 2))
+    ax.set_title("out(1,2), over/under seg combined")
+
+    # import matplotlib.patches as mpatches
+    # values = [-1, 0, 1]
+    # colors = [im.cmap(im.norm(value)) for value in values]
+    # patches = [mpatches.Patch(color=colors[i], label="Level {l}".format(l=values[i]) ) for i in range(len(values))]
+    # ax.legend(handles=patches, loc=2, borderaxespad=0. )
+    ax_idx += 1
+    ax = axes[ax_idx]
+    ax.imshow(out_mask[0] > out_threshold)
+    ax.set_title(f"out0 >{out_threshold} threshold")
+
+    out_mask_predicted = out_mask[0] > out_threshold
+    # ignore pixels outside an area, only works for undersegmentation
+    out_mask_predicted[original_input_mask < 0.5] = 0
+    out_mask_predicted = out_mask_predicted.astype(bool)
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    ax.imshow(out_mask_predicted)
+    ax.set_title(f"cleaned out mask prediction")
+
+    if save_path is not None:
+        plt.savefig(save_path)
+
+
+if __name__ == "__main__":
+    eval_main()
