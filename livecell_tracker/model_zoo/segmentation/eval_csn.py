@@ -2,6 +2,8 @@ import argparse
 from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
+import skimage
+import skimage.measure
 
 import torch
 import torch
@@ -77,7 +79,10 @@ def evaluate_sample_v3_underseg(sample: dict, model: CorrectSegNet, raw_seg=None
     original_input_mask = original_input_mask.astype(bool)
     gt_seg_mask = sample["gt_mask_binary"].numpy().squeeze().astype(bool)
 
-    assert set(np.unique(gt_seg_mask).tolist()) == set([0, 1]), "gt seg mask should be binary"
+    gt_label_mask = sample["gt_mask"].numpy().squeeze()
+    gt_cell_num = np.unique(gt_label_mask).shape[0]
+
+    assert set(np.unique(gt_seg_mask).tolist()) == set([0, 1])
 
     # get first batch
     out_mask = out_mask[0].cpu().detach().numpy()
@@ -91,6 +96,9 @@ def evaluate_sample_v3_underseg(sample: dict, model: CorrectSegNet, raw_seg=None
     out_mask_predicted[original_input_mask < 0.5] = 0
     out_mask_predicted = out_mask_predicted.astype(bool)
 
+    # get number of regions in a binary mask prediction
+    out_cell_count = len(skimage.measure.regionprops(skimage.measure.label(out_mask_predicted)))
+
     metrics_dict = {}
     metrics_dict["out_mask_accuracy"] = (out_mask_predicted == gt_seg_mask).sum() / np.prod(out_mask_predicted.shape)
     metrics_dict["original_mask_accuracy"] = (original_input_mask == gt_seg_mask).sum() / np.prod(
@@ -100,6 +108,11 @@ def evaluate_sample_v3_underseg(sample: dict, model: CorrectSegNet, raw_seg=None
     metrics_dict["original_mask_iou"] = (original_input_mask & gt_seg_mask).sum() / (
         original_input_mask | gt_seg_mask
     ).sum()
+    metrics_dict["out_cell_count"] = out_cell_count
+    metrics_dict["gt_cell_count"] = gt_cell_num
+    metrics_dict["out_minus_gt_count"] = out_cell_count - gt_cell_num
+    metrics_dict["abs_count_diff"] = abs(gt_cell_num - out_cell_count)
+
     return metrics_dict
 
 
