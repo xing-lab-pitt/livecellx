@@ -184,6 +184,9 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             "aug_diff_img": self.aug_diff_img_paths[idx] if self.aug_diff_img_paths else None,
         }
 
+    def get_gt_label_mask(self, idx):
+        return Image.open(self.gt_mask_paths[idx])
+
     def __len__(self):
         return len(self.raw_img_paths)
 

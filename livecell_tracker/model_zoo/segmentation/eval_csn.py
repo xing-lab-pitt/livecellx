@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from typing import Union
 import matplotlib.pyplot as plt
 import numpy as np
 import skimage
@@ -69,17 +70,18 @@ def assemble_train_test_dataset(train_df, test_df, model):
         exclude_raw_input_bg=model.exclude_raw_input_bg,
         input_type=model.input_type,
     )
-    return train_dataset, val_dataset, test_dataset
+    return train_dataset, val_dataset, test_dataset, dataset
 
 
-def evaluate_sample_v3_underseg(sample: dict, model: CorrectSegNet, raw_seg=None, scale=None, out_threshold=0.6):
-    # TODO: check if cuda is available
+def evaluate_sample_v3_underseg(
+    sample: dict, model: CorrectSegNet, raw_seg=None, scale=None, out_threshold=0.6, gt_label_mask=None
+):
     out_mask = model(sample["input"].unsqueeze(0).cuda())
     original_input_mask = sample["seg_mask"].numpy().squeeze()
     original_input_mask = original_input_mask.astype(bool)
     gt_seg_mask = sample["gt_mask_binary"].numpy().squeeze().astype(bool)
 
-    gt_label_mask = sample["gt_mask"].numpy().squeeze()
+    original_cell_count = len(skimage.measure.regionprops(skimage.measure.label(original_input_mask)))
     gt_cell_num = np.unique(gt_label_mask).shape[0]
 
     assert set(np.unique(gt_seg_mask).tolist()) == set([0, 1])
@@ -111,15 +113,29 @@ def evaluate_sample_v3_underseg(sample: dict, model: CorrectSegNet, raw_seg=None
     metrics_dict["out_cell_count"] = out_cell_count
     metrics_dict["gt_cell_count"] = gt_cell_num
     metrics_dict["out_minus_gt_count"] = out_cell_count - gt_cell_num
-    metrics_dict["abs_count_diff"] = abs(gt_cell_num - out_cell_count)
+    metrics_dict["abs_out_count_diff"] = abs(gt_cell_num - out_cell_count)
+    metrics_dict["abs_original_count_diff"] = abs(gt_cell_num - original_cell_count)
 
     return metrics_dict
 
 
-def compute_metrics(dataset, model, out_threshold=0.6):
+def compute_metrics(
+    dataset: Union[CorrectSegNetDataset, torch.utils.data.Subset],
+    model,
+    out_threshold=0.6,
+    whole_dataset: CorrectSegNetDataset = None,
+):
     train_metrics = {}
     for i, sample in enumerate(tqdm.tqdm(dataset)):
         # print(sample.keys())
+
+        if isinstance(dataset, torch.utils.data.Subset):
+            assert whole_dataset is not None, "whole_dataset must be provided when dataset is a Subset"
+            origin_idx = dataset.indices[i]
+            gt_label_mask = whole_dataset.get_gt_label_mask(origin_idx)
+        else:
+            gt_label_mask = dataset.get_gt_label_mask(i)
+
         single_sample_metrics = evaluate_sample_v3_underseg(sample, model, out_threshold=out_threshold)
         for metric, value in single_sample_metrics.items():
             if metric not in train_metrics:
@@ -281,7 +297,7 @@ def eval_main(cuda=True):
 
     # TODO: refactor later regarding inappropriate file name train_data.csv
     test_df = pd.read_csv(os.path.join(args.test_dir, "train_data.csv"))
-    train_dataset, val_dataset, test_dataset = assemble_train_test_dataset(train_df, test_df, model)
+    train_dataset, val_dataset, test_dataset, whole_dataset = assemble_train_test_dataset(train_df, test_df, model)
 
     if args.debug:
         train_dataset = torch.utils.data.Subset(train_dataset, range(10))
@@ -290,9 +306,9 @@ def eval_main(cuda=True):
 
     # compute metrics
     print("[EVAL] computing metrics with threshold {}".format(args.out_threshold))
-    train_metrics = compute_metrics(train_dataset, model, out_threshold=args.out_threshold)
-    val_metrics = compute_metrics(val_dataset, model, out_threshold=args.out_threshold)
-    test_metrics = compute_metrics(test_dataset, model, out_threshold=args.out_threshold)
+    train_metrics = compute_metrics(train_dataset, model, out_threshold=args.out_threshold, whole_dataset=whole_dataset)
+    val_metrics = compute_metrics(val_dataset, model, out_threshold=args.out_threshold, whole_dataset=whole_dataset)
+    test_metrics = compute_metrics(test_dataset, model, out_threshold=args.out_threshold, whole_dataset=None)
 
     # save metrics
     print("[EVAL] saving metrics")
