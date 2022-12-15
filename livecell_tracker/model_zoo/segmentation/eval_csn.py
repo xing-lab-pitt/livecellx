@@ -98,7 +98,7 @@ def match_label_mask_by_iou(out_label_mask, gt_label_mask, bg_label=0, match_thr
             if iou > match_threshold:
                 label_gt2out[gt_label].append(out_label)
 
-    # because it is a 2D imaging label mapping , there is no overlapping and only one region may above the sufficiently high iou threshold
+    # because it is a 2D imaging label mapping, there is no overlapping and only one region may above the sufficiently high iou threshold
     matched_num = 0
     for gt_label in label_gt2out:
         if len(label_gt2out[gt_label]) < 1:
@@ -134,9 +134,11 @@ def evaluate_sample_v3_underseg(
 
     original_input_mask = sample["seg_mask"].numpy().squeeze()
     original_input_mask = original_input_mask.astype(bool)
+    original_label_mask = skimage.measure.label(original_input_mask)
+
     gt_seg_mask = sample["gt_mask_binary"].numpy().squeeze().astype(bool)
 
-    original_cell_count = len(skimage.measure.regionprops(skimage.measure.label(original_input_mask)))
+    original_cell_count = len(np.unique(original_label_mask)) - 1  # -1 for bg
 
     assert gt_label_mask is not None, "gt_label_mask is required for undersegmentation evaluation"
     assert set(np.unique(gt_seg_mask).tolist()) == set([0, 1])
@@ -152,8 +154,11 @@ def evaluate_sample_v3_underseg(
 
     # match gt label mask with out label mask
     out_label_mask = skimage.measure.label(out_mask_predicted)
-    matched_num, out_cell_count, gt_cell_num, gt_out_iou_list = match_label_mask_by_iou(
+    out_matched_num, out_cell_count, gt_cell_num, gt_out_iou_list = match_label_mask_by_iou(
         out_label_mask, gt_label_mask, match_threshold=gt_iou_match_thresholds[0], return_iou_list=True
+    )
+    origin_matched_num, origin_cell_count, gt_cell_num, gt_origin_iou_list = match_label_mask_by_iou(
+        original_label_mask, gt_label_mask, return_iou_list=True
     )
 
     metrics_dict = {}
@@ -165,16 +170,20 @@ def evaluate_sample_v3_underseg(
     metrics_dict["original_mask_iou"] = (original_input_mask & gt_seg_mask).sum() / (
         original_input_mask | gt_seg_mask
     ).sum()
+
     metrics_dict["out_cell_count"] = out_cell_count
     metrics_dict["gt_cell_count"] = gt_cell_num
     metrics_dict["out_minus_gt_count"] = out_cell_count - gt_cell_num
     metrics_dict["abs_out_count_diff"] = abs(gt_cell_num - out_cell_count)
     metrics_dict["abs_original_count_diff"] = abs(gt_cell_num - original_cell_count)
-    metrics_dict["matched_num"] = matched_num
+    metrics_dict["matched_num"] = out_matched_num
 
     for threshold in gt_iou_match_thresholds:
-        matched_num = gt_out_iou_list[:, 2] > threshold
-        metrics_dict[f"matched_num_gt_iou_{threshold}"] = matched_num.sum()
+        _matched_num = gt_out_iou_list[:, 2] > threshold
+        metrics_dict[f"out_matched_num_gt_iou_{threshold}"] = _matched_num.sum()
+    for threshold in gt_iou_match_thresholds:
+        _matched_num = gt_origin_iou_list[:, 2] > threshold
+        metrics_dict[f"origin_matched_num_gt_origin_{threshold}"] = _matched_num.sum()
 
     # metrics_dict["gt_iou_match_threshold"] = gt_iou_match_threshold
     # metrics_dict["gt_out_iou_list"] = gt_out_iou_list
