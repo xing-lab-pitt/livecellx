@@ -38,6 +38,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         raw_img_paths: List[str],
         seg_mask_paths: List[str],
         gt_mask_paths: List[str],
+        gt_label_mask_paths: List[str],
         raw_seg_paths: List[str],
         scales: List[float],
         transform=None,
@@ -77,6 +78,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         self.raw_img_paths = raw_img_paths
         self.scaled_seg_mask_paths = seg_mask_paths
         self.gt_mask_paths = gt_mask_paths
+        self.gt_label_mask_paths = gt_label_mask_paths
         self.transform = transform
         self.raw_seg_paths = raw_seg_paths
         self.raw_transformed_img_paths = raw_transformed_img_paths
@@ -185,7 +187,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         }
 
     def get_gt_label_mask(self, idx):
-        return Image.open(self.gt_mask_paths[idx])
+        return Image.open(self.gt_label_mask_paths[idx])
 
     def __len__(self):
         return len(self.raw_img_paths)

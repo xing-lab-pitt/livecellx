@@ -29,6 +29,7 @@ def assemble_dataset(df: pd.DataFrame, apply_gt_seg_edt=False, exclude_raw_input
     scales = list(df["scale"])
     aug_diff_img_paths = list(df["aug_diff_mask"])
     raw_transformed_img_paths = list(df["raw_transformed_img"])
+    gt_label_mask_paths = list(df["gt_label_mask"])
 
     split_seed = 237
 
@@ -36,6 +37,7 @@ def assemble_dataset(df: pd.DataFrame, apply_gt_seg_edt=False, exclude_raw_input
         raw_img_paths,
         scaled_seg_mask_paths,
         gt_mask_paths,
+        gt_label_mask_paths=gt_label_mask_paths,
         raw_seg_paths=raw_seg_paths,
         scales=scales,
         transform=None,
@@ -84,8 +86,7 @@ def evaluate_sample_v3_underseg(
     original_cell_count = len(skimage.measure.regionprops(skimage.measure.label(original_input_mask)))
 
     assert gt_label_mask is not None, "gt_label_mask is required for undersegmentation evaluation"
-    gt_cell_num = np.unique(gt_label_mask).shape[0]
-
+    gt_cell_num = np.unique(gt_label_mask).shape[0] - 1  # -1 for background
     assert set(np.unique(gt_seg_mask).tolist()) == set([0, 1])
 
     # get first batch
