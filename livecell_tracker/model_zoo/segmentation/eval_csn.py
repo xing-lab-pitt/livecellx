@@ -82,6 +82,8 @@ def evaluate_sample_v3_underseg(
     gt_seg_mask = sample["gt_mask_binary"].numpy().squeeze().astype(bool)
 
     original_cell_count = len(skimage.measure.regionprops(skimage.measure.label(original_input_mask)))
+
+    assert gt_label_mask is not None, "gt_label_mask is required for undersegmentation evaluation"
     gt_cell_num = np.unique(gt_label_mask).shape[0]
 
     assert set(np.unique(gt_seg_mask).tolist()) == set([0, 1])
@@ -136,7 +138,9 @@ def compute_metrics(
         else:
             gt_label_mask = dataset.get_gt_label_mask(i)
 
-        single_sample_metrics = evaluate_sample_v3_underseg(sample, model, out_threshold=out_threshold)
+        single_sample_metrics = evaluate_sample_v3_underseg(
+            sample, model, out_threshold=out_threshold, gt_label_mask=gt_label_mask
+        )
         for metric, value in single_sample_metrics.items():
             if metric not in train_metrics:
                 train_metrics[metric] = []
@@ -261,6 +265,13 @@ def parse_eval_args() -> argparse.Namespace:
     parser.add_argument("--save_dir", type=str, default="./eval_results/")
     parser.add_argument("--debug", dest="debug", default=False, action="store_true")
     parser.add_argument("--wait_for_gpu_mem", dest="wait_for_gpu_mem", default=False, action="store_true")
+    parser.add_argument(
+        "--viz_pred",
+        dest="viz_pred",
+        default=False,
+        action="store_true",
+        help="visualize predictions and raw images, save to save_dir",
+    )
 
     args = parser.parse_args()
     return args
@@ -341,10 +352,14 @@ def eval_main(cuda=True):
     os.makedirs(viz_fig_path / "val", exist_ok=True)
     os.makedirs(viz_fig_path / "test", exist_ok=True)
 
-    print("[EVAL] visualizing samples")
-    _viz_samples(train_dataset, viz_fig_path / "train")
-    _viz_samples(val_dataset, viz_fig_path / "val")
-    _viz_samples(test_dataset, viz_fig_path / "test")
+    if args.viz_pred:
+        print("[EVAL] visualizing samples")
+        _viz_samples(train_dataset, viz_fig_path / "train")
+        _viz_samples(val_dataset, viz_fig_path / "val")
+        _viz_samples(test_dataset, viz_fig_path / "test")
+    else:
+        print("[EVAL] skip visualizing samples...")
+
     print("[EVAL] done")
 
 
