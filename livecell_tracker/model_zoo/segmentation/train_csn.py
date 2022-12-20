@@ -71,6 +71,7 @@ def main_train():
     scales = list(train_df["scale"])
     aug_diff_img_paths = list(train_df["aug_diff_mask"])
     raw_transformed_img_paths = list(train_df["raw_transformed_img"])
+    gt_label_mask_paths = list(train_df["gt_label_mask"])
 
     train_transforms = transforms.Compose(
         [
@@ -85,6 +86,7 @@ def main_train():
         raw_img_paths,
         scaled_seg_mask_paths,
         gt_mask_paths,
+        gt_label_mask_paths=gt_label_mask_paths,
         raw_seg_paths=raw_seg_paths,
         scales=scales,
         transform=train_transforms,

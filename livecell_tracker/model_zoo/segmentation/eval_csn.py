@@ -98,11 +98,13 @@ def match_label_mask_by_iou(out_label_mask, gt_label_mask, bg_label=0, match_thr
             if iou > match_threshold:
                 label_gt2out[gt_label].append(out_label)
 
-    # because it is a 2D imaging label mapping, there is no overlapping and only one region may above the sufficiently high iou threshold
+    # because it is a 2D imaging label mapping, there is no overlapping and only one region may cross sufficiently high iou thresholds
     matched_num = 0
     for gt_label in label_gt2out:
+        # no match labels
         if len(label_gt2out[gt_label]) < 1:
             continue
+        # skip if multiple out labels are matched to gt label (possibly oversegmentation)
         if len(label_gt2out[gt_label]) > 1:
             print(
                 "Warning: multiple out labels are matched to gt label, try higher match threshold?",
