@@ -121,22 +121,27 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 # compare with 75: exclude bg
 nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_aug_duplicate >train_out_v4_model93.out --exclude_raw_input_bg 2>&1 &
 
+
+# model 94
+# model 81 aug
+# compare with 79&76: use raw_duplicate instead of raw_aug_duplicate
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_duplicate --apply_gt_seg_edt --loss=MSE --model_ckpt="/home/ke/LiveCellTracker-dev/notebooks/lightning_logs/version_81/checkpoints/epoch=270-step=60704.ckpt">train_out_v4_model94.out 2>&1 &
+
+
+# model 95
+# model 82 aug
+# compare with 75
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_aug_duplicate --class-weights=1,2,2>train_out_v4_model95.out 2>&1 &
+
+# model 96
+# model 83 aug
+# compare with 82
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_aug_duplicate --class-weights=1,10,10>train_out_v4_model96.out 2>&1 &
+
 ############################################################################################################
 # draft below
 ############################################################################################################
 
-
-
-# model 81
-# compare with 79&76: use raw_duplicate instead of raw_aug_duplicate
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=0 --translation=0 --aug_scale="1,1" --input_type=raw_duplicate --apply_gt_seg_edt --loss=MSE --model_ckpt="/home/ke/LiveCellTracker-dev/notebooks/lightning_logs/version_81/checkpoints/epoch=270-step=60704.ckpt">train_out_v4_model81.out 2>&1 &
-
-# model 82
-# compare with 75
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=0 --translation=0 --aug_scale="1,1" --input_type=raw_aug_duplicate --class-weights=1,2,2>train_out_v4_model82.out 2>&1 &
-# model 83
-# compare with 82
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --kernel_size=1 --batch_size=2 --degrees=0 --translation=0 --aug_scale="1,1" --input_type=raw_aug_duplicate --class-weights=1,10,10>train_out_v4_model83.out 2>&1 &
 
 # model 86 (forgot to run)
 # compare with 82
