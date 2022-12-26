@@ -17,6 +17,13 @@ from livecell_tracker.model_zoo.segmentation.sc_correction_dataset import Correc
 def parse_args():
     parser = argparse.ArgumentParser(description="Correct Segmentation Net Training")
     parser.add_argument("--train_dir", dest="train_dir", type=str, required=True)
+    parser.add_argument(
+        "--model_version",
+        dest="model_version",
+        type=str,
+        default=None,
+        help="The model version. Used in tensorboard to save your model file and train/val/test results.",
+    )
     parser.add_argument("--kernel_size", dest="kernel_size", type=int, default=1)
     parser.add_argument("--model", dest="model_file", type=str)
     parser.add_argument("--model_ckpt", dest="model_ckpt", type=str, default=None)
@@ -121,9 +128,9 @@ def main_train():
         apply_gt_seg_edt=args.apply_gt_seg_edt,
         exclude_raw_input_bg=args.exclude_raw_input_bg,
     )
-    logger = TensorBoardLogger(save_dir=".", name="lightning_logs")
+    logger = TensorBoardLogger(save_dir=".", name="lightning_logs", version=args.version)
     if args.debug:
-        logger = TensorBoardLogger(save_dir=".", name="test_logs")
+        logger = TensorBoardLogger(save_dir=".", name="test_logs", version=args.version)
 
     trainer = Trainer(gpus=1, max_epochs=args.epochs, resume_from_checkpoint=args.model_ckpt, logger=logger)
     trainer.fit(model)
