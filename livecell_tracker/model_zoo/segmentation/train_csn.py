@@ -128,10 +128,13 @@ def main_train():
         apply_gt_seg_edt=args.apply_gt_seg_edt,
         exclude_raw_input_bg=args.exclude_raw_input_bg,
     )
-    logger = TensorBoardLogger(save_dir=".", name="lightning_logs", version=args.version)
+    logger = TensorBoardLogger(save_dir=".", name="lightning_logs", version=args.model_version)
     if args.debug:
-        logger = TensorBoardLogger(save_dir=".", name="test_logs", version=args.version)
+        logger = TensorBoardLogger(save_dir=".", name="test_logs", version=args.model_version)
 
+    print("logger save dir:", logger.save_dir)
+    print("logger subdir:", logger.sub_dir)
+    print("logger version:", logger.version)
     trainer = Trainer(gpus=1, max_epochs=args.epochs, resume_from_checkpoint=args.model_ckpt, logger=logger)
     trainer.fit(model)
 
