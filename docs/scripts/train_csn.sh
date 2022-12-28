@@ -159,6 +159,29 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 
 
 ############################################################################################################
+# for model 88-100, train another 1000 epochs
+############################################################################################################
+
+# model 101
+# model 88 resume
+# model 75 aug
+model=101
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"  --input_type=raw_aug_duplicate --model_ckpt="/home/ken67/LiveCellTracker-dev/notebooks/lightning_logs/version_88/checkpoints/epoch=999-step=224000.ckpt">train_out_v4_model"$model"_resume.out 2>&1 &
+
+# model 102 
+# model 89 resume
+# model 76 aug
+model=102
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"  --input_type=raw_aug_duplicate --apply_gt_seg_edt --loss=MSE --model_ckpt="$HOME/LiveCellTracker-dev/notebooks/lightning_logs/version_89/checkpoints/epoch=999-step=224000.ckpt" >train_out_v4_model"$model"_resume.out 2>&1 &
+
+# model 103
+# model 90 resume
+# model 77 aug
+model=103
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_duplicate --loss=CE --model_ckpt="$HOME/LiveCellTracker-dev/notebooks/lightning_logs/version_90/checkpoints/epoch=999-step=224000.ckpt" >train_out_v4_model"$model"_resume.out 2>&1 &
+
+
+############################################################################################################
 # draft below
 ############################################################################################################
 
