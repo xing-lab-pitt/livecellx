@@ -126,7 +126,7 @@ def evaluate_sample_v3_underseg(
     scale=None,
     out_threshold=0.6,
     gt_label_mask=None,
-    gt_iou_match_thresholds=[0.5, 0.8, 0.9, 0.95],
+    gt_iou_match_thresholds=[0.5, 0.8, 0.9, 0.95],  # eval on a range of thresholds
 ):
     assert len(gt_iou_match_thresholds) > 0
     out_mask = model(sample["input"].unsqueeze(0).cuda())
@@ -181,10 +181,11 @@ def evaluate_sample_v3_underseg(
     metrics_dict["matched_num"] = out_matched_num
 
     for threshold in gt_iou_match_thresholds:
-        _matched_num = gt_out_iou_list[:, 2] > threshold
+        _matched_num = gt_out_iou_list[:, 2] > threshold if len(gt_out_iou_list) > 0 else np.array([0, 0])
         metrics_dict[f"out_matched_num_gt_iou_{threshold}"] = _matched_num.sum()
+
     for threshold in gt_iou_match_thresholds:
-        _matched_num = gt_origin_iou_list[:, 2] > threshold
+        _matched_num = gt_origin_iou_list[:, 2] > threshold if len(gt_out_iou_list) > 0 else np.array([0, 0])
         metrics_dict[f"origin_matched_num_gt_origin_{threshold}"] = _matched_num.sum()
 
     # metrics_dict["gt_iou_match_threshold"] = gt_iou_match_threshold
@@ -358,7 +359,8 @@ def get_cuda_free_memory():
 
 def eval_main(cuda=True):
     args = parse_eval_args()
-    if args.wait_for_gpu_mem and get_cuda_free_memory() < 5000 * 1024 * 1024:
+    print("args:", args)
+    if args.wait_for_gpu_mem and get_cuda_free_memory() < 4000 * 1024 * 1024:
         print("free memory: %fGB" % (get_cuda_free_memory() / 1024**3))
         print("not enough memory, sleeping for 30s ~ 60s")
         time.sleep(30 + random.random() * 30)
