@@ -208,6 +208,13 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 model=107
 nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_duplicate --apply_gt_seg_edt --loss=MSE --model_ckpt="$HOME/LiveCellTracker-dev/notebooks/lightning_logs/version_94/checkpoints/epoch=999-step=224000.ckpt" > train_out_v4_model"$model"_resume.out 2>&1 &
 
+# model 108 (train on slurm cluster)
+# model 95
+# model 82 aug
+# compare with 75
+model=108
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_aug_duplicate --class-weights=1,2,2 --model_ckpt="$HOME/LiveCellTracker-dev/notebooks/lightning_logs/version_95/checkpoints/epoch=999-step=224000.ckpt"> train_out_v4_model"$model"_resume.out 2>&1 &
+
 
 ############################################################################################################
 # draft below

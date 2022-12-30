@@ -4,6 +4,9 @@ Pillow
 scikit-image
 ipympl
 
+# correction CNN training requirements
+torchmetrics==0.8.2 # DO NOT change version here, otherwise it will break the training (complaints about Accuracy())
+
 # labelme2coco requirements below
 sahi>=0.8.19
 jsonschema>=2.6.0
