@@ -180,6 +180,34 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 model=103
 nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_duplicate --loss=CE --model_ckpt="$HOME/LiveCellTracker-dev/notebooks/lightning_logs/version_90/checkpoints/epoch=999-step=224000.ckpt" >train_out_v4_model"$model"_resume.out 2>&1 &
 
+# model 104
+# model 91
+# model 78 aug
+# compare with 77: exclude bg
+model=104
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_duplicate --loss=CE --exclude_raw_input_bg --model_ckpt="$HOME/LiveCellTracker-dev/notebooks/lightning_logs/version_91/checkpoints/epoch=999-step=224000.ckpt" >train_out_v4_model"$model"_resume.out 2>&1 &
+
+# model 105
+# model 92
+# model 79 aug
+# compare with 76: exclude bg
+model=105
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_aug_duplicate --apply_gt_seg_edt --loss=MSE --exclude_raw_input_bg --model_ckpt="$HOME/LiveCellTracker-dev/notebooks/lightning_logs/version_92/checkpoints/epoch=999-step=224000.ckpt" >train_out_v4_model"$model"_resume.out 2>&1 &
+
+# model 106
+# model 93
+# model 80 aug
+# compare with 75: exclude bg
+model=106
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_aug_duplicate --model_ckpt="$HOME/LiveCellTracker-dev/notebooks/lightning_logs/version_93/checkpoints/epoch=999-step=224000.ckpt" > train_out_v4_model"$model"_resume.out 2>&1 &
+
+# model 107
+# model 94
+# model 81 aug
+# compare with 79&76: use raw_duplicate instead of raw_aug_duplicate
+model=107
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2"   --input_type=raw_duplicate --apply_gt_seg_edt --loss=MSE --model_ckpt="$HOME/LiveCellTracker-dev/notebooks/lightning_logs/version_94/checkpoints/epoch=999-step=224000.ckpt" > train_out_v4_model"$model"_resume.out 2>&1 &
+
 
 ############################################################################################################
 # draft below
