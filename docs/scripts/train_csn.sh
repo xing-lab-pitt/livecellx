@@ -217,7 +217,27 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 
 
 ############################################################################################################
-# draft below
+# start from 200: replace CE with BCE (retrain previous default arg models)
 ############################################################################################################
 
+# model 201
+# model 101
+# model 88 resume
+# model 75 aug
+model=201
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py \
+    --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" \
+    --model_version=version_$model \
+    --epochs=2000 \
+    --kernel_size=1 \
+    --batch_size=2 \
+    --degrees=180 \
+    --translation=0.5 \
+    --aug_scale="0.5,2" \
+    --input_type=raw_aug_duplicate \
+    --loss=BCE \
+    >train_out_v4_model"$model"_resume.out 2>&1 &
 
+############################################################################################################
+# draft below
+############################################################################################################
