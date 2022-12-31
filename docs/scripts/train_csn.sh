@@ -229,6 +229,14 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py \
     --loss=BCE \
     >train_out_v4_model"$model"_resume.out 2>&1 &
 
+# model 203
+# model 103
+# model 90 resume
+# model 77 aug
+model=203
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_duplicate --loss=BCE >train_out_v4_model"$model"_resume.out 2>&1 &
+
+
 ############################################################################################################
 # draft below
 ############################################################################################################
