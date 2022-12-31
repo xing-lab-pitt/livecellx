@@ -44,7 +44,7 @@ def parse_args():
     )
     parser.add_argument("--apply_gt_seg_edt", dest="apply_gt_seg_edt", default=False, action="store_true")
     parser.add_argument("--class-weights", dest="class_weights", type=str, default="1,1,1")
-    parser.add_argument("--loss", dest="loss", type=str, default="CE", choices=["CE", "MSE"])
+    parser.add_argument("--loss", dest="loss", type=str, default="CE", choices=["CE", "MSE", "BCE"])
     parser.add_argument("--exclude_raw_input_bg", dest="exclude_raw_input_bg", default=False, action="store_true")
 
     parser.add_argument("--debug", dest="debug", default=False, action="store_true")

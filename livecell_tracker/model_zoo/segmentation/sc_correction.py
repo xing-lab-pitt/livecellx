@@ -81,6 +81,9 @@ class CorrectSegNet(LightningModule):
         elif self.loss_type == "MSE":
             print(">>> Using MSE loss")
             self.loss_func = torch.nn.MSELoss()
+        elif self.loss_type == "BCE":
+            print(">>> Using BCE loss with logits loss")
+            self.loss_func = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.class_weights))
         else:
             raise NotImplementedError("Loss:%s not implemented", loss_type)
 
@@ -116,7 +119,7 @@ class CorrectSegNet(LightningModule):
         Parameters
         ----------
         output : torch.tensor
-            prediction output with shape batch size x num classes x height x width
+            prediction output with shape batch_size x num_classes x height x width
         target : torch.tensor
             _description_
 
@@ -136,6 +139,10 @@ class CorrectSegNet(LightningModule):
                 temp_output = output[:, cat_dim, ...]
                 total_loss += self.loss_func(temp_output, temp_target) * self.class_weights[cat_dim]
             return total_loss
+        elif self.loss_type == "BCE":
+            output = output.permute(0, 2, 3, 1)
+            target = target.permute(0, 2, 3, 1)
+            return self.loss_func(output, target)
 
     def training_step(self, batch, batch_idx):
         # print("[train_step] x shape: ", batch["input"].shape)
