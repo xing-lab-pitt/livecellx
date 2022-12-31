@@ -169,7 +169,7 @@ class CorrectSegNet(LightningModule):
         # print("[val acc update] predicted_labels shape: ", predicted_labels.shape)
         # self.val_accuracy.update(predicted_labels.long(), y.long())
 
-        if self.loss_type == "CE":
+        if self.loss_type == "CE" or self.loss_type == "BCE":
             self.val_accuracy.update(output, y.long())
             self.log("val_acc", self.val_accuracy, prog_bar=True, batch_size=self.batch_size)
         elif self.loss_type == "MSE":
