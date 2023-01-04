@@ -191,7 +191,7 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 # model 80 aug
 # compare with 75: exclude bg
 model=106
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --model_ckpt="$HOME/LiveCellTracker-dev/notebooks/lightning_logs/version_93/checkpoints/epoch=999-step=224000.ckpt" >train_out_v4_model"$model"_resume.out 2>&1 &
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --loss=CE --model_ckpt="$HOME/LiveCellTracker-dev/notebooks/lightning_logs/version_93/checkpoints/epoch=999-step=224000.ckpt" >train_out_v4_model"$model"_resume.out 2>&1 &
 
 # model 107
 # model 94
@@ -270,6 +270,23 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py \
 model=203
 nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_duplicate --loss=BCE >train_out_v4_model"$model"_resume.out 2>&1 &
 
+
+# model 204
+# model 104
+# model 91
+# model 78 aug
+# compare with 77: exclude bg
+model=204
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_duplicate --loss=BCE --exclude_raw_input_bg >train_out_v4_model"$model"_resume.out 2>&1 &
+
+
+# model 206
+# model 106
+# model 93
+# model 80 aug
+# compare with 75: exclude bg
+model=206
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --loss=BCE  >train_out_v4_model"$model"_resume.out 2>&1 &
 
 ############################################################################################################
 # draft below
