@@ -154,7 +154,7 @@ class CorrectSegNet(LightningModule):
         self.log("train_loss", loss, batch_size=self.batch_size)
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx, threshold=1):
         # print("[validation_step] x shape: ", batch["input"].shape)
         # print("[validation_step] y shape: ", batch["gt_mask"].shape)
 
@@ -171,9 +171,12 @@ class CorrectSegNet(LightningModule):
 
         if self.loss_type == "CE" or self.loss_type == "BCE":
             self.val_accuracy.update(output, y.long())
-            self.log("val_acc", self.val_accuracy, prog_bar=True, batch_size=self.batch_size)
         elif self.loss_type == "MSE":
-            pass
+            output[output > threshold] = 1
+            output[output <= threshold] = 0
+            self.val_accuracy.update(output.long(), y.long())
+
+        self.log("val_acc", self.val_accuracy, prog_bar=True, batch_size=self.batch_size)
         self.log("val_loss", loss, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
