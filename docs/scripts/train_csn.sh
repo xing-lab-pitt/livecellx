@@ -321,7 +321,7 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 # model 88 resume
 # model 75 aug
 model=301
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate >train_out_v5_model"$model"_resume.out 2>&1 &
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --loss=BCE>train_out_v5_model"$model"_resume.out 2>&1 &
 
 # model 302
 # model 89 resume
@@ -333,14 +333,14 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 # model 90 resume
 # model 77 aug
 model=303
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_duplicate --loss=CE >train_out_v5_model"$model"_resume.out 2>&1 &
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_duplicate --loss=BCE >train_out_v5_model"$model"_resume.out 2>&1 &
 
 # model 304
 # model 91
 # model 78 aug
 # compare with 77: exclude bg
 model=304
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_duplicate --loss=CE --exclude_raw_input_bg  >train_out_v5_model"$model"_resume.out 2>&1 &
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_duplicate --loss=BCE --exclude_raw_input_bg  >train_out_v5_model"$model"_resume.out 2>&1 &
 
 # model 305
 # model 92
@@ -354,7 +354,7 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 # model 80 aug
 # compare with 75: exclude bg
 model=306
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --loss=CE  >train_out_v5_model"$model"_resume.out 2>&1 &
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --loss=BCE  >train_out_v5_model"$model"_resume.out 2>&1 &
 
 # model 307
 # model 94
@@ -368,21 +368,21 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 # model 82 aug
 # compare with 75
 model=308
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --class-weights=1,2,2  >train_out_v5_model"$model"_resume.out 2>&1 &
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --class-weights=1,2,2  --loss=BCE >train_out_v5_model"$model"_resume.out 2>&1 &
 
 # model 309 (train on slurm cluster)
 # model 96
 # model 83 aug
 # compare with 82
 model=309
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --class-weights=1,10,10  >train_out_v5_model"$model"_resume.out 2>&1 &
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --class-weights=1,10,10  --loss=BCE > train_out_v5_model"$model"_resume.out 2>&1 &
 
 # model 310 (train on slurm cluster)
 # model 97
 # aug model 86
 # compare with 82
 model=310
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --class-weights=1,20,20 >train_out_v5_model"$model"_resume.out 2>&1 &
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --class-weights=1,20,20 --loss=BCE > train_out_v5_model"$model"_resume.out 2>&1 &
 
 # model 311 (train on slurm cluster)
 # model 98
