@@ -102,6 +102,9 @@ def dilate_or_erode_mask(cropped_mask: np.array, scale_factor):
     """
     # TODO ensure reproducibility with different values of padding
     cv's erode and dilation definition:  https://docs.opencv.org/3.4/db/df6/tutorial_erosion_dilatation.html
+    scale factor < 0: erode
+    scale factor = 0: do nothing but copy and return
+    scale factor > 0: dilate
     """
     mask_area = np.sum(cropped_mask)
     mask_radius = np.sqrt(mask_area / np.pi)

@@ -204,7 +204,7 @@ def compute_metrics(
         # print(sample.keys())
 
         if isinstance(dataset, torch.utils.data.Subset):
-            assert whole_dataset is not None, "whole_dataset must be provided when dataset is a Subset"
+            assert whole_dataset is not None, "whole_dataset must be provided when <dataset> function arg is a Subset"
             origin_idx = dataset.indices[i]
             gt_label_mask = whole_dataset.get_gt_label_mask(origin_idx)
         else:

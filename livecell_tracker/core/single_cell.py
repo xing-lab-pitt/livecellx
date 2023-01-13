@@ -28,7 +28,8 @@ class SingleCellStatic:
         dataset_dict: Dict[str, LiveCellImageDataset] = None,
         feature_dict: Dict[str, np.array] = dict(),
         contour: np.array = None,
-        meta: Dict[str, str] = None,
+        meta: Dict[str, object] = None,
+        uns: Dict[str, object] = None,
     ) -> None:
         """_summary_
 
@@ -69,6 +70,10 @@ class SingleCellStatic:
         self.meta = meta
         if self.meta is None:
             self.meta = dict()
+
+        self.uns = uns
+        if self.uns is None:
+            self.uns = dict()
 
         if dataset_dict:
             self.dataset_dict = dataset_dict
