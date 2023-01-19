@@ -25,7 +25,13 @@ check if you are using cuda (refer to pytorch docs for TPU or other devices):
 `pip install -r requirements.txt`
 
 **Detectron2**  
-Please refer to latest detectron2 documentation to install detectron2 for segmentation if you cannot build from source with the following commands.
+
+Please refer to latest detectron2 documentation to install detectron2 for segmentation if you cannot build from source with the following commands.  
+
+Prebuilt (Easier and preferred by us):  
+https://detectron2.readthedocs.io/en/latest/tutorials/install.html#install-pre-built-detectron2-linux-only
+
+Build from source:  
 https://detectron2.readthedocs.io/en/latest/tutorials/install.html#build-detectron2-from-source
 
 ```
