@@ -91,6 +91,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         self.input_type = input_type
         self.apply_gt_seg_edt = apply_gt_seg_edt
         self.exclude_raw_input_bg = exclude_raw_input_bg
+
         print("input type:", self.input_type)
         print("if apply_gt_seg_edt:", self.apply_gt_seg_edt)
 

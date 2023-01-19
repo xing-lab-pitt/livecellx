@@ -231,6 +231,11 @@ class CorrectSegNet(LightningModule):
         output = self(x)
         return output
 
+    def output_to_logits(self, out_tensor):
+        """convert output tensors to logits"""
+        out_tensor = torch.sigmoid(out_tensor)
+        return out_tensor
+
 
 def parse_csn_args():
     # Command-line flags are defined here.

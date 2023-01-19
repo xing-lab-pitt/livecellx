@@ -1,4 +1,5 @@
 import argparse
+import glob
 from pathlib import Path
 from typing import Union
 import matplotlib.pyplot as plt
@@ -130,6 +131,8 @@ def evaluate_sample_v3_underseg(
 ):
     assert len(gt_iou_match_thresholds) > 0
     out_mask = model(sample["input"].unsqueeze(0).cuda())
+    if model.loss_type == "BCE" or model.loss_type == "CE":
+        out_mask = model.output_to_logits(out_mask)
     # 1 sample -> get first batch
     out_mask = out_mask[0].cpu().detach().numpy()
     assert out_mask.shape[0] == 3
@@ -151,7 +154,8 @@ def evaluate_sample_v3_underseg(
 
     # ignore pixels outside an area, only works for undersegmentation
     out_mask_predicted = out_mask[0] > out_threshold
-    out_mask_predicted[original_input_mask < 0.5] = 0
+    # TODO: the following line does not hold for overseg case; double check with the team
+    # out_mask_predicted[original_input_mask < 0.5] = 0
     out_mask_predicted = out_mask_predicted.astype(bool)
 
     # match gt label mask with out label mask
@@ -177,16 +181,19 @@ def evaluate_sample_v3_underseg(
     metrics_dict["gt_cell_count"] = gt_cell_num
     metrics_dict["out_minus_gt_count"] = out_cell_count - gt_cell_num
     metrics_dict["abs_out_count_diff"] = abs(gt_cell_num - out_cell_count)
+    metrics_dict["abs_out_count_diff_percent"] = abs(gt_cell_num - out_cell_count) / gt_cell_num
     metrics_dict["abs_original_count_diff"] = abs(gt_cell_num - original_cell_count)
     metrics_dict["matched_num"] = out_matched_num
 
     for threshold in gt_iou_match_thresholds:
         _matched_num = gt_out_iou_list[:, 2] > threshold if len(gt_out_iou_list) > 0 else np.array([0, 0])
         metrics_dict[f"out_matched_num_gt_iou_{threshold}"] = _matched_num.sum()
+        metrics_dict[f"out_matched_num_gt_iou_{threshold}_percent"] = _matched_num.sum() / gt_cell_num
 
     for threshold in gt_iou_match_thresholds:
         _matched_num = gt_origin_iou_list[:, 2] > threshold if len(gt_out_iou_list) > 0 else np.array([0, 0])
         metrics_dict[f"origin_matched_num_gt_origin_{threshold}"] = _matched_num.sum()
+        metrics_dict[f"origin_matched_num_gt_origin_{threshold}_percent"] = _matched_num.sum() / gt_cell_num
 
     # metrics_dict["gt_iou_match_threshold"] = gt_iou_match_threshold
     # metrics_dict["gt_out_iou_list"] = gt_out_iou_list
@@ -223,7 +230,7 @@ def compute_metrics(
     return train_metrics
 
 
-def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0.6, save_path=None):
+def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0.6, save_path=None, close_on_save=True):
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     def add_colorbar(im, ax, fig):
@@ -320,14 +327,19 @@ def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0
 
     if save_path is not None:
         plt.savefig(save_path)
+    if save_path and close_on_save:
+        plt.close()
 
 
 def parse_eval_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Correct Segmentation Net Evaluation")
     parser.add_argument("--name", type=str, help="name of the evaluation", required=True)
-    parser.add_argument("--ckpt", dest="ckpt", type=str, required=True, help="path to model checkpoint")
+    parser.add_argument("--ckpt", dest="ckpt", type=str, help="path to model checkpoint", default=None)
     parser.add_argument("--train_dir", type=str, help="./notebook_results/a549_ccp_vim/train_data_v4/")
     parser.add_argument("--test_dir", type=str, help="./notebook_results/a549_ccp_vim/test_data_v4/")
+    parser.add_argument(
+        "--pl_dir", type=str, help="a directory containing  ./checkpoints/epoch=xxxx-step=xxxx.ckpt", default=None
+    )
     parser.add_argument(
         "--out_threshold",
         type=float,
@@ -369,9 +381,25 @@ def eval_main(cuda=True):
     if os.path.exists(result_dir):
         print("[WARNING] result dir <%s> already exists, will be overwritten" % result_dir)
 
+    if not (args.ckpt is None):
+        model = CorrectSegNet.load_from_checkpoint(args.ckpt)
+    elif not (args.pl_dir is None):
+        matched_files = glob.glob(os.path.join(args.pl_dir, "checkpoints", "*ckpt"))
+        # sort based on epoch=xx-step=xx.ckpt
+        matched_files = sorted(matched_files, key=lambda x: int(x.split("-")[0].split("=")[1]), reverse=True)
+        if len(matched_files) == 0:
+            raise ValueError("No checkpoint found in %s" % args.pl_dir)
+        elif len(matched_files) > 1:
+            print("More than one checkpoint found in %s" % args.pl_dir)
+            print("Using the first one: %s" % matched_files[0])
+        ckpt_path = matched_files[0]
+        model = CorrectSegNet.load_from_checkpoint(
+            ckpt_path,
+        )
+    else:
+        raise ValueError("Either ckpt or pl_dir must be specified.")
     os.makedirs(result_dir, exist_ok=True)
 
-    model = CorrectSegNet.load_from_checkpoint(args.ckpt)
     if cuda:
         model = model.cuda()
     # Use pytorch lightning API to load the model including hparams
