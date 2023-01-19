@@ -319,28 +319,28 @@ class SingleCellStatic:
     def segment_by_cellpose(self):
         pass
 
-    def show(self, ax: plt.Axes = None, **kwargs):
+    def show(self, padding=0, ax: plt.Axes = None, **kwargs):
         if ax is None:
             ax = plt.gca()
-        ax.imshow(self.get_img_crop(), **kwargs)
+        ax.imshow(self.get_img_crop(padding=padding), **kwargs)
         return ax
 
-    def show_mask(self, ax: plt.Axes = None, **kwargs):
+    def show_mask(self, padding=0, ax: plt.Axes = None, **kwargs):
         if ax is None:
             ax = plt.gca()
-        ax.imshow(self.get_mask_crop(), **kwargs)
+        ax.imshow(self.get_mask_crop(padding=padding), **kwargs)
         return ax
 
-    def show_contour_mask(self, ax: plt.Axes = None, crop=True, **kwargs):
+    def show_contour_mask(self, padding=0, ax: plt.Axes = None, crop=True, **kwargs):
         if ax is None:
             ax = plt.gca()
-        ax.imshow(self.get_contour_mask(crop=crop), **kwargs)
+        ax.imshow(self.get_contour_mask(crop=crop, padding=padding), **kwargs)
         return ax
 
-    def show_contour_img(self, ax: plt.Axes = None, crop=True, **kwargs):
+    def show_contour_img(self, padding=0, ax: plt.Axes = None, crop=True, **kwargs):
         if ax is None:
             ax = plt.gca()
-        ax.imshow(self.get_contour_img(crop=crop), **kwargs)
+        ax.imshow(self.get_contour_img(crop=crop, padding=padding), **kwargs)
         return ax
 
 
