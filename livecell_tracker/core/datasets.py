@@ -74,6 +74,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self.read_img_url_func = read_img_url_func
         self.index_by_time = index_by_time
 
+        # force posix path if dir_path is passed in
         if isinstance(dir_path, str):
             # dir_path = Path(dir_path)
             dir_path = PurePosixPath(dir_path)
@@ -82,8 +83,10 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
 
         self.data_dir_path = dir_path
         self.ext = ext
+
         if time2url is None:
             self.update_time2url_from_dir_path()
+
         elif isinstance(time2url, list):
             self.time2url = {i: path for i, path in enumerate(time2url)}
         else:
@@ -282,6 +285,22 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         if return_path_and_time:
             return self.get_img_by_time(found_time), found_url, found_time
         return self.get_img_by_time(found_time)
+
+
+class SingleImageDataset(LiveCellImageDataset):
+    DEFAULT_TIME = 0
+
+    def __init__(self, img, name=None, ext=".png"):
+        super().__init__(
+            time2url={SingleImageDataset.DEFAULT_TIME: "InMemory"},
+            name=name,
+            ext=ext,
+            read_img_url_func=self.read_img_url_func,
+        )
+        self.img = img
+
+    def read_img_url_func(self, url):
+        return self.img
 
 
 # TODO

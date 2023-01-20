@@ -7,6 +7,7 @@ import numpy as np
 from matplotlib.animation import FuncAnimation
 import pandas as pd
 from skimage.measure._regionprops import RegionProperties
+from skimage.measure import regionprops
 
 from livecell_tracker.core.datasets import LiveCellImageDataset
 
@@ -46,6 +47,8 @@ class SingleCellStatic:
             _description_, by default None
         feature_dict : dict, optional
             _description_, by default {}
+        contour:
+            an array of contour coordinates [(x1, y1), (x2, y2), ...)], in a WHOLE image (not in a cropped image)
         """
         self.regionprops = regionprops
         self.timeframe = timeframe
@@ -89,6 +92,16 @@ class SingleCellStatic:
         if self.mask_dataset is None and "mask" in self.dataset_dict:
             self.mask_dataset = self.dataset_dict["mask"]
 
+    def compute_regionprops(self):
+        props = regionprops(label_image=self.get_contour_mask().astype(int), intensity_image=self.get_contour_img())
+
+        # TODO: multiple cell parts? WARNING in the future
+        assert len(props) == 1, "contour mask should contain only one region"
+        return props[0]
+
+    def get_contour(self) -> np.array:
+        return np.copy(self.contour)
+
     def get_img(self):
         return self.img_dataset.get_img_by_time(self.timeframe)
 
@@ -98,6 +111,8 @@ class SingleCellStatic:
         return self.mask_dataset.get_img_by_time(self.timeframe)
 
     def get_bbox(self) -> np.array:
+        if self.bbox is None:
+            self.update_bbox()
         return np.array(self.bbox)
 
     @staticmethod
@@ -126,23 +141,19 @@ class SingleCellStatic:
         #     self.mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask())
         return SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask(), **kwargs)
 
-    def update_bbox(self, bbox):
+    def update_bbox(self, bbox=None):
+        if bbox is None:
+            bbox = self.compute_regionprops().bbox
         self.bbox = bbox
-        self.img_crop = None
-        self.mask_crop = None
+        # TODO: enable in RAM mode
+        # self.img_crop = None
+        # self.mask_crop = None
 
     def update_contour(self, contour, update_bbox=True):
         self.contour = np.array(contour)
         # TODO: 3D?
         if update_bbox:
-            self.bbox = np.array(
-                [
-                    np.min(self.contour[:, 0]),
-                    np.min(self.contour[:, 1]),
-                    np.max(self.contour[:, 0]),
-                    np.max(self.contour[:, 1]),
-                ]
-            )
+            self.bbox = self.get_bbox_from_contour(self.contour)
 
     def to_json_dict(self, dataset_json=True):
         """returns a dict that can be converted to json"""
@@ -219,7 +230,9 @@ class SingleCellStatic:
             with open(path, "w+") as f:
                 json.dump(self.to_json_dict(), f)
 
-    def get_contour_coords_on_crop(self, bbox, padding=0):
+    def get_contour_coords_on_crop(self, bbox=None, padding=0):
+        if bbox is None:
+            bbox = self.get_bbox()
         xs = self.contour[:, 0] - max(0, bbox[0] - padding)
         ys = self.contour[:, 1] - max(0, bbox[1] - padding)
         return np.array([xs, ys]).T
@@ -256,20 +269,39 @@ class SingleCellStatic:
         else:
             return res_mask
 
-    def get_contour_mask(self, padding=0, crop=True) -> np.array:
-        """if contour points are not closed, use this function to fill the polygon points in self.contour"""
+    @staticmethod
+    def get_bbox_from_contour(contour):
+        """get the bounding box of a contour"""
+        return np.array(
+            [np.min(contour[:, 0]), np.min(contour[:, 1]), np.max(contour[:, 0]) + 1, np.max(contour[:, 1] + 1)]
+        )
+
+    @staticmethod
+    def gen_contour_mask(contour, img, focus_contour=False, bbox=None, padding=0, crop=True) -> np.array:
         from skimage.draw import line, polygon
 
-        contour = self.contour
-        res_mask = np.zeros(self.get_img().shape, dtype=bool)
+        if bbox is None:
+            if focus_contour:
+                bbox = SingleCellStatic.get_bbox_from_contour(contour)
+            else:
+                bbox = [0, 0, img.shape[0], img.shape[1]]
+
+        res_mask = np.zeros(img.shape, dtype=bool)
         rows, cols = polygon(contour[:, 0], contour[:, 1])
         res_mask[rows, cols] = 255
-        res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, res_mask, padding=padding)
+        res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox, res_mask, padding=padding)
         if crop:
-            res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, res_mask, padding=padding)
+            res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox, res_mask, padding=padding)
             return res_mask_crop
         else:
             return res_mask
+
+    def get_contour_mask(self, padding=0, crop=True) -> np.array:
+        """if contour points are not closed, use this function to fill the polygon points in self.contour"""
+        contour = self.contour
+        return SingleCellStatic.gen_contour_mask(
+            contour, self.get_img(), bbox=self.get_bbox(), padding=padding, crop=crop
+        )
 
     def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.array:
         """return a contour image with background set to background_val"""
@@ -341,6 +373,12 @@ class SingleCellStatic:
         if ax is None:
             ax = plt.gca()
         ax.imshow(self.get_contour_img(crop=crop, padding=padding), **kwargs)
+        return ax
+
+    def show_whole_img(self, ax: plt.Axes = None, **kwargs):
+        if ax is None:
+            ax = plt.gca()
+        ax.imshow(self.get_img(), **kwargs)
         return ax
 
 
