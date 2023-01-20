@@ -75,6 +75,16 @@ def coco_to_sc(coco_data: COCO) -> List[SingleCellStatic]:
             "img_id": img_id,
             "path": path,
         }
+        assert contour[:, 0].min() >= 0, "negative row contour index"
+        assert contour[:, 1].min() >= 0, "negative column contour index"
+        # fix the bounding box
+        # TODO: add warnings for two branches below
+        if contour[:, 0].max() >= bbox[2]:
+            bbox[2] = contour[:, 0].max() + 1
+        if contour[:, 1].max() >= bbox[3]:
+            bbox[3] = contour[:, 1].max() + 1
+        assert contour[:, 0].max() < bbox[2], "row index exceeds the bounding box"
+        assert contour[:, 1].max() < bbox[3], "column index exceeds the bounding box"
         sc = SingleCellStatic(timeframe=img_id, bbox=bbox, contour=contour, meta=meta, img_dataset=dataset)
         sc_list.append(sc)
     return sc_list
