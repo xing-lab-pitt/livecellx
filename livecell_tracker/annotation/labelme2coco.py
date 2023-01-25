@@ -66,7 +66,9 @@ def get_coco_from_labelme_folder(
             image_path = json_path.replace(".json", "." + image_file_ext)
 
         image_path = str(Path(image_path).as_posix())
+        print("original json annotation path: ", json_path)
         print("loading image from:", image_path)
+       
         return Image.open(image_path), image_path
 
     # parse labelme annotations
