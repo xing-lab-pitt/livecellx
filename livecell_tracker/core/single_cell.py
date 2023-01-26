@@ -277,16 +277,24 @@ class SingleCellStatic:
         )
 
     @staticmethod
-    def gen_contour_mask(contour, img, focus_contour=False, bbox=None, padding=0, crop=True) -> np.array:
+    def gen_contour_mask(
+        contour, img=None, shape=None, focus_contour=False, bbox=None, padding=0, crop=True
+    ) -> np.array:
         from skimage.draw import line, polygon
 
+        assert img is not None or shape is not None, "either img or shape must be provided"
         if bbox is None:
             if focus_contour:
                 bbox = SingleCellStatic.get_bbox_from_contour(contour)
             else:
                 bbox = [0, 0, img.shape[0], img.shape[1]]
 
-        res_mask = np.zeros(img.shape, dtype=bool)
+        if shape is None:
+            res_shape = img.shape
+        else:
+            res_shape = shape
+
+        res_mask = np.zeros(res_shape, dtype=bool)
         rows, cols = polygon(contour[:, 0], contour[:, 1])
         res_mask[rows, cols] = 255
         res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox, res_mask, padding=padding)
@@ -380,6 +388,11 @@ class SingleCellStatic:
             ax = plt.gca()
         ax.imshow(self.get_img(), **kwargs)
         return ax
+
+    def copy(self):
+        import copy
+
+        return copy.copy(self)
 
 
 class SingleCellTrajectory:
