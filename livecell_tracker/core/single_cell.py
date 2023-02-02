@@ -99,6 +99,9 @@ class SingleCellStatic:
         assert len(props) == 1, "contour mask should contain only one region"
         return props[0]
 
+    def update_regionprops(self):
+        self.regionprops = self.compute_regionprops()
+
     def get_contour(self) -> np.array:
         return np.copy(self.contour)
 
