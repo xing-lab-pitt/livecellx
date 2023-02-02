@@ -300,7 +300,7 @@ class SingleImageDataset(LiveCellImageDataset):
         self.img = img
 
     def read_img_url_func(self, url):
-        return self.img
+        return self.img.copy()
 
 
 # TODO

@@ -145,7 +145,9 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             raise NotImplementedError
 
         if self.exclude_raw_input_bg:
-            bg_mask = augmented_raw_img == 0
+            # Note that the augmented transformed image has all -1 values for pixels outside the cell
+            # bg_mask = augmented_raw_img <= 0
+            bg_mask = augmented_raw_transformed_img <= 0
             input_img[:, bg_mask] = 0
 
         input_img = input_img.float()
