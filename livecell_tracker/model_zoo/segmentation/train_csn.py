@@ -48,6 +48,14 @@ def parse_args():
     parser.add_argument("--exclude_raw_input_bg", dest="exclude_raw_input_bg", default=False, action="store_true")
 
     parser.add_argument("--debug", dest="debug", default=False, action="store_true")
+    parser.add_argument(
+        "--source",
+        dest="source",
+        type=str,
+        choices=["all", "underseg-all", "overseg-all"],
+        help="The source of the data to train on. Default is to use all data. <underseg-all> means using both synthetic and real underseg datasets; similar for <overseg-all>",
+        default="all",
+    )
     args = parser.parse_args()
 
     # convert string to list
@@ -66,6 +74,19 @@ def main_train():
     train_df = pd.read_csv(train_csv)
     print("pd df shape:", train_df.shape)
     print("df samples:", train_df[:2])
+    if args.source == "all":
+        print("Using all data")
+        pass
+    elif args.source == "underseg-all":
+        print("Using all underseg data")
+        underseg_cols = ["synthetic_underseg_overlap", "real_underseg_cases"]
+        indexer = train_df["subdir"] == underseg_cols[0]
+        for col in underseg_cols[1:]:
+            indexer = indexer | (train_df["subdir"] == col)
+            assert (train_df["subdir"] == col).sum() > 0, f"no data found in train_df for {col}"
+
+        train_df = train_df[indexer]
+        print("after filtering by underseg cases, df shape:", train_df.shape)
 
     # augmentation params
     translation_range = (args.translation, args.translation)
