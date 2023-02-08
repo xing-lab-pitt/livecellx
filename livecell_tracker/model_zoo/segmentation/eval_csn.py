@@ -317,7 +317,7 @@ def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0
 
     out_mask_predicted = out_mask[0] > out_threshold
     # ignore pixels outside an area, only works for undersegmentation
-    out_mask_predicted[original_input_mask < 0.5] = 0
+    # out_mask_predicted[original_input_mask < 0.5] = 0
     out_mask_predicted = out_mask_predicted.astype(bool)
 
     ax_idx += 1
@@ -356,6 +356,8 @@ def parse_eval_args() -> argparse.Namespace:
         action="store_true",
         help="visualize predictions and raw images, save to save_dir",
     )
+    parser.add_argument("--max_train_samples", type=int, default=None)
+    parser.add_argument("--max_test_samples", type=int, default=None)
 
     args = parser.parse_args()
     return args
@@ -391,7 +393,7 @@ def eval_main(cuda=True):
             raise ValueError("No checkpoint found in %s" % args.pl_dir)
         elif len(matched_files) > 1:
             print("More than one checkpoint found in %s" % args.pl_dir)
-            print("Using the first one: %s" % matched_files[0])
+            print("Using the one with most trained: %s" % matched_files[0])
         ckpt_path = matched_files[0]
         model = CorrectSegNet.load_from_checkpoint(
             ckpt_path,
@@ -409,6 +411,10 @@ def eval_main(cuda=True):
 
     # TODO: refactor later regarding inappropriate file name train_data.csv
     test_df = pd.read_csv(os.path.join(args.test_dir, "train_data.csv"))
+    if args.max_train_samples is not None:
+        train_df = train_df.iloc[: args.max_train_samples]
+    if args.max_test_samples is not None:
+        test_df = test_df.iloc[: args.max_test_samples]
     train_dataset, val_dataset, test_dataset, whole_dataset = assemble_train_test_dataset(train_df, test_df, model)
 
     if args.debug:

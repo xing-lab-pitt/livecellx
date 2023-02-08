@@ -93,7 +93,9 @@ class SingleCellStatic:
             self.mask_dataset = self.dataset_dict["mask"]
 
     def compute_regionprops(self):
-        props = regionprops(label_image=self.get_contour_mask().astype(int), intensity_image=self.get_contour_img())
+        props = regionprops(
+            label_image=self.get_contour_mask(crop=True).astype(int), intensity_image=self.get_contour_img(crop=True)
+        )
 
         # TODO: multiple cell parts? WARNING in the future
         assert len(props) == 1, "contour mask should contain only one region"
@@ -145,9 +147,11 @@ class SingleCellStatic:
         return SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask(), **kwargs)
 
     def update_bbox(self, bbox=None):
-        if bbox is None:
-            bbox = self.compute_regionprops().bbox
-        self.bbox = bbox
+        if bbox is None and self.contour is not None:
+            self.bbox = self.get_bbox_from_contour(self.contour)
+        else:
+            self.update_contour(self.contour, update_bbox=True)
+
         # TODO: enable in RAM mode
         # self.img_crop = None
         # self.mask_crop = None
@@ -273,11 +277,11 @@ class SingleCellStatic:
             return res_mask
 
     @staticmethod
-    def get_bbox_from_contour(contour):
+    def get_bbox_from_contour(contour, dtype=int):
         """get the bounding box of a contour"""
         return np.array(
             [np.min(contour[:, 0]), np.min(contour[:, 1]), np.max(contour[:, 0]) + 1, np.max(contour[:, 1] + 1)]
-        )
+        ).astype(dtype)
 
     @staticmethod
     def gen_contour_mask(
@@ -391,6 +395,11 @@ class SingleCellStatic:
             ax = plt.gca()
         ax.imshow(self.get_img(), **kwargs)
         return ax
+
+    def show_whole_mask(self, ax: plt.Axes = None, **kwargs):
+        if ax is None:
+            ax = plt.gca()
+        ax.imshow(self.get_mask(), **kwargs)
 
     def copy(self):
         import copy
