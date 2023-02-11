@@ -25,14 +25,14 @@ def get_contours_from_pred_masks(instance_pred_masks):
 
 
 # TODO: docs
-def match_mask_labels_by_iou(seg_mask, gt_mask, bg_label=0, return_all=False):
+def match_mask_labels_by_iou(seg_label_mask, gt_label_mask, bg_label=0, return_all=False):
     """compute the similarity between ground truth mask and segmentation mask by intersection over union
 
     Parameters
     ----------
-    seg_mask : _type_
+    seg_label_mask : _type_
         _description_
-    gt_mask : _type_
+    gt_label_mask : _type_
         _description_
     bg_label : int, optional
         _description_, by default 0
@@ -45,11 +45,11 @@ def match_mask_labels_by_iou(seg_mask, gt_mask, bg_label=0, return_all=False):
     gt2seg_map = {}
     all_gt2seg_iou__map = {}
     # gets all the unique labels in the labeled_seg_mask and gtly_curated_mask
-    seg_labels = np.unique(seg_mask)
-    gt_labels = np.unique(gt_mask)
+    seg_labels = np.unique(seg_label_mask)
+    gt_labels = np.unique(gt_label_mask)
 
-    temp_seg_mask = seg_mask.copy()
-    temp_gt_mask = gt_mask.copy()
+    temp_seg_mask = seg_label_mask.copy()
+    temp_gt_mask = gt_label_mask.copy()
 
     for gt_label in gt_labels:
         if gt_label == bg_label:
@@ -57,7 +57,7 @@ def match_mask_labels_by_iou(seg_mask, gt_mask, bg_label=0, return_all=False):
         gt_label_key = gt_label
         all_gt2seg_iou__map[gt_label_key] = {}
         gt2seg_map[gt_label_key] = {}
-        temp_gt_mask = gt_mask.copy()
+        temp_gt_mask = gt_label_mask.copy()
         # isolates the current cell in the temp gtly_curated_mask and gets its pixels to 1
         temp_gt_mask[temp_gt_mask != gt_label] = 0
         temp_gt_mask[temp_gt_mask != 0] = 1
@@ -66,7 +66,7 @@ def match_mask_labels_by_iou(seg_mask, gt_mask, bg_label=0, return_all=False):
         for seg_label in seg_labels:
             if seg_label == bg_label:
                 continue
-            temp_seg_mask = seg_mask.copy()
+            temp_seg_mask = seg_label_mask.copy()
 
             # isolate the current cell in the temp_seg_mask and set its pixels to 1
             temp_seg_mask[temp_seg_mask != seg_label] = 0
@@ -78,12 +78,16 @@ def match_mask_labels_by_iou(seg_mask, gt_mask, bg_label=0, return_all=False):
             iou = intersection_area / union_area
             io_gt = intersection_area / temp_gt_mask.sum()
             io_seg = intersection_area / temp_seg_mask.sum()
-            all_gt2seg_iou__map[gt_label_key] = {
-                "seg_label": seg_label,
-                "iou": iou,
-                "io_gt": io_gt,
-                "io_seg": io_seg,
-            }
+            if gt_label_key not in all_gt2seg_iou__map:
+                all_gt2seg_iou__map[gt_label_key] = []
+            all_gt2seg_iou__map[gt_label_key].append(
+                {
+                    "seg_label": seg_label,
+                    "iou": iou,
+                    "io_gt": io_gt,
+                    "io_seg": io_seg,
+                }
+            )
 
             if iou > best_iou:
                 best_iou = iou

@@ -228,7 +228,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         img = self.read_img_url_func(self.time2url[time])
         return img
 
-    def get_img_by_time(self, time):
+    def get_img_by_time(self, time) -> np.array:
         """Get an image by time"""
         return self.read_img_url_func(self.time2url[time])
 

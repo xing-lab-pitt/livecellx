@@ -101,6 +101,20 @@ class SingleCellStatic:
         assert len(props) == 1, "contour mask should contain only one region"
         return props[0]
 
+    def compute_overlap_mask(self, other_cell: "SingleCellStatic"):
+        mask = self.get_mask().astype(bool)
+        return np.logical_and(mask, other_cell.get_mask().astype(bool))
+
+    def compute_overlap_percent(self, other_cell: "SingleCellStatic"):
+        mask = self.get_mask().astype(bool)
+        overlap_mask = self.compute_overlap_mask(other_cell)
+        return np.sum(overlap_mask) / np.sum(mask)
+
+    def compute_iou(self, other_cell: "SingleCellStatic"):
+        mask = self.get_mask().astype(bool)
+        overlap_mask = self.compute_overlap_mask(other_cell)
+        return np.sum(overlap_mask) / (np.sum(mask) + np.sum(other_cell.get_mask().astype(bool)) - np.sum(overlap_mask))
+
     def update_regionprops(self):
         self.regionprops = self.compute_regionprops()
 
@@ -113,7 +127,7 @@ class SingleCellStatic:
     def get_mask(self):
         if self.mask_dataset is None:
             raise ValueError("mask dataset is None")
-        return self.mask_dataset.get_img_by_time(self.timeframe)
+        return self.mask_dataset.get_img_by_time(self.timeframe).astype(bool)
 
     def get_bbox(self) -> np.array:
         if self.bbox is None:
@@ -366,16 +380,22 @@ class SingleCellStatic:
     def segment_by_cellpose(self):
         pass
 
-    def show(self, padding=0, ax: plt.Axes = None, **kwargs):
+    def show(self, crop=False, padding=0, ax: plt.Axes = None, **kwargs):
         if ax is None:
             ax = plt.gca()
-        ax.imshow(self.get_img_crop(padding=padding), **kwargs)
+        if crop:
+            ax.imshow(self.get_img_crop(padding=padding), **kwargs)
+        else:
+            ax.imshow(self.get_img(), **kwargs)
         return ax
 
-    def show_mask(self, padding=0, ax: plt.Axes = None, **kwargs):
+    def show_mask(self, crop=False, padding=0, ax: plt.Axes = None, **kwargs):
         if ax is None:
             ax = plt.gca()
-        ax.imshow(self.get_mask_crop(padding=padding), **kwargs)
+        if crop:
+            ax.imshow(self.get_mask_crop(padding=padding), **kwargs)
+        else:
+            ax.imshow(self.get_mask(), **kwargs)
         return ax
 
     def show_contour_mask(self, padding=0, ax: plt.Axes = None, crop=True, **kwargs):
