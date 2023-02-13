@@ -20,6 +20,8 @@ from torch.utils import data
 from livecell_tracker.core.datasets import LiveCellImageDataset
 from livecell_tracker.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
 
+TEST_LOADER_IN_VAL_LOADER_LIST_IDX = 1
+
 
 class CorrectSegNet(LightningModule):
     def __init__(
@@ -32,9 +34,9 @@ class CorrectSegNet(LightningModule):
         train_input_paths=None,
         train_transforms=None,
         seed=99,
-        train_dataset=None,
-        val_dataset=None,
-        test_dataset=None,
+        train_dataset: CorrectSegNetDataset = None,
+        val_dataset: CorrectSegNetDataset = None,
+        test_dataset: CorrectSegNetDataset = None,
         kernel_size=(1, 1),
         num_classes=3,
         loss_type="CE",
@@ -78,15 +80,19 @@ class CorrectSegNet(LightningModule):
         if self.loss_type == "CE":
             print(">>> Using CE loss, weights:", self.class_weights)
             self.loss_func = torch.nn.CrossEntropyLoss(weight=torch.tensor(self.class_weights))
+            self.threshold = 0
         elif self.loss_type == "MSE":
             print(">>> Using MSE loss")
             self.loss_func = torch.nn.MSELoss()
+            self.threshold = 1  # edt dist
         elif self.loss_type == "BCE":
             print(">>> Using BCE loss with logits loss")
             self.loss_func = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.class_weights))
+            self.threshold = 0
         else:
             raise NotImplementedError("Loss:%s not implemented", loss_type)
 
+        print(">>> Based on loss type, training output threshold: ", self.threshold)
         self.learning_rate = lr
         self.batch_size = batch_size
 
@@ -94,6 +100,7 @@ class CorrectSegNet(LightningModule):
         self.num_workers = num_workers
         self.train_input_paths = train_input_paths
         self.train_transforms = train_transforms
+        self.train_accuracy = Accuracy()
         self.val_accuracy = Accuracy()
         self.test_accuracy = Accuracy()
 
@@ -152,12 +159,33 @@ class CorrectSegNet(LightningModule):
         loss = self.compute_loss(output, y)
         predicted_labels = torch.argmax(output, dim=1)
         self.log("train_loss", loss, batch_size=self.batch_size)
+
+        # compute on subdirs
+        subdir_set = self.train_dataset.subdir_set
+        batch_subdirs = np.array([self.train_dataset.get_subdir(idx.item()) for idx in batch["idx"]])
+        bin_output = self.compute_bin_output(output)
+        acc = self.train_accuracy(bin_output.long(), y.long())
+        self.log("train_acc", acc, prog_bar=True)
+
+        for subdir in subdir_set:
+            if not (subdir in batch_subdirs):
+                continue
+            batched_loss = self.compute_loss(output[batch_subdirs == subdir], y[batch_subdirs == subdir])
+            # subdir_loss_map[subdir] = loss[list(batch_subdirs == subdir)].mean()
+            self.log(f"train_loss_{subdir}", batched_loss, prog_bar=True)
+            batched_acc = self.val_accuracy(
+                bin_output[batch_subdirs == subdir].long(), y[batch_subdirs == subdir].long()
+            )
+            self.log(f"train_acc_{subdir}", batched_acc, prog_bar=True)
         return loss
 
-    def validation_step(self, batch, batch_idx, threshold=1):
+    def validation_step(self, batch, batch_idx, dataloader_idx):
         # print("[validation_step] x shape: ", batch["input"].shape)
         # print("[validation_step] y shape: ", batch["gt_mask"].shape)
-
+        cur_loader = self.val_loaders[dataloader_idx]
+        if dataloader_idx == TEST_LOADER_IN_VAL_LOADER_LIST_IDX:
+            self.test_step(batch, batch_idx)
+            return
         x, y = batch["input"], batch["gt_mask"]
         output = self(x)
         loss = self.compute_loss(output, y)
@@ -168,26 +196,43 @@ class CorrectSegNet(LightningModule):
         # predicted_labels = torch.argmax(output, dim=1)
         # print("[val acc update] predicted_labels shape: ", predicted_labels.shape)
         # self.val_accuracy.update(predicted_labels.long(), y.long())
-
-        if self.loss_type == "CE" or self.loss_type == "BCE":
-            self.val_accuracy.update(output, y.long())
-        elif self.loss_type == "MSE":
-            output[output > threshold] = 1
-            output[output <= threshold] = 0
-            self.val_accuracy.update(output.long(), y.long())
-
-        self.log("val_acc", self.val_accuracy, prog_bar=True, batch_size=self.batch_size)
+        bin_output = self.compute_bin_output(output)
+        acc = self.val_accuracy(bin_output.long(), y.long())
+        self.log("val_acc", acc, prog_bar=True, batch_size=self.batch_size)
         self.log("val_loss", loss, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
         x, y = batch["input"], batch["gt_mask"]
-
         output = self(x)
-        loss = self.loss_func(output, y)
-        self.test_accuracy.update(output, y.long())
-
+        loss = self.compute_loss(output, y)
         self.log("test_loss", loss, prog_bar=True)
-        self.log("test_acc", self.test_accuracy, prog_bar=True, batch_size=self.batch_size)
+        bin_output = self.compute_bin_output(output)
+        # subset test loss and acc according to self.subdirs
+        subdir_set = self.test_dataset.subdir_set
+        batch_subdirs = np.array([self.test_dataset.get_subdir(idx.item()) for idx in batch["idx"]])
+        for subdir in subdir_set:
+            if not (subdir in batch_subdirs):
+                continue
+            batched_loss = self.compute_loss(output[batch_subdirs == subdir], y[batch_subdirs == subdir])
+            # subdir_loss_map[subdir] = loss[list(batch_subdirs == subdir)].mean()
+            self.log(f"test_loss_{subdir}", batched_loss, prog_bar=True)
+            batched_acc = self.val_accuracy(
+                bin_output[batch_subdirs == subdir].long(), y[batch_subdirs == subdir].long()
+            )
+            self.log(f"test_acc_{subdir}", batched_acc, prog_bar=True)
+
+    def compute_bin_output(self, output):
+        output = output.clone()  # avoid inplace operation during training
+        if self.loss_type == "CE" or self.loss_type == "BCE":
+            # take sigmoid
+            sigmoid_output = torch.sigmoid(output)
+            output[output > self.threshold] = 1
+            output[output <= self.threshold] = 0
+            return sigmoid_output
+        elif self.loss_type == "MSE":
+            output[output > self.threshold] = 1
+            output[output <= self.threshold] = 0
+            return output
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
@@ -208,13 +253,17 @@ class CorrectSegNet(LightningModule):
         )
 
     def val_dataloader(self):
-        return DataLoader(
-            self.val_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            generator=self.generator,
-        )
+        self.val_loaders = [
+            DataLoader(
+                self.val_dataset,
+                batch_size=self.batch_size,
+                shuffle=False,
+                num_workers=self.num_workers,
+                generator=self.generator,
+            ),
+            self.test_dataloader(),
+        ]
+        return self.val_loaders
 
     def test_dataloader(self):
         return DataLoader(

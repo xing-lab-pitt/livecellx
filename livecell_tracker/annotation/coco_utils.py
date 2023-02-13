@@ -86,5 +86,6 @@ def coco_to_sc(coco_data: COCO) -> List[SingleCellStatic]:
         assert contour[:, 0].max() < bbox[2], "row index exceeds the bounding box"
         assert contour[:, 1].max() < bbox[3], "column index exceeds the bounding box"
         sc = SingleCellStatic(timeframe=img_id, bbox=bbox, contour=contour, meta=meta, img_dataset=dataset)
+        sc.update_bbox()
         sc_list.append(sc)
     return sc_list

@@ -47,6 +47,8 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         input_type="raw_aug_seg",
         apply_gt_seg_edt=False,
         exclude_raw_input_bg=False,
+        subdirs=None,
+        raw_df=None,
     ):
         """_summary_
 
@@ -91,7 +93,12 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         self.input_type = input_type
         self.apply_gt_seg_edt = apply_gt_seg_edt
         self.exclude_raw_input_bg = exclude_raw_input_bg
-
+        if subdirs is None and raw_df is not None:
+            self.subdirs = raw_df["subdir"].values
+        else:
+            self.subdirs = subdirs
+        self.subdir_set = set(self.subdirs)
+        self.raw_df = raw_df
         print("input type:", self.input_type)
         print("if apply_gt_seg_edt:", self.apply_gt_seg_edt)
 
@@ -100,6 +107,9 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
 
     def get_scale(self, idx):
         return self.scales[idx]
+
+    def get_subdir(self, idx):
+        return self.subdirs.iloc[idx]
 
     def __getitem__(self, idx):
         augmented_raw_img = Image.open(self.raw_img_paths[idx])
@@ -174,6 +184,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             "seg_mask": augmented_scaled_seg_mask,
             "gt_mask_binary": gt_binary,
             "gt_mask": combined_gt,
+            "idx": idx,
         }
         if self.apply_gt_seg_edt:
             res["gt_mask_edt"] = gt_mask_edt

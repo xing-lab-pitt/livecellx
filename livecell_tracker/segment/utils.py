@@ -8,6 +8,9 @@ import numpy as np
 from PIL import Image, ImageSequence
 from tqdm import tqdm
 from skimage import measure
+from skimage.measure import regionprops
+from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
+from livecell_tracker.core.single_cell import SingleCellStatic
 
 
 def get_contours_from_pred_masks(instance_pred_masks):
@@ -97,3 +100,22 @@ def match_mask_labels_by_iou(seg_label_mask, gt_label_mask, bg_label=0, return_a
         return gt2seg_map, all_gt2seg_iou__map
     else:
         return gt2seg_map
+
+
+def mask_dataset_to_single_cells(mask_dataset: LiveCellImageDataset, img_dataset: LiveCellImageDataset):
+    single_cells = []
+    for time in mask_dataset.time2url:
+        img = img_dataset.get_img_by_time(time)
+        seg_mask = mask_dataset.get_img_by_time(time)
+        props_list = regionprops(seg_mask)
+        for prop in props_list:
+            single_cells.append(
+                SingleCellStatic(
+                    timeframe=time,
+                    img_dataset=img_dataset,
+                    mask_dataset=mask_dataset,
+                    bbox=prop.bbox,
+                    contour=prop.coords,
+                )
+            )
+    return single_cells

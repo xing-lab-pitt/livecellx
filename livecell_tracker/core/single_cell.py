@@ -92,28 +92,31 @@ class SingleCellStatic:
         if self.mask_dataset is None and "mask" in self.dataset_dict:
             self.mask_dataset = self.dataset_dict["mask"]
 
-    def compute_regionprops(self):
+    def compute_regionprops(self, crop=True):
         props = regionprops(
-            label_image=self.get_contour_mask(crop=True).astype(int), intensity_image=self.get_contour_img(crop=True)
+            label_image=self.get_contour_mask(crop=crop).astype(int), intensity_image=self.get_contour_img(crop=crop)
         )
 
         # TODO: multiple cell parts? WARNING in the future
         assert len(props) == 1, "contour mask should contain only one region"
         return props[0]
 
+    # TODO: optimize compute overlap mask functions by taking union of two single cell's merged bboxes and then only operate on the union region to make the process faster
     def compute_overlap_mask(self, other_cell: "SingleCellStatic"):
-        mask = self.get_mask().astype(bool)
-        return np.logical_and(mask, other_cell.get_mask().astype(bool))
+        mask = self.get_contour_mask(crop=False).astype(bool)
+        return np.logical_and(mask, other_cell.get_contour_mask(crop=False).astype(bool))
 
     def compute_overlap_percent(self, other_cell: "SingleCellStatic"):
-        mask = self.get_mask().astype(bool)
+        mask = self.get_contour_mask(crop=False).astype(bool)
         overlap_mask = self.compute_overlap_mask(other_cell)
         return np.sum(overlap_mask) / np.sum(mask)
 
     def compute_iou(self, other_cell: "SingleCellStatic"):
-        mask = self.get_mask().astype(bool)
+        mask = self.get_contour_mask(crop=False).astype(bool)
         overlap_mask = self.compute_overlap_mask(other_cell)
-        return np.sum(overlap_mask) / (np.sum(mask) + np.sum(other_cell.get_mask().astype(bool)) - np.sum(overlap_mask))
+        return np.sum(overlap_mask) / (
+            np.sum(mask) + np.sum(other_cell.get_contour_mask(crop=False).astype(bool)) - np.sum(overlap_mask)
+        )
 
     def update_regionprops(self):
         self.regionprops = self.compute_regionprops()
@@ -147,18 +150,22 @@ class SingleCellStatic:
         img_crop = img[min_x : max_x + padding, min_y : max_y + padding, ...]
         return img_crop
 
-    def get_img_crop(self, padding=0):
-        img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_img(), padding=padding)
+    def get_img_crop(self, padding=0, bbox=None):
+        if bbox is None:
+            bbox = self.bbox
+        img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox=bbox, img=self.get_img(), padding=padding)
         # TODO: enable in RAM mode
         # if self.img_crop is None:
         #     self.img_crop = img_crop
         return img_crop
 
-    def get_mask_crop(self, **kwargs):
+    def get_mask_crop(self, bbox=None, **kwargs):
         # TODO: enable in RAM mode
         # if self.mask_crop is None:
         #     self.mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask())
-        return SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask(), **kwargs)
+        if bbox is None:
+            bbox = self.bbox
+        return SingleCellStatic.gen_skimage_bbox_img_crop(bbox, self.get_mask(), **kwargs)
 
     def update_bbox(self, bbox=None):
         if bbox is None and self.contour is not None:
@@ -294,18 +301,16 @@ class SingleCellStatic:
     def get_bbox_from_contour(contour, dtype=int):
         """get the bounding box of a contour"""
         return np.array(
-            [np.min(contour[:, 0]), np.min(contour[:, 1]), np.max(contour[:, 0]) + 1, np.max(contour[:, 1] + 1)]
+            [np.min(contour[:, 0]), np.min(contour[:, 1]), np.max(contour[:, 0]) + 1, np.max(contour[:, 1]) + 1]
         ).astype(dtype)
 
     @staticmethod
-    def gen_contour_mask(
-        contour, img=None, shape=None, focus_contour=False, bbox=None, padding=0, crop=True
-    ) -> np.array:
+    def gen_contour_mask(contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255) -> np.array:
         from skimage.draw import line, polygon
 
         assert img is not None or shape is not None, "either img or shape must be provided"
         if bbox is None:
-            if focus_contour:
+            if crop:
                 bbox = SingleCellStatic.get_bbox_from_contour(contour)
             else:
                 bbox = [0, 0, img.shape[0], img.shape[1]]
@@ -317,24 +322,18 @@ class SingleCellStatic:
 
         res_mask = np.zeros(res_shape, dtype=bool)
         rows, cols = polygon(contour[:, 0], contour[:, 1])
-        res_mask[rows, cols] = 255
-        res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox, res_mask, padding=padding)
-        if crop:
-            res_mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox, res_mask, padding=padding)
-            return res_mask_crop
-        else:
-            return res_mask
+        res_mask[rows, cols] = mask_val
+        res_mask = SingleCellStatic.gen_skimage_bbox_img_crop(bbox, res_mask, padding=padding)
+        return res_mask
 
-    def get_contour_mask(self, padding=0, crop=True) -> np.array:
+    def get_contour_mask(self, padding=0, crop=True, bbox=None) -> np.array:
         """if contour points are not closed, use this function to fill the polygon points in self.contour"""
         contour = self.contour
-        return SingleCellStatic.gen_contour_mask(
-            contour, self.get_img(), bbox=self.get_bbox(), padding=padding, crop=crop
-        )
+        return SingleCellStatic.gen_contour_mask(contour, self.get_img(), bbox=bbox, padding=padding, crop=crop)
 
     def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.array:
         """return a contour image with background set to background_val"""
-        contour_mask = self.get_contour_mask(crop=crop, **kwargs)
+        contour_mask = self.get_contour_mask(crop=crop, **kwargs).astype(bool)
         contour_img = self.get_img_crop(**kwargs) if crop else self.get_img(**kwargs)
         contour_img[np.logical_not(contour_mask)] = bg_val
         return contour_img
@@ -425,6 +424,9 @@ class SingleCellStatic:
         import copy
 
         return copy.copy(self)
+
+    def get_center(self, crop=True):
+        return np.array(self.compute_regionprops(crop=crop).centroid)
 
 
 class SingleCellTrajectory:

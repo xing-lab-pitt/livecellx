@@ -17,6 +17,7 @@ from livecell_tracker.model_zoo.segmentation.sc_correction_dataset import Correc
 def parse_args():
     parser = argparse.ArgumentParser(description="Correct Segmentation Net Training")
     parser.add_argument("--train_dir", dest="train_dir", type=str, required=True)
+    parser.add_argument("--test_dir", dest="test_dir", type=str, required=False, default=None)
     parser.add_argument(
         "--model_version",
         dest="model_version",
@@ -72,6 +73,7 @@ def main_train():
     train_csv = train_dir / "train_data.csv"
     kernel_size = args.kernel_size
     train_df = pd.read_csv(train_csv)
+
     print("pd df shape:", train_df.shape)
     print("df samples:", train_df[:2])
     if args.source == "all":
@@ -79,7 +81,7 @@ def main_train():
         pass
     elif args.source == "underseg-all":
         print("Using all underseg data")
-        underseg_cols = ["synthetic_underseg_overlap", "real_underseg_cases"]
+        underseg_cols = ["synthetic_underseg_overlap", "real_underseg_cases", "synthetic_underseg_nonoverlap_gauss"]
         indexer = train_df["subdir"] == underseg_cols[0]
         for col in underseg_cols[1:]:
             indexer = indexer | (train_df["subdir"] == col)
@@ -91,16 +93,6 @@ def main_train():
     # augmentation params
     translation_range = (args.translation, args.translation)
     degrees = args.degrees
-
-    raw_img_paths = list(train_df["raw"])
-    scaled_seg_mask_paths = list(train_df["seg"])
-    gt_mask_paths = list(train_df["gt"])
-    raw_seg_paths = list(train_df["raw_seg"])
-    scales = list(train_df["scale"])
-    aug_diff_img_paths = list(train_df["aug_diff_mask"])
-    raw_transformed_img_paths = list(train_df["raw_transformed_img"])
-    gt_label_mask_paths = list(train_df["gt_label_mask"])
-
     train_transforms = transforms.Compose(
         [
             # transforms.Resize((412, 412)),
@@ -110,27 +102,57 @@ def main_train():
         ]
     )
 
-    dataset = CorrectSegNetDataset(
-        raw_img_paths,
-        scaled_seg_mask_paths,
-        gt_mask_paths,
-        gt_label_mask_paths=gt_label_mask_paths,
-        raw_seg_paths=raw_seg_paths,
-        scales=scales,
-        transform=train_transforms,
-        raw_transformed_img_paths=raw_transformed_img_paths,
-        aug_diff_img_paths=aug_diff_img_paths,
-        input_type=args.input_type,
-        apply_gt_seg_edt=args.apply_gt_seg_edt,
-        exclude_raw_input_bg=args.exclude_raw_input_bg,
-    )
+    def df2dataset(df):
+        raw_img_paths = list(df["raw"])
+        scaled_seg_mask_paths = list(df["seg"])
+        gt_mask_paths = list(df["gt"])
+        raw_seg_paths = list(df["raw_seg"])
+        scales = list(df["scale"])
+        aug_diff_img_paths = list(df["aug_diff_mask"])
+        raw_transformed_img_paths = list(df["raw_transformed_img"])
+        gt_label_mask_paths = list(df["gt_label_mask"])
 
-    train_sample_num = int(len(dataset) * 0.8)
-    val_sample_num = len(dataset) - train_sample_num
-    split_generator = torch.Generator().manual_seed(args.split_seed)
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        dataset, [train_sample_num, val_sample_num], generator=split_generator
-    )
+        # the source of data: underseg/overseg; real/synthetic
+        subdirs = df["subdir"]
+        dataset = CorrectSegNetDataset(
+            raw_img_paths,
+            scaled_seg_mask_paths,
+            gt_mask_paths,
+            gt_label_mask_paths=gt_label_mask_paths,
+            raw_seg_paths=raw_seg_paths,
+            scales=scales,
+            transform=train_transforms,
+            raw_transformed_img_paths=raw_transformed_img_paths,
+            aug_diff_img_paths=aug_diff_img_paths,
+            input_type=args.input_type,
+            apply_gt_seg_edt=args.apply_gt_seg_edt,
+            exclude_raw_input_bg=args.exclude_raw_input_bg,
+            raw_df=df,
+            subdirs=subdirs,
+        )
+        return dataset
+
+    from sklearn.model_selection import train_test_split
+
+    train_df, val_df = train_test_split(train_df, test_size=0.2, random_state=args.split_seed)
+    if args.debug:
+        train_df = train_df[:100]
+        val_df = val_df[:10]
+
+    train_dataset = df2dataset(train_df)
+    val_dataset = df2dataset(val_df)
+
+    # load test data
+    test_dataset = None
+    if args.test_dir is not None:
+        test_dir = Path(args.test_dir)
+        test_csv = test_dir / "train_data.csv"
+        test_df = pd.read_csv(test_csv)
+        test_dataset = df2dataset(test_df)
+
+    logger = TensorBoardLogger(save_dir=".", name="lightning_logs", version=args.model_version)
+    if args.debug:
+        logger = TensorBoardLogger(save_dir=".", name="test_logs", version=args.model_version)
 
     model = CorrectSegNet(
         # train_input_paths=train_input_tuples,
@@ -140,7 +162,7 @@ def main_train():
         train_transforms=train_transforms,
         train_dataset=train_dataset,
         val_dataset=val_dataset,
-        test_dataset=val_dataset,
+        test_dataset=test_dataset,
         kernel_size=kernel_size,
         loss_type=args.loss,
         class_weights=args.class_weights,
@@ -149,9 +171,6 @@ def main_train():
         apply_gt_seg_edt=args.apply_gt_seg_edt,
         exclude_raw_input_bg=args.exclude_raw_input_bg,
     )
-    logger = TensorBoardLogger(save_dir=".", name="lightning_logs", version=args.model_version)
-    if args.debug:
-        logger = TensorBoardLogger(save_dir=".", name="test_logs", version=args.model_version)
 
     print("logger save dir:", logger.save_dir)
     print("logger subdir:", logger.sub_dir)
