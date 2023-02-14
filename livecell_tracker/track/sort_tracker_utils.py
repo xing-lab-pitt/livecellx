@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 from livecell_tracker.core.datasets import LiveCellImageDataset
 from livecell_tracker.core.single_cell import (
     SingleCellStatic,
@@ -131,11 +131,11 @@ def track_SORT_bbox_from_contours(
     tracker = Sort(max_age=max_age, min_hits=min_hits)
     traj_collection = SingleCellTrajectoryCollection()
     all_track_bbs = []
-    for idx, img in enumerate(raw_imgs):
-        print("matching image path:", raw_imgs.get_img_path(idx))
-        img_path = raw_imgs.get_img_path(idx)
-        # TODO: fix in the future only for windows...Somehow json lib saved double slashes
-        contours = path2contours[raw_imgs.get_img_path(idx)]["contours"]
+    for time, img in enumerate(raw_imgs):
+        print("matching image path:", raw_imgs.get_img_path(time))
+        img_path = raw_imgs.get_img_path(time)
+        # TODO: fix in the future only for windows... somehow json lib saved double slashes
+        contours = path2contours[raw_imgs.get_img_path(time)]["contours"]
 
         # TODO: for RPN based models, we may directly get bboxes from the model outputs
         detections, contour_bbs = gen_SORT_detections_input_from_contours(contours)
@@ -144,10 +144,27 @@ def track_SORT_bbox_from_contours(
         all_track_bbs.append(track_bbs_ids)
         update_traj_collection_by_SORT_tracker_detection(
             traj_collection,
-            idx,
+            time,
             track_bbs_ids,
             contours,
             contour_bbs,
             raw_img_dataset=raw_imgs,
         )
     return traj_collection
+
+
+def track_SORT_bbox_from_scs(
+    single_cells: List[SingleCellStatic],
+    raw_imgs: LiveCellImageDataset,
+    max_age=5,
+    min_hits=3,
+):
+    url2contours = {}
+    for sc in single_cells:
+        timeframe = sc.timeframe
+        if not (raw_imgs.get_img_path(timeframe) in url2contours):
+            url2contours[raw_imgs.get_img_path(timeframe)] = {
+                "contours": [],
+            }
+        url2contours[raw_imgs.get_img_path(timeframe)]["contours"].append(sc.contour)
+    return track_SORT_bbox_from_contours(url2contours, raw_imgs, max_age, min_hits)
