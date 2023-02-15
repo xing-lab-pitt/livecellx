@@ -334,7 +334,7 @@ class SingleCellStatic:
     def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.array:
         """return a contour image with background set to background_val"""
         contour_mask = self.get_contour_mask(crop=crop, **kwargs).astype(bool)
-        contour_img = self.get_img_crop(**kwargs) if crop else self.get_img(**kwargs)
+        contour_img = self.get_img_crop(**kwargs) if crop else self.get_img()
         contour_img[np.logical_not(contour_mask)] = bg_val
         return contour_img
 
@@ -419,6 +419,19 @@ class SingleCellStatic:
         if ax is None:
             ax = plt.gca()
         ax.imshow(self.get_mask(), **kwargs)
+
+    def show_panel(self, padding=0, figsize=(10, 10), **kwargs):
+        crop=True
+        fig, axes = plt.subplots(1, 4, figsize=figsize)
+        self.show(ax=axes[0], crop=False, padding=padding, **kwargs)
+        axes[0].set_title("img")
+        self.show_mask(ax=axes[1], crop=False, padding=padding, **kwargs)
+        axes[1].set_title("mask")
+        self.show_contour_img(ax=axes[2], crop=crop, padding=padding, **kwargs)
+        axes[2].set_title("contour_img")
+        self.show_contour_mask(ax=axes[3], crop=crop, padding=padding, **kwargs)
+        axes[3].set_title("contour_mask")
+        return axes
 
     def copy(self):
         import copy
