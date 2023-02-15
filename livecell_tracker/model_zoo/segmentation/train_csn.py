@@ -7,6 +7,7 @@ import pandas as pd
 from torchvision import transforms
 import torch
 import torch.utils.data
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import TQDMProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -53,7 +54,7 @@ def parse_args():
         "--source",
         dest="source",
         type=str,
-        choices=["all", "underseg-all", "overseg-all"],
+        choices=["all", "underseg-all", "overseg-all", "real-underseg"],
         help="The source of the data to train on. Default is to use all data. <underseg-all> means using both synthetic and real underseg datasets; similar for <overseg-all>",
         default="all",
     )
@@ -77,10 +78,10 @@ def main_train():
     print("pd df shape:", train_df.shape)
     print("df samples:", train_df[:2])
     if args.source == "all":
-        print("Using all data")
+        print(">>> Using all data")
         pass
     elif args.source == "underseg-all":
-        print("Using all underseg data")
+        print(">>> Using all underseg data")
         underseg_cols = ["synthetic_underseg_overlap", "real_underseg_cases", "synthetic_underseg_nonoverlap_gauss"]
         indexer = train_df["subdir"] == underseg_cols[0]
         for col in underseg_cols[1:]:
@@ -88,7 +89,10 @@ def main_train():
             assert (train_df["subdir"] == col).sum() > 0, f"no data found in train_df for {col}"
 
         train_df = train_df[indexer]
-        print("after filtering by underseg cases, df shape:", train_df.shape)
+        print(">>> after filtering by underseg cases, df shape:", train_df.shape)
+    elif args.source == "real-underseg":
+        train_df = train_df[train_df["subdir"] == "real_underseg_cases"]
+        print(">>> after filtering by real underseg cases, df shape:", train_df.shape)
 
     # augmentation params
     translation_range = (args.translation, args.translation)
@@ -175,7 +179,25 @@ def main_train():
     print("logger save dir:", logger.save_dir)
     print("logger subdir:", logger.sub_dir)
     print("logger version:", logger.version)
-    trainer = Trainer(gpus=1, max_epochs=args.epochs, resume_from_checkpoint=args.model_ckpt, logger=logger)
+    best_models_checkpoint_callback = ModelCheckpoint(
+        save_top_k=10,
+        monitor="train_acc_real_underseg_cases",
+        mode="min",
+        filename="{epoch:02d}-{val_loss:.2f}",
+    )
+    last_models_checkpoint_callback = ModelCheckpoint(
+        save_top_k=5,
+        monitor="global_step",
+        mode="max",
+        filename="{epoch:02d}-{global_step}",
+    )
+    trainer = Trainer(
+        gpus=1,
+        max_epochs=args.epochs,
+        resume_from_checkpoint=args.model_ckpt,
+        logger=logger,
+        callbacks=[best_models_checkpoint_callback, last_models_checkpoint_callback],
+    )
     trainer.fit(model)
 
 
