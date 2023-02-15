@@ -170,12 +170,11 @@ class CorrectSegNet(LightningModule):
         for subdir in subdir_set:
             if not (subdir in batch_subdirs):
                 continue
-            batched_loss = self.compute_loss(output[batch_subdirs == subdir], y[batch_subdirs == subdir])
-            # subdir_loss_map[subdir] = loss[list(batch_subdirs == subdir)].mean()
+            subdir_indexer = batch_subdirs == subdir
+            batched_loss = self.compute_loss(output[subdir_indexer], y[subdir_indexer])
+            # subdir_loss_map[subdir] = loss[list(subdir_indexer)].mean()
             self.log(f"train_loss_{subdir}", batched_loss, prog_bar=True)
-            batched_acc = self.val_accuracy(
-                bin_output[batch_subdirs == subdir].long(), y[batch_subdirs == subdir].long()
-            )
+            batched_acc = self.val_accuracy(bin_output[subdir_indexer].long(), y[subdir_indexer].long())
             self.log(f"train_acc_{subdir}", batched_acc, prog_bar=True)
         return loss
 
@@ -202,6 +201,8 @@ class CorrectSegNet(LightningModule):
         self.log("val_loss", loss, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
+        from livecell_tracker.model_zoo.segmentation.eval_csn import compute_metrics
+
         x, y = batch["input"], batch["gt_mask"]
         output = self(x)
         loss = self.compute_loss(output, y)
@@ -213,13 +214,37 @@ class CorrectSegNet(LightningModule):
         for subdir in subdir_set:
             if not (subdir in batch_subdirs):
                 continue
-            batched_loss = self.compute_loss(output[batch_subdirs == subdir], y[batch_subdirs == subdir])
-            # subdir_loss_map[subdir] = loss[list(batch_subdirs == subdir)].mean()
-            self.log(f"test_loss_{subdir}", batched_loss, prog_bar=True)
-            batched_acc = self.val_accuracy(
-                bin_output[batch_subdirs == subdir].long(), y[batch_subdirs == subdir].long()
+            subdir_indexer = batch_subdirs == subdir
+            batched_loss = self.compute_loss(output[subdir_indexer], y[subdir_indexer])
+            # subdir_loss_map[subdir] = loss[list(subdir_indexer)].mean()
+            self.log(f"test_loss_{subdir}", batched_loss, prog_bar=True, add_dataloader_idx=False)
+            batched_acc = self.val_accuracy(bin_output[subdir_indexer].long(), y[subdir_indexer].long())
+            self.log(f"test_acc_{subdir}", batched_acc, prog_bar=True, add_dataloader_idx=False)
+
+            # Assemble batch for compute_metrics
+            # get batch based on subdir_indexer
+            subdir_batch = {}
+            for key in batch.keys():
+                subdir_batch[key] = batch[key][subdir_indexer]
+            num_samples = len(subdir_batch["input"])
+            subdir_samples = []
+            for i in range(num_samples):
+                tmp_dict = {}
+                for key in subdir_batch.keys():
+                    tmp_dict[key] = subdir_batch[key][i].cpu()
+                subdir_samples.append(tmp_dict)
+
+            metrics_dict = compute_metrics(
+                subdir_samples,
+                self,
+                out_threshold=self.threshold,
+                gt_label_masks=subdir_batch["gt_label_mask"].cpu().numpy(),
             )
-            self.log(f"test_acc_{subdir}", batched_acc, prog_bar=True)
+            log_metrics = ["out_matched_num_gt_iou_0.5", "out_matched_num_gt_iou_0.8"]
+            for metric in log_metrics:
+                self.log(
+                    f"test_{metric}_{subdir}", np.mean(metrics_dict[metric]), prog_bar=True, add_dataloader_idx=False
+                )
 
     def compute_bin_output(self, output):
         output = output.clone()  # avoid inplace operation during training

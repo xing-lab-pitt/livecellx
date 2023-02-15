@@ -22,6 +22,7 @@ from torch import Tensor
 from torch.nn import init
 from torch.utils.data import DataLoader, random_split
 import scipy.ndimage
+import skimage.measure
 
 
 # class CorrectSegNetData(data.Dataset):
@@ -170,6 +171,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask[gt_mask > 0.5] = 1
         gt_mask[gt_mask <= 0.5] = 0
         gt_binary = gt_mask
+        gt_label_mask = skimage.measure.label(gt_binary)
         gt_mask_edt = None
         if self.apply_gt_seg_edt:
             gt_mask = torch.tensor(scipy.ndimage.distance_transform_edt(gt_mask[:, :]))
@@ -185,6 +187,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             "gt_mask_binary": gt_binary,
             "gt_mask": combined_gt,
             "idx": idx,
+            "gt_label_mask": torch.tensor(gt_label_mask),
         }
         if self.apply_gt_seg_edt:
             res["gt_mask_edt"] = gt_mask_edt

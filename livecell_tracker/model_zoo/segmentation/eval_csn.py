@@ -1,7 +1,7 @@
 import argparse
 import glob
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import skimage
@@ -146,7 +146,8 @@ def evaluate_sample_v3_underseg(
     original_cell_count = len(np.unique(original_label_mask)) - 1  # -1 for bg
 
     assert gt_label_mask is not None, "gt_label_mask is required for undersegmentation evaluation"
-    assert set(np.unique(gt_seg_mask).tolist()) == set([0, 1])
+    print("gt seg mask:", gt_seg_mask.shape, np.unique(gt_seg_mask))
+    assert len(set(np.unique(gt_seg_mask).tolist())) <= 2
 
     combined_over_under_seg = np.zeros([3] + list(out_mask.shape[1:]))
     combined_over_under_seg[0, out_mask[1, :] > out_threshold] = 1
@@ -177,6 +178,10 @@ def evaluate_sample_v3_underseg(
         original_input_mask | gt_seg_mask
     ).sum()
 
+    if gt_cell_num == 0:
+        print(">>> Warning: no gt cells in this sample and thus gt_cell_num is 0.")
+        gt_cell_num = np.inf
+
     metrics_dict["out_cell_count"] = out_cell_count
     metrics_dict["gt_cell_count"] = gt_cell_num
     metrics_dict["out_minus_gt_count"] = out_cell_count - gt_cell_num
@@ -205,12 +210,13 @@ def compute_metrics(
     model,
     out_threshold=0.6,
     whole_dataset: CorrectSegNetDataset = None,
+    gt_label_masks: List[np.ndarray] = None,
 ):
-    train_metrics = {}
+    res_metrics = {}
     for i, sample in enumerate(tqdm.tqdm(dataset)):
-        # print(sample.keys())
-
-        if isinstance(dataset, torch.utils.data.Subset):
+        if gt_label_masks is not None:
+            gt_label_mask = gt_label_masks[i]
+        elif isinstance(dataset, torch.utils.data.Subset):
             assert whole_dataset is not None, "whole_dataset must be provided when <dataset> function arg is a Subset"
             origin_idx = dataset.indices[i]
             gt_label_mask = whole_dataset.get_gt_label_mask(origin_idx)
@@ -221,13 +227,13 @@ def compute_metrics(
             sample, model, out_threshold=out_threshold, gt_label_mask=gt_label_mask
         )
         for metric, value in single_sample_metrics.items():
-            if metric not in train_metrics:
-                train_metrics[metric] = []
-            train_metrics[metric].append(value)
+            if metric not in res_metrics:
+                res_metrics[metric] = []
+            res_metrics[metric].append(value)
 
-    for key in train_metrics:
-        train_metrics[key] = np.array(train_metrics[key])
-    return train_metrics
+    for key in res_metrics:
+        res_metrics[key] = np.array(res_metrics[key])
+    return res_metrics
 
 
 def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0.6, save_path=None, close_on_save=True):

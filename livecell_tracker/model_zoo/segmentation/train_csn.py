@@ -181,15 +181,21 @@ def main_train():
     print("logger version:", logger.version)
     best_models_checkpoint_callback = ModelCheckpoint(
         save_top_k=10,
-        monitor="train_acc_real_underseg_cases",
+        monitor="test_loss_real_underseg_cases",
         mode="min",
-        filename="{epoch:02d}-{val_loss:.2f}",
+        filename="{epoch:02d}-{test_loss_real_underseg_cases:.4f}",
+    )
+    best_models_checkpoint_callback = ModelCheckpoint(
+        save_top_k=10,
+        monitor="test_out_matched_num_gt_iou_0.5_real_underseg_cases",
+        mode="min",
+        filename="{epoch:02d}-{test_out_matched_num_gt_iou_0.5_real_underseg_cases:.4f}",
     )
     last_models_checkpoint_callback = ModelCheckpoint(
         save_top_k=5,
-        monitor="global_step",
+        monitor="step",
         mode="max",
-        filename="{epoch:02d}-{global_step}",
+        filename="{epoch}-{global_step}",
     )
     trainer = Trainer(
         gpus=1,
