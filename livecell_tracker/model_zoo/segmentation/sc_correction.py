@@ -240,7 +240,7 @@ class CorrectSegNet(LightningModule):
                 out_threshold=self.threshold,
                 gt_label_masks=subdir_batch["gt_label_mask"].cpu().numpy(),
             )
-            log_metrics = ["out_matched_num_gt_iou_0.5", "out_matched_num_gt_iou_0.8"]
+            log_metrics = ["out_matched_num_gt_iou_0.5_percent", "out_matched_num_gt_iou_0.8_percent"]
             for metric in log_metrics:
                 self.log(
                     f"test_{metric}_{subdir}", np.mean(metrics_dict[metric]), prog_bar=True, add_dataloader_idx=False

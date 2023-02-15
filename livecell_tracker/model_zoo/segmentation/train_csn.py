@@ -189,7 +189,7 @@ def main_train():
         save_top_k=10,
         monitor="test_out_matched_num_gt_iou_0.5_real_underseg_cases",
         mode="max",
-        filename="{epoch:02d}-{test_out_matched_num_gt_iou_0.5_real_underseg_cases:.4f}",
+        filename="{epoch:02d}-{test_out_matched_num_gt_iou_0.5_percent_real_underseg_cases:.4f}",
     )
     last_models_checkpoint_callback = ModelCheckpoint(
         save_top_k=5,
