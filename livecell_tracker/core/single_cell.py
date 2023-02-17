@@ -59,7 +59,7 @@ class SingleCellStatic:
 
         self.feature_dict = feature_dict
         self.bbox = bbox
-        self.contour = np.array(contour, dtype=float)
+        self.contour = np.array(contour, dtype=int)
 
         # infer bbox from regionprops
         if (bbox is None) and (regionprops is not None):
@@ -128,9 +128,15 @@ class SingleCellStatic:
         return self.img_dataset.get_img_by_time(self.timeframe)
 
     def get_mask(self):
-        if self.mask_dataset is None:
-            raise ValueError("mask dataset is None")
-        return self.mask_dataset.get_img_by_time(self.timeframe).astype(bool)
+        if not self.mask_dataset is None:
+            return self.mask_dataset[self.timeframe]
+        elif self.contour is not None:
+            shape = self.get_img().shape
+            mask = np.zeros(shape, dtype=bool)
+            mask[self.contour[0, :], self.contour[1, :]] = True
+            return mask
+        else:
+            raise ValueError("mask dataset and contour are both None")
 
     def get_bbox(self) -> np.array:
         if self.bbox is None:
@@ -177,8 +183,8 @@ class SingleCellStatic:
         # self.img_crop = None
         # self.mask_crop = None
 
-    def update_contour(self, contour, update_bbox=True):
-        self.contour = np.array(contour)
+    def update_contour(self, contour, update_bbox=True, dtype=int):
+        self.contour = np.array(contour, dtype=dtype)
         # TODO: 3D?
         if update_bbox:
             self.bbox = self.get_bbox_from_contour(self.contour)
@@ -421,7 +427,7 @@ class SingleCellStatic:
         ax.imshow(self.get_mask(), **kwargs)
 
     def show_panel(self, padding=0, figsize=(10, 10), **kwargs):
-        crop=True
+        crop = True
         fig, axes = plt.subplots(1, 4, figsize=figsize)
         self.show(ax=axes[0], crop=False, padding=padding, **kwargs)
         axes[0].set_title("img")
@@ -493,11 +499,10 @@ class SingleCellTrajectory:
         self.timeframe_set.add(timeframe)
 
     def get_img(self, timeframe):
-        return self.raw_img_dataset[timeframe]
+        return self.timeframe_to_single_cell[timeframe].get_img()
 
     def get_mask(self, timeframe):
-        assert self.mask_dataset is not None, "missing mask dataset in single cell trajectory"
-        return self.mask_dataset[timeframe]
+        return self.timeframe_to_single_cell[timeframe].get_mask()
 
     def get_timeframe_span_range(self):
         return (min(self.timeframe_set), max(self.timeframe_set))
