@@ -277,24 +277,29 @@ def move_two_scs(sc1: SingleCellStatic, sc2: SingleCellStatic, pos_offset_vec, b
         projected_new_sc_bbox[1] -= 1
 
     # fix a corner case that may cause the projected_new_sc_bbox to be empty
-    if projected_new_sc_bbox[2] == projected_new_sc_bbox[0]:
-        projected_new_sc_bbox[2] += 1
-    if projected_new_sc_bbox[3] == projected_new_sc_bbox[1]:
-        projected_new_sc_bbox[3] += 1
+    # if projected_new_sc_bbox[2] == projected_new_sc_bbox[0]:
+    #     projected_new_sc_bbox[2] += 1
+    # if projected_new_sc_bbox[3] == projected_new_sc_bbox[1]:
+    #     projected_new_sc_bbox[3] += 1
     # print("dims: ", img_space_dims)
     # print("projected_new_sc_bbox: ", projected_new_sc_bbox)
     # print("new_sc_bbox: ", new_sc_bbox)
 
     # update datasets
     # TODO: consider if we have more datasets in single cell objects?
-    new_img[sc1_bbox[0] : sc1_bbox[2], sc1_bbox[1] : sc1_bbox[3]] = sc1.get_img_crop()
-    new_img[new_sc_bbox[0] : new_sc_bbox[2], new_sc_bbox[1] : new_sc_bbox[3]] = sc2.get_img_crop(
-        bbox=projected_new_sc_bbox
-    )
-    new_mask[sc1_bbox[0] : sc1_bbox[2], sc1_bbox[1] : sc1_bbox[3]] |= sc1.get_mask_crop()
-    new_mask[new_sc_bbox[0] : new_sc_bbox[2], new_sc_bbox[1] : new_sc_bbox[3]] |= sc2.get_mask_crop(
-        bbox=projected_new_sc_bbox
-    )
+    sc1_contour_mask = sc1.get_contour_mask()
+    sc2_contour_mask__projected = sc2.get_contour_mask(bbox=projected_new_sc_bbox)
+    new_img[sc1_bbox[0] : sc1_bbox[2], sc1_bbox[1] : sc1_bbox[3]][sc1_contour_mask] = sc1.get_contour_img()[
+        sc1_contour_mask
+    ]
+
+    new_img[new_sc_bbox[0] : new_sc_bbox[2], new_sc_bbox[1] : new_sc_bbox[3]][
+        sc2_contour_mask__projected
+    ] = sc2.get_contour_img(bbox=projected_new_sc_bbox)[sc2_contour_mask__projected]
+    new_mask[sc1_bbox[0] : sc1_bbox[2], sc1_bbox[1] : sc1_bbox[3]] |= sc1.get_contour_mask()
+    new_mask[new_sc_bbox[0] : new_sc_bbox[2], new_sc_bbox[1] : new_sc_bbox[3]][
+        sc2_contour_mask__projected
+    ] |= sc2.get_mask_crop(bbox=projected_new_sc_bbox)[sc2_contour_mask__projected]
 
     # set image datasets of scs
     sc1.img_dataset = SingleImageDataset(new_img)
@@ -694,9 +699,9 @@ def gen_underseg_scs_sample(
         contours = find_contours_opencv(sc_mask_in_merged_space)
         if len(contours) > 1 or len(contours) == 0:
             print(
-                "[WARNING] contours numbers=",
+                "[WARNING] #contours:",
                 len(contours),
-                " when aligning synthetic single cells. Probably there is something wrong with contour finding algorithm used. Skipping this sample...",
+                " (!=1) when aligning synthetic single cells. Probably there is something wrong with contour finding algorithm we use. Discarding the current sample anyway...",
             )
             is_success = False
             return {
@@ -705,7 +710,7 @@ def gen_underseg_scs_sample(
         sc.update_contour(contours[0])
         assert (
             sc.get_mask().shape == cur_merged_sc.get_mask().shape
-        ), "Two generated underseg scs should have the same shape"
+        ), "Two generated underseg scs should have the same shape."
 
     cur_merged_sc.meta = {
         "num_merged_cells": num_cells,
@@ -831,7 +836,7 @@ def gen_underseg_scs(
         cur_id = 0
         while counter < total_sample_num:
             print(
-                ">>>>>>> parallely generate underseg scs, generated sample num: ",
+                ">>>>>>> a new round of parallely generating underseg scs - #sample already generated: ",
                 counter,
                 "cur_id=",
                 cur_id,
