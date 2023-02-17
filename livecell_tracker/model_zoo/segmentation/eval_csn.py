@@ -47,6 +47,7 @@ def assemble_dataset(df: pd.DataFrame, apply_gt_seg_edt=False, exclude_raw_input
         apply_gt_seg_edt=apply_gt_seg_edt,
         exclude_raw_input_bg=exclude_raw_input_bg,
         input_type=input_type,
+        raw_df=df,
     )
     return dataset
 
@@ -335,6 +336,45 @@ def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0
         plt.savefig(save_path)
     if save_path and close_on_save:
         plt.close()
+
+
+def viz_sample_only(sample):
+    fig, axes = plt.subplots(1, 7, figsize=(3 * 7, 6))
+    ax_idx = 0
+    ax = axes[ax_idx]
+    ax.imshow(sample["input"][0])
+    ax.set_title("input: dim0")
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    ax.imshow(sample["input"][1])
+    ax.set_title("input: dim1")
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    ax.imshow(sample["input"][2])
+    ax.set_title("input:dim2")
+
+    # gt
+    ax_idx += 1
+    ax = axes[ax_idx]
+    ax.imshow(sample["gt_mask"][0])
+    ax.set_title("gt0 seg")
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    ax.imshow(sample["gt_mask"][1])
+    ax.set_title("gt1 seg")
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    ax.imshow(sample["gt_mask"][2])
+    ax.set_title("gt2 seg")
+
+    ax_idx += 1
+    ax = axes[ax_idx]
+    ax.imshow(sample["gt_label_mask"])
+    ax.set_title("gt label mask")
 
 
 def parse_eval_args() -> argparse.Namespace:
