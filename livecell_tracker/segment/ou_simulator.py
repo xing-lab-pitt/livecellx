@@ -143,7 +143,7 @@ def add_sc_to_img(sc, new_img, mask, bg_img, in_place=False, mask_inplace=True, 
     return new_img, sc_new_contour, mask, shift
 
 
-def combine_two_scs_monte_carlo(sc1, sc2, bg_img=None, bg_scale=1.5, fix_sc1=False):
+def combine_two_scs_monte_carlo(sc1, sc2, bg_img=None, bg_scale=1.5, fix_sc1=False, center_two_cells=False):
     def _gen_empty_bg_img():
         sc1_shape = sc1.get_img_crop().shape
         sc2_shape = sc2.get_img_crop().shape
@@ -176,7 +176,10 @@ def combine_two_scs_monte_carlo(sc1, sc2, bg_img=None, bg_scale=1.5, fix_sc1=Fal
         img_dataset=SingleImageDataset(new_img),
         mask_dataset=SingleImageDataset(sc2_new_mask),
     )
-    return new_sc1, new_sc2
+    if center_two_cells:
+        new_sc1, new_scs = center_two_cells(new_sc1, bg_img, [new_sc2])
+        new_sc2 = new_scs[0]
+    return new_sc1, new_sc2, bg_img
 
 
 def gen_synthetic_overlap_scs(
@@ -187,7 +190,9 @@ def gen_synthetic_overlap_scs(
     counter = 0
     while not is_success and counter < max_try:
         is_success = True
-        new_sc1, new_sc2 = combine_two_scs_monte_carlo(sc1, sc2, bg_img=None, bg_scale=bg_scale, fix_sc1=fix_sc1)
+        new_sc1, new_sc2, bg_img = combine_two_scs_monte_carlo(
+            sc1, sc2, bg_img=None, bg_scale=bg_scale, fix_sc1=fix_sc1
+        )
         # check overlap
         overlap_mask = np.logical_and(new_sc1.get_mask(), new_sc2.get_mask())
         overlap_percent = float(np.sum(overlap_mask)) / min(np.sum(new_sc1.get_mask()), np.sum(new_sc2.get_mask()))
@@ -207,7 +212,14 @@ def gen_synthetic_overlap_scs(
             is_success = False
         counter += 1
 
-    return new_sc1, new_sc2, overlap_percent, is_success
+    # return new_sc1, new_sc2, overlap_percent, is_success
+    return {
+        "new_sc1": new_sc1,
+        "new_sc2": new_sc2,
+        "overlap_percent": overlap_percent,
+        "is_success": is_success,
+        "bg_img": bg_img,
+    }
 
 
 def gen_gauss_sc_bg(sc: SingleCellStatic, shape):
@@ -386,7 +398,7 @@ def move_util_in_range(
     return sc1, sc2
 
 
-def gen_synthetic_nonoverlap_scs(
+def gen_synthetic_nonoverlap_by_two_scs(
     sc1: SingleCellStatic,
     sc2: SingleCellStatic,
     min_dist=-np.inf,
@@ -406,7 +418,6 @@ def gen_synthetic_nonoverlap_scs(
     max_shape = np.max(np.array([sc1_shape, sc2_shape]), axis=0) * bg_scale
 
     syn_bg_shape = (int(max_shape[0]), int(max_shape[1]))
-
     while not is_success and counter < max_try:
         is_success = True
         bg_img = None
@@ -418,7 +429,9 @@ def gen_synthetic_nonoverlap_scs(
 
         # TODO: we can improve this function by replacing monte carlo method
         # TODO: calculate distance between two scs and move two scs together can satisfy the conditions efficiently
-        new_sc1, new_sc2 = combine_two_scs_monte_carlo(sc1, sc2, bg_img=bg_img, bg_scale=bg_scale, fix_sc1=fix_sc1)
+        new_sc1, new_sc2, bg_img = combine_two_scs_monte_carlo(
+            sc1, sc2, bg_img=bg_img, bg_scale=bg_scale, fix_sc1=fix_sc1
+        )
         if use_move_close:
             new_sc1, new_sc2 = move_util_in_range(
                 new_sc1,
@@ -450,7 +463,14 @@ def gen_synthetic_nonoverlap_scs(
 
         # print("counter: {}, overlap: {}, dist: {}, %%area: {}".format(counter, overlap_percent, dist, area / old_area))
         counter += 1
-    return new_sc1, new_sc2, dist, is_success
+    # return new_sc1, new_sc2, dist, is_success
+    return {
+        "new_sc1": new_sc1,
+        "new_sc2": new_sc2,
+        "dist": dist,
+        "is_success": is_success,
+        "bg_img": bg_img,
+    }
 
 
 def show_cv2_contours(contours, img):
@@ -494,7 +514,7 @@ def merge_two_scs_overlap(sc1: SingleCellStatic, sc2: SingleCellStatic):
     return res_sc, True
 
 
-def merge_two_scs_nonoverlap(sc1: SingleCellStatic, sc2: SingleCellStatic, max_dilate_iter=998, kernel_shape=(3, 3)):
+def merge_two_scs_nonoverlap(sc1: SingleCellStatic, sc2: SingleCellStatic, max_dilate_iter=9998, kernel_shape=(4, 4)):
     new_mask = np.logical_or(sc1.get_mask().astype(bool), sc2.get_mask().astype(bool))
 
     contours = find_contours_opencv(new_mask.astype(np.uint8))
@@ -508,6 +528,7 @@ def merge_two_scs_nonoverlap(sc1: SingleCellStatic, sc2: SingleCellStatic, max_d
     # dilate until the two contours are merged
     kernel = np.ones(kernel_shape, np.uint8)
     counter = 0
+    # TODO: optimize the loop (possibly by binary search for the optimal iteration)
     while len(contours) != 1 and counter < max_dilate_iter:
         new_mask = cv2.dilate(new_mask.astype(np.uint8), kernel, iterations=1)
         contours = find_contours_opencv(new_mask.astype(np.uint8))
@@ -606,6 +627,75 @@ def augment_and_save_merged_sc(sc: SingleCellStatic, scale_factors, scs, img_id,
     return res_dict
 
 
+def center_scs(cur_merged_sc, bg_img, sc_comps=[], viz=False):
+    merged_sc_img = cur_merged_sc.get_img()
+    print("bg_img shape: ", bg_img.shape, "merged_sc_img shape: ", merged_sc_img.shape)
+
+    merged_sc_bbox = cur_merged_sc.bbox
+    merged_sc_mask = cur_merged_sc.get_mask_crop().astype(bool)
+    # shift bbox to the center of the image
+    m_bbox_height = merged_sc_bbox[2] - merged_sc_bbox[0]
+    m_bbox_width = merged_sc_bbox[3] - merged_sc_bbox[1]
+    bg_center = (bg_img.shape[0] // 2, bg_img.shape[1] // 2)
+    center_start = (bg_center[0] - m_bbox_height // 2, bg_center[1] - m_bbox_width // 2)
+    center_bbox = (center_start[0], center_start[1], center_start[0] + m_bbox_height, center_start[1] + m_bbox_width)
+
+    center_shift = (center_bbox[0] - merged_sc_bbox[0], center_bbox[1] - merged_sc_bbox[1])
+
+    # create a new image
+    new_img = bg_img.copy()
+    new_img[center_bbox[0] : center_bbox[2], center_bbox[1] : center_bbox[3]][merged_sc_mask] = merged_sc_img[
+        merged_sc_bbox[0] : merged_sc_bbox[2], merged_sc_bbox[1] : merged_sc_bbox[3]
+    ][merged_sc_mask]
+    new_img_dataset = SingleImageDataset(new_img)
+
+    # create a new mask
+    new_mask = np.zeros(bg_img.shape, dtype=bool)
+    new_mask[center_bbox[0] : center_bbox[2], center_bbox[1] : center_bbox[3]][merged_sc_mask] = True
+    new_mask_dataset = SingleImageDataset(new_mask)
+
+    # copy and update the contour
+    new_contour = cur_merged_sc.contour.copy()
+    new_contour[:, 0] += center_shift[0]
+    new_contour[:, 1] += center_shift[1]
+
+    res_merged_sc = cur_merged_sc.copy()
+    res_merged_sc.update_contour(new_contour)
+    res_merged_sc.img_dataset = new_img_dataset
+    res_merged_sc.mask_dataset = new_mask_dataset
+
+    if viz:
+        print(">" * 20, "vizualizing merged cells", "<" * 20)
+        print("center_bbox: ", center_bbox)
+        print("center_shift: ", center_shift)
+        print("merged_sc_bbox: ", merged_sc_bbox)
+        # show old and new images
+        fig, axes = plt.subplots(1, 4, figsize=(20, 10))
+        axes[0].imshow(merged_sc_img)
+        axes[0].set_title("original merged sc")
+        axes[1].imshow(new_img)
+        axes[1].set_title("new merged sc")
+        axes[2].imshow(merged_sc_mask)
+        axes[2].set_title("original merged sc mask")
+        axes[3].imshow(new_mask)
+        axes[3].set_title("new merged sc mask")
+
+    res_scs = []
+    for sc in sc_comps:
+        sc_contour = sc.contour.copy()
+        sc_contour[:, 0] += center_shift[0]
+        sc_contour[:, 1] += center_shift[1]
+        new_sc = sc.copy()
+        new_sc.update_contour(sc_contour)
+        new_sc.img_dataset = new_img_dataset
+        new_sc.mask_dataset = new_mask_dataset
+        res_scs.append(new_sc)
+        if viz:
+            print(">" * 20, "single cell component in merged cell", "<" * 20)
+            new_sc.show_panel(padding=20)
+    return res_merged_sc, res_scs
+
+
 def gen_underseg_scs_sample(
     scs,
     num_cells,
@@ -613,29 +703,31 @@ def gen_underseg_scs_sample(
     sample_id=None,
     augment_scale_factors=None,
     viz_check=False,
+    viz_padding=20,
     sc_generator_func=gen_synthetic_overlap_scs,
     sc_generator_func_kwargs={},
     merge_func=merge_two_scs_overlap,
+    center=True,
 ):
     assert len(scs) > 0, "tmp_scs is empty"
     cur_merged_sc = scs[0].copy()
     # merged_scs contains each individual single AFTER merging
-    _merged_scs = None
+    _merged_syn_scs = None
     is_success = True
     for j in range(1, num_cells):
         is_success = True
         cur_sc = scs[j]
-        cur_merged_sc, new_sc2, _, is_gen_success = sc_generator_func(
-            cur_merged_sc, cur_sc, fix_sc1=True, **sc_generator_func_kwargs
-        )
+        res_dict = sc_generator_func(cur_merged_sc, cur_sc, fix_sc1=True, **sc_generator_func_kwargs)
+        cur_merged_sc, new_sc2, is_gen_success = res_dict["new_sc1"], res_dict["new_sc2"], res_dict["is_success"]
+        bg_img = res_dict["bg_img"]
         is_success &= is_gen_success
         if not is_success:
             break
 
-        if _merged_scs is None:
-            _merged_scs = [cur_merged_sc]
+        if _merged_syn_scs is None:
+            _merged_syn_scs = [cur_merged_sc]
 
-        _merged_scs.append(new_sc2)
+        _merged_syn_scs.append(new_sc2)
 
         assert (
             cur_merged_sc.get_mask().shape == new_sc2.get_mask().shape
@@ -647,18 +739,16 @@ def gen_underseg_scs_sample(
 
     # at some point, the merging process failed
     if not is_success:
+        print("gen success:", is_gen_success)
+        print("merge success:", is_merge_success)
         print("synthesize failure for combination:", scs)
         return {"is_success": False}
-
-    if viz_check:
-        viz_check_combined_sc_result(cur_merged_sc, new_sc2)
-
     # Now we make sure that the masks of the merged scs have the same shape (in the same space)
     # for operate them easier later (e.g. merge the mask and generate label masks)
     # the scs' bbox coordinates keeps the same, relative to the cur_merged_sc
     # the image and mask dataset may be different in each iteration above
     # thus we need to update the img_dataset and mask_dataset for each sc in merged_syn_scs
-    for sc in _merged_scs:
+    for sc in _merged_syn_scs:
         sc.img_dataset = cur_merged_sc.img_dataset
 
         # all datasets below should be single image datasets
@@ -684,9 +774,11 @@ def gen_underseg_scs_sample(
             return {"is_success": False}
 
         # when we generate the synthetic underseg scs, we fix coordinates of the first sc, so the cooridnates of the synthetic cells are always fixed relative to the first sc and in the same space.
-        sc_mask_in_merged_space[sc.bbox[0] : sc.bbox[2], sc.bbox[1] : sc.bbox[3]] = sc.get_mask()[
-            sc.bbox[0] : sc.bbox[2], sc.bbox[1] : sc.bbox[3]
-        ]
+        sc_mask = sc.get_contour_mask().astype(bool)
+        sc_mask_in_merged_space[sc.bbox[0] : sc.bbox[2], sc.bbox[1] : sc.bbox[3]][sc_mask] = 1
+        # sc_mask_in_merged_space[sc.bbox[0] : sc.bbox[2], sc.bbox[1] : sc.bbox[3]] = sc.get_mask()[
+        #     sc.bbox[0] : sc.bbox[2], sc.bbox[1] : sc.bbox[3]
+        # ]
         if viz_check:
             # fig, axes = plt.subplots(1, 2)
             # axes[0].imshow(sc.get_mask())
@@ -697,7 +789,7 @@ def gen_underseg_scs_sample(
             pass
         sc.mask_dataset = SingleImageDataset(sc_mask_in_merged_space)
         contours = find_contours_opencv(sc_mask_in_merged_space)
-        if len(contours) > 1 or len(contours) == 0:
+        if len(contours) != 1:
             print(
                 "[WARNING] #contours:",
                 len(contours),
@@ -711,10 +803,15 @@ def gen_underseg_scs_sample(
         assert (
             sc.get_mask().shape == cur_merged_sc.get_mask().shape
         ), "Two generated underseg scs should have the same shape."
-
+    if center:
+        cur_merged_sc, _merged_syn_scs = center_scs(cur_merged_sc, bg_img, _merged_syn_scs)
     cur_merged_sc.meta = {
         "num_merged_cells": num_cells,
     }
+
+    if viz_check:
+        cur_merged_sc.show_panel(padding=viz_padding)
+
     df = None  # df is only generated when save_dir is provided
     if save_dir:
         assert sample_id is not None, "sample_id should be provided if save_dir is provided"
@@ -722,7 +819,7 @@ def gen_underseg_scs_sample(
         res_dict = augment_and_save_merged_sc(
             cur_merged_sc,
             augment_scale_factors,
-            scs=_merged_scs,
+            scs=_merged_syn_scs,
             img_id=sample_id,
             seg_label=sample_id,
             syn_id=sample_id,
@@ -731,7 +828,7 @@ def gen_underseg_scs_sample(
         df = res_dict["df"]
     return {
         "is_success": is_success,
-        "merged_scs": _merged_scs,
+        "merged_scs": _merged_syn_scs,
         "cur_merged_sc": cur_merged_sc,
         "df": df,
     }

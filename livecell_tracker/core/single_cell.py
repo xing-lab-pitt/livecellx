@@ -165,13 +165,13 @@ class SingleCellStatic:
         #     self.img_crop = img_crop
         return img_crop
 
-    def get_mask_crop(self, bbox=None, **kwargs):
+    def get_mask_crop(self, bbox=None, dtype=bool, **kwargs):
         # TODO: enable in RAM mode
         # if self.mask_crop is None:
         #     self.mask_crop = SingleCellStatic.gen_skimage_bbox_img_crop(self.bbox, self.get_mask())
         if bbox is None:
             bbox = self.bbox
-        return SingleCellStatic.gen_skimage_bbox_img_crop(bbox, self.get_mask(), **kwargs)
+        return SingleCellStatic.gen_skimage_bbox_img_crop(bbox, self.get_mask(), **kwargs).astype(dtype=dtype)
 
     def update_bbox(self, bbox=None):
         if bbox is None and self.contour is not None:
