@@ -159,13 +159,18 @@ class CorrectSegNet(LightningModule):
         loss = self.compute_loss(output, y)
         predicted_labels = torch.argmax(output, dim=1)
         self.log("train_loss", loss, batch_size=self.batch_size)
+        
 
+        # monitor more stats during training
         # compute on subdirs
+        if self.global_step % 1000 != 0:
+            return loss
         subdir_set = self.train_dataset.subdir_set
         batch_subdirs = np.array([self.train_dataset.get_subdir(idx.item()) for idx in batch["idx"]])
         bin_output = self.compute_bin_output(output)
         acc = self.train_accuracy(bin_output.long(), y.long())
         self.log("train_acc", acc, prog_bar=True)
+
 
         for subdir in subdir_set:
             if not (subdir in batch_subdirs):
