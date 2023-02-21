@@ -147,7 +147,6 @@ def evaluate_sample_v3_underseg(
     original_cell_count = len(np.unique(original_label_mask)) - 1  # -1 for bg
 
     assert gt_label_mask is not None, "gt_label_mask is required for undersegmentation evaluation"
-    print("gt seg mask:", gt_seg_mask.shape, np.unique(gt_seg_mask))
     assert len(set(np.unique(gt_seg_mask).tolist())) <= 2
 
     combined_over_under_seg = np.zeros([3] + list(out_mask.shape[1:]))

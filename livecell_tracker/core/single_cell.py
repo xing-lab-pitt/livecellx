@@ -31,6 +31,7 @@ class SingleCellStatic:
         contour: np.array = None,
         meta: Dict[str, object] = None,
         uns: Dict[str, object] = None,
+        id: int = None,  # TODO: automatically assign id (uuid)
     ) -> None:
         """_summary_
 
@@ -428,7 +429,7 @@ class SingleCellStatic:
 
     def show_panel(self, padding=0, figsize=(10, 10), **kwargs):
         crop = True
-        fig, axes = plt.subplots(1, 4, figsize=figsize)
+        fig, axes = plt.subplots(1, 5, figsize=figsize)
         self.show(ax=axes[0], crop=False, padding=padding, **kwargs)
         axes[0].set_title("img")
         self.show_mask(ax=axes[1], crop=False, padding=padding, **kwargs)
@@ -437,6 +438,8 @@ class SingleCellStatic:
         axes[2].set_title("contour_img")
         self.show_contour_mask(ax=axes[3], crop=crop, padding=padding, **kwargs)
         axes[3].set_title("contour_mask")
+        self.show_mask(ax=axes[4], crop=True, padding=padding, **kwargs)
+        axes[4].set_title("mask_crop")
         return axes
 
     def copy(self):
@@ -457,15 +460,17 @@ class SingleCellTrajectory:
         self,
         track_id: int = None,
         timeframe_to_single_cell: Dict[int, SingleCellStatic] = None,
-        raw_img_dataset: LiveCellImageDataset = None,
+        img_dataset: LiveCellImageDataset = None,
         mask_dataset: LiveCellImageDataset = None,
         extra_datasets: Dict[str, LiveCellImageDataset] = None,
     ) -> None:
         self.timeframe_set = set()
         if timeframe_to_single_cell is None:
             self.timeframe_to_single_cell = dict()
-        self.raw_img_dataset = raw_img_dataset
-        self.raw_total_timeframe = len(raw_img_dataset) if raw_img_dataset is not None else None
+        else:
+            self.timeframe_to_single_cell = timeframe_to_single_cell
+        self.img_dataset = img_dataset
+        self.img_total_timeframe = len(img_dataset) if img_dataset is not None else None
         self.track_id = track_id
         self.mask_dataset = mask_dataset
         self.extra_datasets = extra_datasets
@@ -524,7 +529,7 @@ class SingleCellTrajectory:
             "timeframe_to_single_cell": {
                 int(float(timeframe)): sc.to_json_dict() for timeframe, sc in self.timeframe_to_single_cell.items()
             },
-            "dataset_info": self.raw_img_dataset.to_json_dict(),
+            "dataset_info": self.img_dataset.to_json_dict(),
         }
         return res
 
@@ -538,17 +543,17 @@ class SingleCellTrajectory:
     def load_from_json_dict(self, json_dict, img_dataset=None, share_img_dataset=True):
         self.track_id = json_dict["track_id"]
         if img_dataset:
-            self.raw_img_dataset = img_dataset
+            self.img_dataset = img_dataset
         else:
-            self.raw_img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict["dataset_info"])
-        self.raw_total_timeframe = len(self.raw_img_dataset)
+            self.img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict["dataset_info"])
+        self.img_total_timeframe = len(self.img_dataset)
         self.timeframe_to_single_cell = {}
         for timeframe, sc in json_dict["timeframe_to_single_cell"].items():
             self.timeframe_to_single_cell[int(timeframe)] = SingleCellStatic(
-                int(timeframe), img_dataset=self.raw_img_dataset
-            ).load_from_json_dict(sc, img_dataset=self.raw_img_dataset)
+                int(timeframe), img_dataset=self.img_dataset
+            ).load_from_json_dict(sc, img_dataset=self.img_dataset)
             if img_dataset is None and share_img_dataset:
-                img_dataset = self.raw_img_dataset
+                img_dataset = self.img_dataset
         self.timeframe_set = set(self.timeframe_to_single_cell.keys())
         return self
 

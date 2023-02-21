@@ -166,9 +166,9 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             return self.cache_img_idx_to_img[idx]
         # TODO: optimize
         if self.index_by_time:
-            img = self.get_img_by_idx(idx)
-        else:
             img = self.get_img_by_time(idx)
+        else:
+            img = self.get_img_by_idx(idx)
         return img
 
     def to_json_dict(self) -> dict:

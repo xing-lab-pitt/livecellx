@@ -104,23 +104,28 @@ def update_traj_collection_by_SORT_tracker_detection(
     contours,
     contour_bbs,
     raw_img_dataset: LiveCellImageDataset = None,
-    sc_kwargs = dict(),
+    sc_kwargs=dict(),
 ):
     det_contours = map_SORT_detections_to_contour_bbs(track_bbs, contour_bbs, contours)
     for idx, det in enumerate(track_bbs):
         track_id = det[-1]  # track_id is the last element in the detection from SORT
         if not (track_id in traj_collection):
-            new_traj = SingleCellTrajectory(track_id=track_id, raw_img_dataset=raw_img_dataset)
+            new_traj = SingleCellTrajectory(track_id=track_id, img_dataset=raw_img_dataset)
             traj_collection.add_trajectory(new_traj)
 
         sc = SingleCellStatic(
             timeframe,
-            bbox=[det[0], det[1], det[2] + 1, det[3] + 1], # Note: definition of bbox is different from det here, so +1 is necessary
+            bbox=[
+                det[0],
+                det[1],
+                det[2] + 1,
+                det[3] + 1,
+            ],  # Note: definition of bbox is different from det here, so +1 is necessary
             img_dataset=raw_img_dataset,
             contour=det_contours[idx],
             **sc_kwargs,
         )  # final column is track_id, ignore as we only need bbox here
-        sc.update_bbox() # further prevent from bbox diffinition differences
+        sc.update_bbox()  # further prevent from bbox diffinition differences
         _traj = traj_collection.get_trajectory(track_id)
         _traj.add_single_cell(timeframe, sc)
 
@@ -130,7 +135,7 @@ def track_SORT_bbox_from_contours(
     raw_imgs: LiveCellImageDataset,
     max_age=5,
     min_hits=3,
-    sc_kwargs = dict(),
+    sc_kwargs=dict(),
 ):
     tracker = Sort(max_age=max_age, min_hits=min_hits)
     traj_collection = SingleCellTrajectoryCollection()

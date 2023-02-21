@@ -75,6 +75,7 @@ def match_mask_labels_by_iou(seg_label_mask, gt_label_mask, bg_label=0, return_a
             temp_seg_mask[temp_seg_mask != seg_label] = 0
             temp_seg_mask[temp_seg_mask != 0] = 1
 
+            # TODO: optimize
             matching_rows, matching_columns = np.where(temp_seg_mask == 1)
             intersection_area = (temp_gt_mask[matching_rows, matching_columns] == 1).sum()
             union_area = temp_gt_mask.sum() + temp_seg_mask.sum() - intersection_area

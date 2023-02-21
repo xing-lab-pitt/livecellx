@@ -260,11 +260,11 @@ def gen_sc_bg_crop(sc, shape):
     return res_bg_img
 
 
-def move_two_scs(sc1: SingleCellStatic, sc2: SingleCellStatic, pos_offset_vec, bg_img, inplace=False):
+def move_two_scs(sc1: SingleCellStatic, sc2: SingleCellStatic, pos_offset_vec, sc1_ori_img, inplace=False):
     if not inplace:
         sc1 = sc1.copy()
         sc2 = sc2.copy()
-    img_space_dims = bg_img.shape
+    img_space_dims = sc1_ori_img.shape
     pos_offset_vec = np.array(pos_offset_vec).astype(int)
     new_contour = np.array(sc2.get_contour()) + pos_offset_vec
     contour_before_adjust = new_contour.copy()
@@ -273,8 +273,8 @@ def move_two_scs(sc1: SingleCellStatic, sc2: SingleCellStatic, pos_offset_vec, b
     tmp_sc2 = sc2.copy()
     tmp_sc2.update_contour(new_contour, update_bbox=True)
 
-    new_img = bg_img.copy()
-    new_mask = np.zeros(bg_img.shape, dtype=np.uint8)
+    new_img = sc1_ori_img.copy()
+    new_mask = np.zeros(sc1_ori_img.shape, dtype=np.uint8)
     sc1_bbox, sc2_bbox = sc1.get_bbox(), sc2.get_bbox()
     new_sc_bbox = tmp_sc2.get_bbox()
     projected_new_sc_bbox = (new_sc_bbox.reshape(2, 2) - pos_offset_vec).flatten()
@@ -301,13 +301,18 @@ def move_two_scs(sc1: SingleCellStatic, sc2: SingleCellStatic, pos_offset_vec, b
     # TODO: consider if we have more datasets in single cell objects?
     sc1_contour_mask = sc1.get_contour_mask()
     sc2_contour_mask__projected = sc2.get_contour_mask(bbox=projected_new_sc_bbox)
-    new_img[sc1_bbox[0] : sc1_bbox[2], sc1_bbox[1] : sc1_bbox[3]][sc1_contour_mask] = sc1.get_contour_img()[
-        sc1_contour_mask
-    ]
+
+    # Note: we do not need to set sc1 image here because it is included in sc1_ori_img
+    # The reason for using sc1_ori_img is that when moving cells apart, sc2's part may remain in sc1 and we need to keep the original image of sc1
+
+    # new_img[sc1_bbox[0] : sc1_bbox[2], sc1_bbox[1] : sc1_bbox[3]][sc1_contour_mask] = sc1.get_contour_img()[
+    #     sc1_contour_mask
+    # ]
 
     new_img[new_sc_bbox[0] : new_sc_bbox[2], new_sc_bbox[1] : new_sc_bbox[3]][
         sc2_contour_mask__projected
     ] = sc2.get_contour_img(bbox=projected_new_sc_bbox)[sc2_contour_mask__projected]
+
     new_mask[sc1_bbox[0] : sc1_bbox[2], sc1_bbox[1] : sc1_bbox[3]] |= sc1.get_contour_mask()
     new_mask[new_sc_bbox[0] : new_sc_bbox[2], new_sc_bbox[1] : new_sc_bbox[3]][
         sc2_contour_mask__projected
@@ -340,7 +345,7 @@ def move_two_syn_scs_close_or_apart(
     pos_offset_vec = (norm_vec * dist).astype(int)
     if apart:
         pos_offset_vec = -pos_offset_vec
-    return move_two_scs(sc1, sc2, pos_offset_vec=pos_offset_vec, bg_img=bg_img)
+    return move_two_scs(sc1, sc2, pos_offset_vec=pos_offset_vec, sc1_ori_img=bg_img)
 
 
 def move_util_in_range(
@@ -367,12 +372,13 @@ def move_util_in_range(
     if dist_per_move is None:
         # # TODO: make distance per move more efficient
         # if cur_dist > max_dist:
-        #     dist_per_move = (cur_dist - max_dist) / 2
+        #     dist_per_move = cur_dist / 2
         # elif cur_dist < min_dist:
-        #     dist_per_move = (min_dist - cur_dist) / 2
+        #     dist_per_move = cur_dist / 2
         # else:
         #     dist_per_move = (max_dist - min_dist) / 2
-        dist_per_move = (max_dist - min_dist) / 2
+        dist_per_move = cur_dist / 2
+        # dist_per_move = (max_dist - min_dist) / 2
 
     pos_offset_vec_toward = (norm_vec * dist_per_move).astype(int)
     pos_offset_vec = pos_offset_vec_toward
@@ -382,19 +388,30 @@ def move_util_in_range(
     # print("start dist: ", cur_dist, "pos_offset_vec: ", pos_offset_vec, "min_dist: ", min_dist, "max_dist: ", max_dist, "allow_overlap: ", allow_overlap)
     counter = 0
     iou = sc1.compute_iou(sc2)
+
+    # when moving sc2, we may overwrite some part of sc1
+    sc1_ori_img = sc1.get_img()
     while (cur_dist < min_dist or cur_dist > max_dist or (not allow_overlap and iou > 0)) and counter < max_move:
-        sc1, sc2 = move_two_scs(sc1, sc2, pos_offset_vec=pos_offset_vec, bg_img=bg_img, inplace=inplace)
+        sc1, sc2 = move_two_scs(sc1, sc2, pos_offset_vec=pos_offset_vec, sc1_ori_img=sc1_ori_img, inplace=inplace)
         cur_dist = compute_two_contours_min_distance(sc1.get_contour(), sc2.get_contour())
         iou = sc1.compute_iou(sc2)
-        # print("cur_dist: ", cur_dist, "iou: ", iou, "pos_offset_vec: ", pos_offset_vec)
+
+        if cur_dist < 2 and cur_dist < min_dist:
+            dist_per_move = (max_dist - min_dist) / 2
+        else:
+            dist_per_move = cur_dist / 2
+
         norm_vec = sc1.get_center(crop=False) - sc2.get_center(crop=False)
         norm_vec = norm_vec / np.linalg.norm(norm_vec)
         pos_offset_vec_toward = (norm_vec * dist_per_move).astype(int)
-        if iou > 0 or cur_dist < min_dist:
+        if iou > 0 or cur_dist <= min_dist:
             pos_offset_vec = -pos_offset_vec_toward
         else:
             pos_offset_vec = pos_offset_vec_toward
+
         counter += 1
+        # if counter % 5 == 0:
+        #     print("counter: ", counter, "cur_dist: ", cur_dist, "iou: ", iou, "pos_offset_vec: ", pos_offset_vec)
     return sc1, sc2
 
 
@@ -403,7 +420,7 @@ def gen_synthetic_nonoverlap_by_two_scs(
     sc2: SingleCellStatic,
     min_dist=-np.inf,
     max_dist=np.inf,
-    min_reserved_area_percent=0.7,
+    min_reserved_area_percent=0.9,
     bg_scale=3.0,
     fix_sc1=False,
     max_try=1000,
@@ -514,7 +531,7 @@ def merge_two_scs_overlap(sc1: SingleCellStatic, sc2: SingleCellStatic):
     return res_sc, True
 
 
-def merge_two_scs_nonoverlap(sc1: SingleCellStatic, sc2: SingleCellStatic, max_dilate_iter=9998, kernel_shape=(4, 4)):
+def merge_two_scs_nonoverlap(sc1: SingleCellStatic, sc2: SingleCellStatic, max_dilate_iter=998, kernel_shape=(4, 4)):
     new_mask = np.logical_or(sc1.get_mask().astype(bool), sc2.get_mask().astype(bool))
 
     contours = find_contours_opencv(new_mask.astype(np.uint8))
@@ -685,10 +702,19 @@ def center_scs(cur_merged_sc, bg_img, sc_comps=[], viz=False):
         sc_contour = sc.contour.copy()
         sc_contour[:, 0] += center_shift[0]
         sc_contour[:, 1] += center_shift[1]
+        sc_bbox = sc.bbox
         new_sc = sc.copy()
         new_sc.update_contour(sc_contour)
         new_sc.img_dataset = new_img_dataset
-        new_sc.mask_dataset = new_mask_dataset
+
+        # TODO: optimize: if the sc masks are the same as the merged sc mask, we may reuse the mask dataset generated for the merged sc
+        # we need a sc specific mask because the mask of the merged sc is possibly changed
+        tmp_new_sc_mask = np.zeros(bg_img.shape, dtype=bool)
+        tmp_new_sc_mask[new_sc.bbox[0] : new_sc.bbox[2], new_sc.bbox[1] : new_sc.bbox[3]] = sc.get_mask_crop().astype(
+            bool
+        )
+        new_sc.mask_dataset = SingleImageDataset(tmp_new_sc_mask)
+
         res_scs.append(new_sc)
         if viz:
             print(">" * 20, "single cell component in merged cell", "<" * 20)
@@ -714,6 +740,9 @@ def gen_underseg_scs_sample(
     # merged_scs contains each individual single AFTER merging
     _merged_syn_scs = None
     is_success = True
+    is_gen_success = None
+    is_merge_success = None
+
     for j in range(1, num_cells):
         is_success = True
         cur_sc = scs[j]
@@ -834,8 +863,8 @@ def gen_underseg_scs_sample(
     }
 
 
-def _gen_underseg_scs_sample_wrapper(inputs):
-    return gen_underseg_scs_sample(**inputs)
+def _gen_underseg_scs_sample_wrapper(input_args):
+    return gen_underseg_scs_sample(**input_args)
 
 
 def gen_underseg_scs(
@@ -912,6 +941,7 @@ def gen_underseg_scs(
 
         pool = Pool()
         res_single_cells = []
+        tmp_df_path = save_dir / Path("tmp_df.csv")
         for res_dict in tqdm.tqdm(pool.imap_unordered(_gen_underseg_scs_sample_wrapper, inputs), total=len(inputs)):
             if not res_dict["is_success"]:
                 continue
@@ -923,8 +953,15 @@ def gen_underseg_scs(
             else:
                 all_df = pd.concat([all_df, df], ignore_index=True)
             counter += 1
+            tmp_df_path.parent.mkdir(parents=True, exist_ok=True)
+            all_df.to_csv(tmp_df_path, index=False)
         pool.close()
         pool.join()
+
+        # delete tmp_df file
+        if tmp_df_path.exists():
+            os.remove(tmp_df_path)
+
         return all_df, counter, cur_id
 
     if parallel:
