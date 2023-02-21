@@ -303,7 +303,7 @@ def move_two_scs(sc1: SingleCellStatic, sc2: SingleCellStatic, pos_offset_vec, s
     sc2_contour_mask__projected = sc2.get_contour_mask(bbox=projected_new_sc_bbox)
 
     # Note: we do not need to set sc1 image here because it is included in sc1_ori_img
-    # The reason is that when moving cells apart, sc2's part may remain in sc1 and we need to keep the original image of sc1
+    # The reason for using sc1_ori_img is that when moving cells apart, sc2's part may remain in sc1 and we need to keep the original image of sc1
 
     # new_img[sc1_bbox[0] : sc1_bbox[2], sc1_bbox[1] : sc1_bbox[3]][sc1_contour_mask] = sc1.get_contour_img()[
     #     sc1_contour_mask
