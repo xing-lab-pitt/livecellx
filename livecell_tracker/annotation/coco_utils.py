@@ -41,7 +41,7 @@ def convert_coco_category_to_mask(coco_annotation: COCO, cat_id: int, output_dir
         img.save(Path(output_dir) / f"{img_id}.png")
 
 
-def coco_to_sc(coco_data: COCO) -> List[SingleCellStatic]:
+def coco_to_sc(coco_data: COCO, extract_bbox=False) -> List[SingleCellStatic]:
     img_metas = coco_data.imgs
     sc_list = []
     # constrcut dataset
@@ -50,17 +50,10 @@ def coco_to_sc(coco_data: COCO) -> List[SingleCellStatic]:
         img_path = img_meta["file_name"]
         img_id_to_img_path[img_id] = img_path
 
+    # TODO: add image meta to LiveCellImageDataset
     dataset = LiveCellImageDataset(time2url=img_id_to_img_path, max_cache_size=0)
     for ann_key in coco_data.anns:
         ann = coco_data.anns[ann_key]
-
-        # https://github.com/cocodataset/cocoapi/issues/102
-        # [x,y,width,height]
-        # x, y: the upper-left coordinates of the bounding box
-        # width, height: the dimensions of your bounding box
-        bbox = list(ann["bbox"])
-        x, y, width, height = bbox
-        bbox = [y, x, y + height, x + width]  # change to row-column format
 
         # TODO: use the first contour instead of raising an error here?
         # TODO: or create multiple contours for a single annotation?
@@ -70,22 +63,34 @@ def coco_to_sc(coco_data: COCO) -> List[SingleCellStatic]:
         contour = tmp_contour.copy()
         contour[:, 0], contour[:, 1] = tmp_contour[:, 1], tmp_contour[:, 0]  # change to row-column format
         img_id = ann["image_id"]
-        path = img_metas[img_id]["file_name"]
-        meta = {
-            "img_id": img_id,
-            "path": path,
-        }
-        assert contour[:, 0].min() >= 0, "negative row contour index"
-        assert contour[:, 1].min() >= 0, "negative column contour index"
-        # fix the bounding box
-        # TODO: add warnings for two branches below
-        if contour[:, 0].max() >= bbox[2]:
-            bbox[2] = contour[:, 0].max() + 1
-        if contour[:, 1].max() >= bbox[3]:
-            bbox[3] = contour[:, 1].max() + 1
-        assert contour[:, 0].max() < bbox[2], "row index exceeds the bounding box"
-        assert contour[:, 1].max() < bbox[3], "column index exceeds the bounding box"
+        img_path = img_metas[img_id]["file_name"]
+        meta = dict(ann)
+        meta.pop("segmentation")
+        meta["img_id"] = img_id
+        meta["path"] = img_path
+        if extract_bbox and "bbox" in ann:
+            # https://github.com/cocodataset/cocoapi/issues/102
+            # [x,y,width,height]
+            # x, y: the upper-left coordinates of the bounding box
+            # width, height: the dimensions of your bounding box
+            bbox = list(ann["bbox"])
+            x, y, width, height = bbox
+            bbox = [y, x, y + height, x + width]  # change to row-column format
+            if contour[:, 0].max() >= bbox[2]:
+                bbox[2] = contour[:, 0].max() + 1
+            if contour[:, 1].max() >= bbox[3]:
+                bbox[3] = contour[:, 1].max() + 1
+
+            # fix the bounding box
+            # TODO: add warnings for two branches below
+            assert contour[:, 0].min() >= 0, "negative row contour index"
+            assert contour[:, 1].min() >= 0, "negative column contour index"
+            assert contour[:, 0].max() < bbox[2], "row index exceeds the bounding box"
+            assert contour[:, 1].max() < bbox[3], "column index exceeds the bounding box"
+        else:
+            bbox = None
         sc = SingleCellStatic(timeframe=img_id, bbox=bbox, contour=contour, meta=meta, img_dataset=dataset)
-        sc.update_bbox()
+        if not extract_bbox:
+            sc.update_bbox()  # update according to contours
         sc_list.append(sc)
     return sc_list
