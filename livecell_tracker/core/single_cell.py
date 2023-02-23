@@ -11,6 +11,7 @@ from skimage.measure import regionprops
 
 from livecell_tracker.core.datasets import LiveCellImageDataset
 
+
 # TODO: possibly refactor load_from_json methods into a mixin class
 class SingleCellStatic:
     """Single cell at one time frame"""
@@ -128,12 +129,12 @@ class SingleCellStatic:
     def get_img(self):
         return self.img_dataset.get_img_by_time(self.timeframe)
 
-    def get_mask(self):
+    def get_mask(self, dtype=bool):
         if not self.mask_dataset is None:
             return self.mask_dataset[self.timeframe]
         elif self.contour is not None:
             shape = self.get_img().shape
-            mask = np.zeros(shape, dtype=bool)
+            mask = np.zeros(shape, dtype=dtype)
             mask[self.contour[0, :], self.contour[1, :]] = True
             return mask
         else:
@@ -271,6 +272,10 @@ class SingleCellStatic:
         xs = self.contour[:, 0] - max(0, bbox[0] - padding)
         ys = self.contour[:, 1] - max(0, bbox[1] - padding)
         return np.array([xs, ys]).T
+
+    def get_bbox_on_crop(self, bbox=None, padding=0):
+        contours = self.get_contour_coords_on_crop(bbox=bbox, padding=padding)
+        return self.get_bbox_from_contour(contours)
 
     def get_contour_coords_on_img_crop(self, padding=0) -> np.array:
         """a utility function to calculate pixel coord in image crop's coordinate system
@@ -427,7 +432,7 @@ class SingleCellStatic:
             ax = plt.gca()
         ax.imshow(self.get_mask(), **kwargs)
 
-    def show_panel(self, padding=0, figsize=(10, 10), **kwargs):
+    def show_panel(self, padding=0, figsize=(20, 10), **kwargs):
         crop = True
         fig, axes = plt.subplots(1, 5, figsize=figsize)
         self.show(ax=axes[0], crop=False, padding=padding, **kwargs)
@@ -449,6 +454,26 @@ class SingleCellStatic:
 
     def get_center(self, crop=True):
         return np.array(self.compute_regionprops(crop=crop).centroid)
+
+    def _sc_matplotlib_bbox_patch(self, edgecolor="r", linewidth=1, **kwargs) -> patches.Rectangle:
+        """
+        A util function to return matplotlib rectangle patch for one sc's bounding box
+        Parameters
+        ----------
+        edgecolor : str, optional
+            _description_, by default 'r'
+        linewidth : int, optional
+            _description_, by default 1
+        kwargs :
+        """
+        return patches.Rectangle(
+            (self.bbox[1], self.bbox[0]),
+            (self.bbox[3] - self.bbox[1]),
+            (self.bbox[2] - self.bbox[0]),
+            linewidth=linewidth,
+            edgecolor=edgecolor,
+            **kwargs,
+        )
 
 
 class SingleCellTrajectory:
