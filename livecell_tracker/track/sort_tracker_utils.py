@@ -140,7 +140,7 @@ def track_SORT_bbox_from_contours(
     tracker = Sort(max_age=max_age, min_hits=min_hits)
     traj_collection = SingleCellTrajectoryCollection()
     all_track_bbs = []
-    for time, img in enumerate(raw_imgs):
+    for time in raw_imgs.time2url:
         print("matching image path:", raw_imgs.get_img_path(time))
         img_path = raw_imgs.get_img_path(time)
         # TODO: fix in the future only for windows... somehow json lib saved double slashes
