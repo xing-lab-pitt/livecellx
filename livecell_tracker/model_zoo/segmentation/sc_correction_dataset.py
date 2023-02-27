@@ -23,7 +23,7 @@ from torch.nn import init
 from torch.utils.data import DataLoader, random_split
 import scipy.ndimage
 import skimage.measure
-
+from livecell_tracker.preprocess.utils import normalize_img_to_uint8
 
 # class CorrectSegNetData(data.Dataset):
 #     def __init__(self, livecell_dataset: LiveCellImageDataset, segnet_dataset: LiveCellImageDataset):
@@ -50,6 +50,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         exclude_raw_input_bg=False,
         subdirs=None,
         raw_df=None,
+        normalize_uint8=True,
     ):
         """_summary_
 
@@ -103,6 +104,9 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         print("input type:", self.input_type)
         print("if apply_gt_seg_edt:", self.apply_gt_seg_edt)
 
+        self.normalize_uint8 = normalize_uint8
+        print("whether to normalize_uint8:", self.normalize_uint8)
+
     def get_raw_seg(self, idx) -> np.array:
         return np.array(Image.open(self.raw_seg_paths[idx]))
 
@@ -129,6 +133,9 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask = Image.open(self.gt_mask_paths[idx])
         augmented_raw_transformed_img = Image.open(self.raw_transformed_img_paths[idx])
         aug_diff_img = Image.open(self.aug_diff_img_paths[idx])
+        if self.normalize_uint8:
+            augmented_raw_img = normalize_img_to_uint8(np.array(augmented_raw_img))
+            augmented_raw_transformed_img = normalize_img_to_uint8(np.array(augmented_raw_transformed_img))
 
         augmented_raw_img = torch.tensor(np.array(augmented_raw_img)).float()
         scaled_seg_mask = torch.tensor(np.array(scaled_seg_mask)).float()
@@ -142,7 +149,15 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             scaled_seg_mask = self.label_mask_to_edt(scaled_seg_mask)
         # prepare for augmentation
         concat_img = torch.stack(
-            [augmented_raw_img, augmented_raw_transformed_img, scaled_seg_mask, gt_mask.float(), aug_diff_img], dim=0
+            [
+                augmented_raw_img,
+                augmented_raw_transformed_img,
+                scaled_seg_mask,
+                gt_mask.float(),
+                aug_diff_img,
+                gt_label_mask,
+            ],
+            dim=0,
         )
         if self.transform:
             concat_img = self.transform(concat_img)
@@ -150,6 +165,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         augmented_raw_img = concat_img[0]
         augmented_raw_transformed_img = concat_img[1]
         augmented_scaled_seg_mask = concat_img[2]
+        augmented_gt_label_mask = concat_img[5].long()
 
         if self.input_type == "raw_aug_seg":
             input_img = torch.stack(
@@ -201,7 +217,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             "gt_mask_binary": gt_binary,
             "gt_mask": combined_gt,
             "idx": idx,
-            "gt_label_mask": torch.tensor(gt_label_mask),
+            "gt_label_mask": augmented_gt_label_mask,
         }
         if self.apply_gt_seg_edt:
             res["gt_mask_edt"] = gt_mask_edt

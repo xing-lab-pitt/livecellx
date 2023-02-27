@@ -44,6 +44,7 @@ class CorrectSegNet(LightningModule):
         input_type="raw_aug_seg",  # WARNING: do not change: be consistent with dataset class
         apply_gt_seg_edt=False,
         exclude_raw_input_bg=False,
+        normalize_uint8=True,
     ):
         """_summary_
 
@@ -107,6 +108,7 @@ class CorrectSegNet(LightningModule):
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
         self.test_dataset = test_dataset
+        self.normalize_uint8 = normalize_uint8
 
         # the following attributes not used; handled by dataset class
         self.apply_gt_seg_edt = apply_gt_seg_edt
@@ -159,7 +161,6 @@ class CorrectSegNet(LightningModule):
         loss = self.compute_loss(output, y)
         predicted_labels = torch.argmax(output, dim=1)
         self.log("train_loss", loss, batch_size=self.batch_size)
-        
 
         # monitor more stats during training
         # compute on subdirs
@@ -170,7 +171,6 @@ class CorrectSegNet(LightningModule):
         bin_output = self.compute_bin_output(output)
         acc = self.train_accuracy(bin_output.long(), y.long())
         self.log("train_acc", acc, prog_bar=True)
-
 
         for subdir in subdir_set:
             if not (subdir in batch_subdirs):
@@ -291,8 +291,17 @@ class CorrectSegNet(LightningModule):
                 num_workers=self.num_workers,
                 generator=self.generator,
             ),
-            self.test_dataloader(),
         ]
+        if self.test_dataset is not None:
+            self.val_loaders.append(
+                DataLoader(
+                    self.test_dataset,
+                    batch_size=self.batch_size,
+                    shuffle=False,
+                    num_workers=self.num_workers,
+                    generator=self.generator,
+                )
+            )
         return self.val_loaders
 
     def test_dataloader(self):
