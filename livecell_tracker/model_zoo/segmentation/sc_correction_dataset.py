@@ -50,7 +50,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         exclude_raw_input_bg=False,
         subdirs=None,
         raw_df=None,
-        normalize_uint8=True,
+        normalize_uint8=False,
     ):
         """_summary_
 

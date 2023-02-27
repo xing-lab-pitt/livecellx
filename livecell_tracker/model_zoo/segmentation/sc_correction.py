@@ -44,7 +44,7 @@ class CorrectSegNet(LightningModule):
         input_type="raw_aug_seg",  # WARNING: do not change: be consistent with dataset class
         apply_gt_seg_edt=False,
         exclude_raw_input_bg=False,
-        normalize_uint8=True,
+        normalize_uint8=False,
     ):
         """_summary_
 
