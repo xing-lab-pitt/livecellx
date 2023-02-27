@@ -112,6 +112,17 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
     def get_subdir(self, idx):
         return self.subdirs.iloc[idx]
 
+    def label_mask_to_edt(label_mask: np.array, bg_val=0):
+        label_mask = label_mask.astype(np.uint8)
+        labels = set(np.unique(label_mask))
+        labels.remove(bg_val)
+        res_edt = np.zeros_like(label_mask)
+        for label in labels:
+            tmp_bin_mask = label_mask == label
+            tmp_edt = scipy.ndimage.morphology.distance_transform_edt(tmp_bin_mask)
+            res_edt = np.maximum(res_edt, tmp_edt)
+        return res_edt
+
     def __getitem__(self, idx):
         augmented_raw_img = Image.open(self.raw_img_paths[idx])
         scaled_seg_mask = Image.open(self.scaled_seg_mask_paths[idx])
@@ -124,7 +135,11 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask = torch.tensor(np.array(gt_mask)).long()
         augmented_raw_transformed_img = torch.tensor(np.array(augmented_raw_transformed_img)).float()
         aug_diff_img = torch.tensor(np.array(aug_diff_img)).float()
+        gt_label_mask = torch.tensor(np.array(Image.open(self.gt_label_mask_paths[idx]))).long()
 
+        # transform to edt for inputs before augmentation
+        if self.input_type == "edt_v0":
+            scaled_seg_mask = self.label_mask_to_edt(scaled_seg_mask)
         # prepare for augmentation
         concat_img = torch.stack(
             [augmented_raw_img, augmented_raw_transformed_img, scaled_seg_mask, gt_mask.float(), aug_diff_img], dim=0
@@ -146,7 +161,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             )
         elif self.input_type == "edt_v0":
             # TODO edt transform
-            augmented_scaled_seg_mask = scipy.ndimage.distance_transform_edt(augmented_scaled_seg_mask)
+            # augmented_scaled_seg_mask = scipy.ndimage.distance_transform_edt(augmented_scaled_seg_mask)
             input_img = torch.stack(
                 [augmented_raw_transformed_img, augmented_raw_transformed_img, augmented_scaled_seg_mask], dim=0
             )
@@ -171,7 +186,6 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask[gt_mask > 0.5] = 1
         gt_mask[gt_mask <= 0.5] = 0
         gt_binary = gt_mask
-        gt_label_mask = skimage.measure.label(gt_binary)
         gt_mask_edt = None
         if self.apply_gt_seg_edt:
             gt_mask = torch.tensor(scipy.ndimage.distance_transform_edt(gt_mask[:, :]))
