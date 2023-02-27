@@ -28,13 +28,13 @@ from pathlib import Path
 import pandas as pd
 from livecell_tracker.preprocess.utils import dilate_or_erode_mask
 
-
+# TODO: adapt to new sc API (check and fix the function below)
 def underseg_overlay_gt_masks(
     seg_label: int, scs: SingleCellStatic, padding_scale=1.5, seg_mask=None
 ) -> Tuple[np.array, np.array, np.array]:
     """Overlay segmentation masks and ground truth masks for under-segmentation cases.
     Specifically, for a segmentation label, if there are multiple ground truth masks matched to it,
-    then we overlay ground truths masks in the same kmask
+    then we overlay ground truths masks in the same mask
 
     Parameters
     ----------
@@ -57,9 +57,9 @@ def underseg_overlay_gt_masks(
         return None, None, None
 
     if seg_mask is None:
-        seg_mask = scs[0].get_mask()
+        seg_mask = scs[0].get_mask(dtype=int)
 
-    seg_mask[seg_mask != seg_label] = 0
+    seg_mask[seg_mask != int(seg_label)] = 0
     props_list = regionprops(seg_mask)
 
     if len(props_list) != 1:
@@ -80,7 +80,7 @@ def underseg_overlay_gt_masks(
     # get seg mask's crop with single cell's get_mask_crop implementation for consistency
     tmp = np.array(scs[0].bbox)
     scs[0].bbox = seg_bbox
-    seg_crop = scs[0].get_mask_crop(padding=padding_pixels)
+    seg_crop = scs[0].get_mask_crop(bbox=seg_bbox, padding=padding_pixels, dtype=int)
     scs[0].bbox = np.array(tmp)
 
     # clear other seg labels
@@ -93,9 +93,70 @@ def underseg_overlay_gt_masks(
         sc.meta["seg_label"] = None
         tmp = np.array(sc.bbox)
         sc.bbox = seg_bbox
-        combined_gt_mask += (idx + 1) * sc.get_contour_mask(padding=padding_pixels)
+        combined_gt_mask += (idx + 1) * sc.get_contour_mask(bbox=seg_bbox, padding=padding_pixels)
         img_crop = sc.get_img_crop(padding=padding_pixels) if img_crop is None else img_crop  # set img_crop once
         sc.bbox = tmp
+    return (img_crop, seg_crop, combined_gt_mask)
+
+
+def underseg_overlay_scs(
+    underseg_sc: int, scs: SingleCellStatic, padding_scale=1.5, seg_mask=None
+) -> Tuple[np.array, np.array, np.array]:
+    """Overlay segmentation masks and ground truth masks for under-segmentation cases.
+    Specifically, for a segmentation label, if there are multiple ground truth masks matched to it,
+    then we overlay ground truths masks in the same mask
+
+    Parameters
+    ----------
+    seg_label : int
+        _description_
+    scs : SingleCellStatic
+        _description_
+    padding_scale : float, optional
+        _description_, by default 1.5
+    mask :
+        if not None, use the mask, otherwise inferred from other args, by default None
+
+    Returns
+    -------
+    Tuple[np.array, np.array, np.array]
+        (img_crop, seg_crop, combined ground-truth mask)
+    """
+    if len(scs) == 0:
+        print("no scs for this seg_label")
+        return None, None, None
+
+    # TODO: we may remove the check part below
+    seg_mask = underseg_sc.get_contour_mask().astype(int)
+    props_list = regionprops(seg_mask)
+    if len(props_list) != 1:
+        print(
+            "[WARNING] skip: (time:%) due to more than one region found in seg mask or NO region found in seg mask. #props: %d"
+            % (scs[0].timeframe, len(props_list))
+        )
+        print(np.unique(scs[0].get_mask(dtype=int)))
+        return
+    # #obtain segmentation bbox from segmentation mask
+    # seg_props = props_list[0]
+    # seg_bbox = seg_props.bbox
+
+    seg_bbox = underseg_sc.bbox
+    xmin, ymin, xmax, ymax = seg_bbox
+
+    # compute padding based on scale
+    padding_pixels = np.array((padding_scale - 1) * max(xmax - xmin, ymax - ymin))
+    padding_pixels = padding_pixels.astype(int)
+
+    # get seg mask's crop with single cell's get_mask_crop implementation for consistency
+    seg_crop = underseg_sc.get_contour_mask(bbox=seg_bbox, padding=padding_pixels).astype(int)
+
+    combined_gt_mask = np.zeros(seg_crop.shape)
+    img_crop = None
+    for idx, sc in enumerate(scs):
+        combined_gt_mask += (idx + 1) * sc.get_contour_mask(bbox=seg_bbox, padding=padding_pixels)
+        img_crop = (
+            sc.get_img_crop(padding=padding_pixels, bbox=seg_bbox) if img_crop is None else img_crop
+        )  # set img_crop once
     return (img_crop, seg_crop, combined_gt_mask)
 
 
@@ -128,9 +189,23 @@ def gen_aug_diff_mask(aug_mask: np.array, combined_gt_mask: np.array) -> np.arra
     return diff_mask
 
 
+def dilate_or_erode_label_mask(label_mask: np.array, scale_factor, bg_val=0):
+    import scipy
+
+    label_mask = label_mask.astype(np.uint8)
+    labels = set(np.unique(label_mask))
+    labels.remove(bg_val)
+    res_mask = np.zeros_like(label_mask)
+    for label in labels:
+        tmp_bin_mask = (label_mask == label).astype(np.uint8)
+        tmp_scaled_mask = dilate_or_erode_mask(tmp_bin_mask, scale_factor)
+        res_mask = np.maximum(res_mask, tmp_scaled_mask)
+    return res_mask
+
+
 def csn_augment_helper(
     img_crop,
-    seg_crop,
+    seg_label_crop,
     combined_gt_label_mask,
     scale_factors: list,
     train_path_tuples: list,
@@ -151,14 +226,68 @@ def csn_augment_helper(
     df_save_path=None,
     normalize_img_uint8=True,
 ):
+    """_summary_
 
+    Parameters
+    ----------
+    img_crop : _type_
+        _description_
+    seg_label_crop : _type_
+        In overseg case, this should be a label mask and each label region will be dilated/eroded correspondingly
+        In underseg case, this can be a binary mask and should be dilated
+    combined_gt_label_mask : _type_
+        _description_
+    scale_factors : list
+        _description_
+    train_path_tuples : list
+        _description_
+    augmented_data : list
+        _description_
+    img_id : _type_
+        _description_
+    seg_label : _type_
+        _description_
+    gt_label : _type_
+        _description_
+    raw_img_path : _type_
+        _description_
+    seg_img_path : _type_
+        _description_
+    gt_img_path : _type_
+        _description_
+    gt_label_img_path : _type_
+        _description_
+    augmented_seg_dir : _type_
+        _description_
+    augmented_diff_seg_dir : _type_
+        _description_
+    filename_pattern : str, optional
+        _description_, by default "img-%d_seg-%d.tif"
+    overseg_raw_seg_crop : _type_, optional
+        _description_, by default None
+    overseg_raw_seg_img_path : _type_, optional
+        _description_, by default None
+    raw_transformed_img_dir : _type_, optional
+        _description_, by default None
+    df_save_path : _type_, optional
+        _description_, by default None
+    normalize_img_uint8 : bool, optional
+        _description_, by default True
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    if train_path_tuples is None:
+        train_path_tuples = []
     if normalize_img_uint8:
         img_crop = normalize_img_to_uint8(img_crop)
     combined_gt_binary_mask = combined_gt_label_mask > 0
     combined_gt_binary_mask = combined_gt_binary_mask.astype(np.uint8)
 
     save_tiff(img_crop, raw_img_path, mode="I")  # save to 32-bit depth signed integer
-    save_tiff(seg_crop, seg_img_path)
+    save_tiff(seg_label_crop, seg_img_path)
     save_tiff(combined_gt_binary_mask, gt_img_path)
     save_tiff(combined_gt_label_mask, gt_label_img_path)
 
@@ -173,15 +302,16 @@ def csn_augment_helper(
         augmented_seg_path = augmented_seg_dir / (aug_filename_pattern % (img_id, seg_label, idx))
         augmented_diff_seg_path = augmented_diff_seg_dir / (aug_filename_pattern % (img_id, seg_label, idx))
 
-        if np.unique(seg_crop).shape[0] > 256:
+        if np.unique(seg_label_crop).shape[0] > 256:
             print("[WARNING] skip: (%d, %d) due to more than 256 unique seg labels" % (img_id, seg_label))
             continue
-        seg_crop = seg_crop.astype(np.uint8)
+        seg_label_crop = seg_label_crop.astype(np.uint8)
 
         # seg_crop should only contains one label
         # TODO: the condition commented above should be a postcondition of underseg_overlay_gt_masks
-        seg_crop[seg_crop > 0] = 1
-        aug_seg_crop = dilate_or_erode_mask(seg_crop, scale_factor=scale)
+        # seg_label_crop[seg_label_crop > 0] = 1
+        # aug_seg_crop = dilate_or_erode_mask(seg_label_crop, scale_factor=scale)
+        aug_seg_crop = dilate_or_erode_label_mask(seg_label_crop, scale_factor=scale)
         aug_values = np.unique(aug_seg_crop)
         assert len(aug_values) <= 2, "only two values should be present in aug masks"
         aug_seg_crop[aug_seg_crop > 0] = 1
@@ -213,7 +343,7 @@ def csn_augment_helper(
             {
                 "img_id": img_id,
                 "img_crop": img_crop,
-                "seg_crop": seg_crop,
+                "seg_crop": seg_label_crop,
                 "seg_label": seg_label,
                 "gt_label": gt_label,
                 "combined_gt_mask": combined_gt_binary_mask,
@@ -255,3 +385,17 @@ def csn_augment_helper(
         "augmented_data": augmented_data,
         "df": df,
     }
+
+
+def collect_and_combine_data(out_dir: Path):
+    if isinstance(out_dir, str):
+        out_dir = Path(out_dir)
+    dataframes = []
+    for subdir in out_dir.iterdir():
+        if subdir.is_dir():
+            data_path = subdir / "data.csv"
+            dataframe = pd.read_csv(data_path)
+            dataframe["subdir"] = subdir.name
+            dataframes.append(dataframe)
+    combined_dataframe = pd.concat(dataframes)
+    combined_dataframe.to_csv(out_dir / "train_data.csv", index=False)
