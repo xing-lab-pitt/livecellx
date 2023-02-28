@@ -176,7 +176,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
                 [augmented_raw_transformed_img, augmented_raw_transformed_img, augmented_raw_transformed_img], dim=0
             )
         elif self.input_type == "edt_v0":
-            # TODO edt transform
+            # TODO edt transform already done before the transform
             # augmented_scaled_seg_mask = scipy.ndimage.distance_transform_edt(augmented_scaled_seg_mask)
             input_img = torch.stack(
                 [augmented_raw_transformed_img, augmented_raw_transformed_img, augmented_scaled_seg_mask], dim=0
