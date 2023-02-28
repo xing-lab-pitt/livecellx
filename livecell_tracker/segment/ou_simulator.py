@@ -621,7 +621,7 @@ def augment_and_save_merged_sc(sc: SingleCellStatic, scale_factors, scs, img_id,
     filename_pattern = "syn-underseg-img-%d_seg-%d.tif"
     res_dict = csn_augment_helper(
         img_crop=img_crop,
-        seg_crop=seg_crop,
+        seg_label_crop=seg_crop,
         combined_gt_label_mask=combined_gt_label_mask,
         overseg_raw_seg_crop=None,
         overseg_raw_seg_img_path=None,
