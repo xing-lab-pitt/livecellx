@@ -42,6 +42,20 @@ def convert_coco_category_to_mask(coco_annotation: COCO, cat_id: int, output_dir
 
 
 def coco_to_sc(coco_data: COCO, extract_bbox=False) -> List[SingleCellStatic]:
+    """Converts COCO annotation to SingleCellStatic objects. img_id is stored in the meta data and used as the timeframe of each sc.
+
+    Parameters
+    ----------
+    coco_data : COCO
+        _description_
+    extract_bbox : bool, optional
+        _description_, by default False
+
+    Returns
+    -------
+    List[SingleCellStatic]
+        _description_
+    """
     img_metas = coco_data.imgs
     sc_list = []
     # constrcut dataset
@@ -57,7 +71,9 @@ def coco_to_sc(coco_data: COCO, extract_bbox=False) -> List[SingleCellStatic]:
 
         # TODO: use the first contour instead of raising an error here?
         # TODO: or create multiple contours for a single annotation?
-        assert len(ann["segmentation"]) == 1, "more than 1 contour contained in the segmentation?"
+        assert (
+            len(ann["segmentation"]) == 1
+        ), "more than 1 contour contained in the segmentation list of some annotation"
         segmentation_flattened = ann["segmentation"][0]
         tmp_contour = np.array(segmentation_flattened).reshape(-1, 2)
         contour = tmp_contour.copy()
