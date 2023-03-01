@@ -202,8 +202,8 @@ class CorrectSegNet(LightningModule):
         # self.val_accuracy.update(predicted_labels.long(), y.long())
         bin_output = self.compute_bin_output(output)
         acc = self.val_accuracy(bin_output.long(), y.long())
-        self.log("val_acc", acc, prog_bar=True, batch_size=self.batch_size)
-        self.log("val_loss", loss, prog_bar=True)
+        self.log("val_acc", acc, prog_bar=True, batch_size=self.batch_size, add_dataloader_idx=False)
+        self.log("val_loss", loss, prog_bar=True, add_dataloader_idx=False)
 
     def test_step(self, batch, batch_idx):
         from livecell_tracker.model_zoo.segmentation.eval_csn import compute_metrics
@@ -211,7 +211,7 @@ class CorrectSegNet(LightningModule):
         x, y = batch["input"], batch["gt_mask"]
         output = self(x)
         loss = self.compute_loss(output, y)
-        self.log("test_loss", loss, prog_bar=True)
+        self.log("test_loss", loss, prog_bar=True, add_dataloader_idx=False)
         bin_output = self.compute_bin_output(output)
         # subset test loss and acc according to self.subdirs
         subdir_set = self.test_dataset.subdir_set

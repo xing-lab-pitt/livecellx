@@ -58,11 +58,19 @@ def parse_args():
         help="The source of the data to train on. Default is to use all data. <underseg-all> means using both synthetic and real underseg datasets; similar for <overseg-all>",
         default="all",
     )
+    parser.add_argument(
+        "--save_criterions_min",
+        dest="save_criterions_min",
+        type=str,
+        default="test_loss",
+        help="The criterions to save the model. The model will be saved if the criterion is the minimum so far. The criterions are separated by comma. The criterion can be one of the following: test_loss, test_acc, ... (see what exists in the validation/test step function)",
+    )
     args = parser.parse_args()
 
     # convert string to list
     args.aug_scale = [float(x) for x in args.aug_scale.split(",")]
     args.class_weights = [float(x) for x in args.class_weights.split(",")]
+    args.save_criterions_min = args.save_criterions_min.split(",")
     return args
 
 
@@ -179,18 +187,31 @@ def main_train():
     print("logger save dir:", logger.save_dir)
     print("logger subdir:", logger.sub_dir)
     print("logger version:", logger.version)
-    best_models_checkpoint_callback = ModelCheckpoint(
-        save_top_k=10,
-        monitor="test_loss_real_underseg_cases",
-        mode="min",
-        filename="{epoch:02d}-{test_loss_real_underseg_cases:.4f}",
-    )
-    best_models_checkpoint_callback = ModelCheckpoint(
-        save_top_k=10,
-        monitor="test_out_matched_num_gt_iou_0.5_percent_real_underseg_cases",
-        mode="max",
-        filename="{epoch:02d}-{test_out_matched_num_gt_iou_0.5_percent_real_underseg_cases:.4f}",
-    )
+    # best_models_checkpoint_callback = ModelCheckpoint(
+    #     save_top_k=10,
+    #     monitor="test_loss_real_underseg_cases",
+    #     mode="min",
+    #     filename="{epoch:02d}-{test_loss_real_underseg_cases:.4f}",
+    # )
+    # best_models_checkpoint_callback = ModelCheckpoint(
+    #     save_top_k=10,
+    #     monitor="test_out_matched_num_gt_iou_0.5_percent_real_underseg_cases",
+    #     mode="max",
+    #     filename="{epoch:02d}-{test_out_matched_num_gt_iou_0.5_percent_real_underseg_cases:.4f}",
+    # )
+    # ckpt_callbacks = [best_models_checkpoint_callback, last_models_checkpoint_callback]
+
+    ckpt_callbacks = []
+    for criterion in args.save_criterions_min:
+        ckpt_callbacks.append(
+            ModelCheckpoint(
+                save_top_k=3,
+                monitor=criterion,
+                mode="min",
+                filename="{epoch:02d}-{" + criterion + ":.4f}",
+            )
+        )
+
     last_models_checkpoint_callback = ModelCheckpoint(
         save_top_k=5,
         monitor="step",
@@ -202,7 +223,7 @@ def main_train():
         max_epochs=args.epochs,
         resume_from_checkpoint=args.model_ckpt,
         logger=logger,
-        callbacks=[best_models_checkpoint_callback, last_models_checkpoint_callback],
+        callbacks=ckpt_callbacks,
     )
     trainer.fit(model)
 

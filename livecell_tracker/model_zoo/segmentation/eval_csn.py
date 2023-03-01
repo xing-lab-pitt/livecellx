@@ -197,7 +197,7 @@ def evaluate_sample_v3_underseg(
         metrics_dict[f"out_matched_num_gt_iou_total_match"] = _matched_num.sum() == gt_cell_num
 
     for threshold in gt_iou_match_thresholds:
-        _matched_num = gt_origin_iou_list[:, 2] > threshold if len(gt_out_iou_list) > 0 else np.array([0, 0])
+        _matched_num = gt_origin_iou_list[:, 2] > threshold if len(gt_origin_iou_list) > 0 else np.array([0, 0])
         metrics_dict[f"origin_matched_num_gt_origin_{threshold}"] = _matched_num.sum()
         metrics_dict[f"origin_matched_num_gt_origin_{threshold}_percent"] = _matched_num.sum() / gt_cell_num
         metrics_dict[f"origin_matched_num_gt_iou_total_match"] = _matched_num.sum() == gt_cell_num
