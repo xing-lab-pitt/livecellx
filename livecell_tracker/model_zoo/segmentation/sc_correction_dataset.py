@@ -51,6 +51,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         subdirs=None,
         raw_df=None,
         normalize_uint8=False,
+        bg_val=0,
     ):
         """_summary_
 
@@ -106,6 +107,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
 
         self.normalize_uint8 = normalize_uint8
         print("whether to normalize_uint8:", self.normalize_uint8)
+        self.bg_val = bg_val
 
     def get_raw_seg(self, idx) -> np.array:
         return np.array(Image.open(self.raw_seg_paths[idx]))
@@ -142,7 +144,8 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask = torch.tensor(np.array(gt_mask)).long()
         augmented_raw_transformed_img = torch.tensor(np.array(augmented_raw_transformed_img)).float()
         aug_diff_img = torch.tensor(np.array(aug_diff_img)).float()
-        gt_label_mask = torch.tensor(np.array(Image.open(self.gt_label_mask_paths[idx]))).long()
+        augmented_gt_label_mask__np = np.array(Image.open(self.gt_label_mask_paths[idx]))
+        gt_label_mask = torch.tensor(augmented_gt_label_mask__np.copy()).long()
 
         # transform to edt for inputs before augmentation
         if self.input_type == "edt_v0":
@@ -203,9 +206,18 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask[gt_mask <= 0.5] = 0
         gt_binary = gt_mask
         gt_mask_edt = None
+
+        # apply edt to each label in gt label mask
         if self.apply_gt_seg_edt:
-            gt_mask = torch.tensor(scipy.ndimage.distance_transform_edt(gt_mask[:, :]))
-            gt_mask_edt = gt_mask
+            augmented_gt_label_mask__np = augmented_gt_label_mask.numpy()
+            gt_mask_edt = np.zeros(augmented_gt_label_mask__np.shape)
+            gt_labels = set(np.unique(augmented_gt_label_mask__np))
+            if self.bg_val in gt_labels:
+                gt_labels.remove(self.bg_val)
+            for label in gt_labels:
+                tmp_bin_mask = augmented_gt_label_mask__np == label
+                tmp_edt = scipy.ndimage.morphology.distance_transform_edt(tmp_bin_mask)
+                gt_mask_edt = np.maximum(gt_mask_edt, tmp_edt)
 
         combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0).float()
 
