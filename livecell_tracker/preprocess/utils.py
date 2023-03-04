@@ -12,7 +12,7 @@ from tqdm import tqdm
 import cv2 as cv
 
 
-def normalize_img_to_uint8(img: np.array) -> np.array:
+def normalize_img_to_uint8(img: np.array, dtype=np.uint8) -> np.array:
     """calculate z score of img and normalize to range [0, 255]
 
     Parameters
@@ -28,7 +28,7 @@ def normalize_img_to_uint8(img: np.array) -> np.array:
     img = (img - np.mean(img.flatten())) / np.std(img.flatten())
     img = img + abs(np.min(img.flatten()))
     img = img / np.max(img) * 255
-    return img.astype(np.uint8)
+    return img.astype(dtype)
 
 
 def livetracker_standard_normalize(img):

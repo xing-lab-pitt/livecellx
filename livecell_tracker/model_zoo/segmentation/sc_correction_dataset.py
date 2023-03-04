@@ -207,7 +207,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_binary = gt_mask
         gt_mask_edt = None
 
-        # apply edt to each label in gt label mask
+        # apply edt to each label in gt label mask, and normalize edt to [0, 1]
         if self.apply_gt_seg_edt:
             augmented_gt_label_mask__np = augmented_gt_label_mask.numpy()
             gt_mask_edt = np.zeros(augmented_gt_label_mask__np.shape)
@@ -215,9 +215,13 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             if self.bg_val in gt_labels:
                 gt_labels.remove(self.bg_val)
             for label in gt_labels:
+                print("label: ", label, " gt_labels: ", gt_labels)
                 tmp_bin_mask = augmented_gt_label_mask__np == label
                 tmp_edt = scipy.ndimage.morphology.distance_transform_edt(tmp_bin_mask)
                 gt_mask_edt = np.maximum(gt_mask_edt, tmp_edt)
+            gt_mask = normalize_img_to_uint8(gt_mask_edt, dtype=float)
+            gt_mask /= np.max(gt_mask)
+            gt_mask = torch.tensor(gt_mask).float()
 
         combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0).float()
 
