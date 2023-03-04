@@ -219,8 +219,8 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
                 tmp_bin_mask = augmented_gt_label_mask__np == label
                 tmp_edt = scipy.ndimage.morphology.distance_transform_edt(tmp_bin_mask)
                 gt_mask_edt = np.maximum(gt_mask_edt, tmp_edt)
-            gt_mask = normalize_img_to_uint8(gt_mask_edt, dtype=float)
-            gt_mask /= np.max(gt_mask)
+            # gt_mask = normalize_img_to_uint8(gt_mask_edt, dtype=float)
+            # gt_mask /= np.max(gt_mask)
             gt_mask = torch.tensor(gt_mask).float()
 
         combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0).float()
