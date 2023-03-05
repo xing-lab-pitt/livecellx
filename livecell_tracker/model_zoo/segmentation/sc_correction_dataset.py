@@ -220,7 +220,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
                 gt_mask_edt = np.maximum(gt_mask_edt, tmp_edt)
             # gt_mask = normalize_img_to_uint8(gt_mask_edt, dtype=float)
             # gt_mask /= np.max(gt_mask)
-            gt_mask = torch.tensor(gt_mask).float()
+            gt_mask = torch.tensor(gt_mask_edt).float()
 
         combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0).float()
 
