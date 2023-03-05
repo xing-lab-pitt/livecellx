@@ -81,7 +81,7 @@ class CorrectSegNet(LightningModule):
         if self.loss_type == "CE":
             print(">>> Using CE loss, weights:", self.class_weights)
             self.loss_func = torch.nn.CrossEntropyLoss(weight=torch.tensor(self.class_weights))
-            self.threshold = 0
+            self.threshold = 0.5
         elif self.loss_type == "MSE":
             print(">>> Using MSE loss")
             self.loss_func = torch.nn.MSELoss()
@@ -89,7 +89,7 @@ class CorrectSegNet(LightningModule):
         elif self.loss_type == "BCE":
             print(">>> Using BCE loss with logits loss")
             self.loss_func = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.class_weights))
-            self.threshold = 0
+            self.threshold = 0.5
         else:
             raise NotImplementedError("Loss:%s not implemented", loss_type)
 
@@ -245,7 +245,7 @@ class CorrectSegNet(LightningModule):
                 out_threshold=self.threshold,
                 gt_label_masks=subdir_batch["gt_label_mask"].cpu().numpy(),
             )
-            log_metrics = ["out_matched_num_gt_iou_0.5_percent", "out_matched_num_gt_iou_0.8_percent"]
+            log_metrics = ["out_matched_num_gt_iou_0.5_percent", "out_matched_num_gt_iou_0.8_percent", "out_matched_num_gt_iou_0.95_percent"]
             for metric in log_metrics:
                 self.log(
                     f"test_{metric}_{subdir}", np.mean(metrics_dict[metric]), prog_bar=True, add_dataloader_idx=False
