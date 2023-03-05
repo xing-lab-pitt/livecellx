@@ -113,7 +113,7 @@ def mask_dataset_to_single_cells(mask_dataset: LiveCellImageDataset, img_dataset
                     img_dataset=img_dataset,
                     mask_dataset=mask_dataset,
                     bbox=prop.bbox,
-                    contour=prop.coords,
+                    contour=prop.contour,
                 )
             )
     return single_cells
