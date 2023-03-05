@@ -144,8 +144,8 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask = torch.tensor(np.array(gt_mask)).long()
         augmented_raw_transformed_img = torch.tensor(np.array(augmented_raw_transformed_img)).float()
         aug_diff_img = torch.tensor(np.array(aug_diff_img)).float()
-        augmented_gt_label_mask__np = np.array(Image.open(self.gt_label_mask_paths[idx]))
-        gt_label_mask = torch.tensor(augmented_gt_label_mask__np.copy()).long()
+        gt_label_mask__np = np.array(Image.open(self.gt_label_mask_paths[idx]))
+        gt_label_mask = torch.tensor(gt_label_mask__np.copy()).long()
 
         # transform to edt for inputs before augmentation
         if self.input_type == "edt_v0":
