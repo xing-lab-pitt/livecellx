@@ -215,7 +215,6 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             if self.bg_val in gt_labels:
                 gt_labels.remove(self.bg_val)
             for label in gt_labels:
-                print("label: ", label, " gt_labels: ", gt_labels)
                 tmp_bin_mask = augmented_gt_label_mask__np == label
                 tmp_edt = scipy.ndimage.morphology.distance_transform_edt(tmp_bin_mask)
                 gt_mask_edt = np.maximum(gt_mask_edt, tmp_edt)
