@@ -31,6 +31,13 @@ class NapariVisualizer:
         bbox=False,
         contour_sample_num=100,
         viewer_kwargs=None,
+        text_parameters={
+            "string": "track_id: {track_id}\n",
+            "size": 12,
+            "color": "white",
+            "anchor": "upper_left",
+            "translation": [-2, 0],
+        },
     ):
         if viewer_kwargs is None:
             viewer_kwargs = dict()
@@ -40,13 +47,15 @@ class NapariVisualizer:
             traj_shapes = traj.get_sc_napari_shapes(bbox=bbox, contour_sample_num=contour_sample_num)
             all_shapes.extend(traj_shapes)
             track_ids.extend([int(track_id)] * len(traj_shapes))
-        features = {"track_id": track_ids}
+        properties = {"track_id": track_ids}
         shape_layer = viewer.add_shapes(
             all_shapes,
-            features=features,
-            face_color=NapariVisualizer.map_colors(features["track_id"]),
+            properties=properties,
+            face_color=NapariVisualizer.map_colors(properties["track_id"]),
             face_colormap="viridis",
             shape_type="polygon",
+            text=text_parameters,
+            name="trajectories",
             **viewer_kwargs
         )
         return shape_layer
