@@ -374,7 +374,7 @@ class SingleCellStatic:
 
     def get_napari_shape_vec(self, coords):
         # TODO: napari shapes layer convention discussion...looks weird
-        napari_shape_vec = [[self.timeframe] + coord for coord in coords]
+        napari_shape_vec = [[self.timeframe] + list(coord) for coord in coords]
         return napari_shape_vec
 
     def get_napari_shape_bbox_vec(self):
@@ -382,8 +382,11 @@ class SingleCellStatic:
         coords = [[x1, y1], [x1, y2], [x2, y2], [x2, y1]]
         return self.get_napari_shape_vec(coords)
 
-    def get_napari_shape_contour_vec(self):
-        return self.get_napari_shape_vec(self.contour)
+    def get_napari_shape_contour_vec(self, contour_sample_num=None):
+        contour = self.contour
+        if contour_sample_num is not None:
+            contour = contour[:: int(len(contour) / contour_sample_num)]
+        return self.get_napari_shape_vec(contour)
 
     def segment_by_detectron(self):
         pass
@@ -601,10 +604,13 @@ class SingleCellTrajectory:
             bbox_list.append(sc.bbox)
         return bbox_list
 
-    def get_sc_napari_shapes(self):
+    def get_sc_napari_shapes(self, bbox=False, contour_sample_num=20):
         shapes_data = []
         for _, sc in self:
-            shapes_data.append(sc.get_napari_shape_bbox_vec())
+            if bbox:
+                shapes_data.append(sc.get_napari_shape_bbox_vec())
+            else:
+                shapes_data.append(sc.get_napari_shape_contour_vec(contour_sample_num=contour_sample_num))
         return shapes_data
 
 
