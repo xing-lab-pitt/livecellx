@@ -537,11 +537,11 @@ class SingleCellTrajectory:
     def get_mask(self, timeframe):
         return self.timeframe_to_single_cell[timeframe].get_mask()
 
-    def get_timeframe_span_range(self):
+    def get_timeframe_span(self):
         return (min(self.timeframe_set), max(self.timeframe_set))
 
     def get_timeframe_span_length(self):
-        min_t, max_t = self.get_timeframe_span_range()
+        min_t, max_t = self.get_timeframe_span()
         return max_t - min_t
 
     def get_single_cell(self, timeframe: int) -> SingleCellStatic:
@@ -617,6 +617,18 @@ class SingleCellTrajectory:
             return shapes_data, scs
         return shapes_data
 
+    def add_nonoverlapping_sct(self, other_sct: "SingleCellTrajectory"):
+        """add the other sct to this sct, but only add the non-overlapping single cells"""
+        if len(self.timeframe_set.intersection(other_sct.timeframe_set)) > 0:
+            raise ValueError("cannot add overlapping single cell trajectories")
+        for timeframe, sc in other_sct:
+            self.add_single_cell(timeframe, sc)
+
+    def copy(self):
+        import copy
+
+        return copy.deepcopy(self)
+
 
 class SingleCellTrajectoryCollection:
     def __init__(self) -> None:
@@ -629,6 +641,10 @@ class SingleCellTrajectoryCollection:
     def __getitem__(self, track_id):
         return self.get_trajectory(track_id)
 
+    def __setitem__(self, track_id, trajectory: SingleCellTrajectory):
+        assert track_id == trajectory.track_id, "track_id mismatch"
+        self.track_id_to_trajectory[track_id] = trajectory
+
     def __len__(self):
         return len(self.track_id_to_trajectory)
 
@@ -636,10 +652,15 @@ class SingleCellTrajectoryCollection:
         return iter(self.track_id_to_trajectory.items())
 
     def add_trajectory(self, trajectory: SingleCellTrajectory):
-        self.track_id_to_trajectory[trajectory.track_id] = trajectory
+        if trajectory.track_id in self.track_id_to_trajectory:
+            raise ValueError("trajectory with track_id {} already exists".format(trajectory.track_id))
+        self[trajectory.track_id] = trajectory
 
     def get_trajectory(self, track_id) -> SingleCellTrajectory:
         return self.track_id_to_trajectory[track_id]
+
+    def pop_trajectory(self, track_id):
+        return self.track_id_to_trajectory.pop(track_id)
 
     def to_json_dict(self):
         return {

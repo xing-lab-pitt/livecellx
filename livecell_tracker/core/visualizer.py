@@ -14,7 +14,7 @@ class Visualizer:
         bbox_padding=20,
     ):
 
-        span_range = trajectory.get_timeframe_span_range()
+        span_range = trajectory.get_timeframe_span()
         traj_start, traj_end = span_range
         if start_timeframe < traj_start:
             print(
