@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Tuple
 from skimage.measure import regionprops
 import pandas as pd
 from livecell_tracker.core.io_utils import save_tiff
@@ -30,7 +30,7 @@ from livecell_tracker.preprocess.utils import dilate_or_erode_mask
 
 # TODO: adapt to new sc API (check and fix the function below)
 def underseg_overlay_gt_masks(
-    seg_label: int, scs: SingleCellStatic, padding_scale=1.5, seg_mask=None
+    seg_label: int, scs: List[SingleCellStatic], padding_scale=1.5, seg_mask=None
 ) -> Tuple[np.array, np.array, np.array]:
     """Overlay segmentation masks and ground truth masks for under-segmentation cases.
     Specifically, for a segmentation label, if there are multiple ground truth masks matched to it,
@@ -67,7 +67,7 @@ def underseg_overlay_gt_masks(
             "[WARNING] skip: (%d, %d) due to more than one region found in seg mask or NO region found in seg mask"
             % (scs[0].timeframe, seg_label)
         )
-        return
+        return None, None, None
     # obtain segmentation bbox from segmentation mask
     seg_props = props_list[0]
     seg_bbox = seg_props.bbox
