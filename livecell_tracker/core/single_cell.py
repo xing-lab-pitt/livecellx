@@ -374,7 +374,7 @@ class SingleCellStatic:
 
     def get_napari_shape_vec(self, coords):
         # TODO: napari shapes layer convention discussion...looks weird
-        napari_shape_vec = [[self.timeframe] + coord for coord in coords]
+        napari_shape_vec = [[self.timeframe] + list(coord) for coord in coords]
         return napari_shape_vec
 
     def get_napari_shape_bbox_vec(self):
@@ -382,8 +382,11 @@ class SingleCellStatic:
         coords = [[x1, y1], [x1, y2], [x2, y2], [x2, y1]]
         return self.get_napari_shape_vec(coords)
 
-    def get_napari_shape_contour_vec(self):
-        return self.get_napari_shape_vec(self.contour)
+    def get_napari_shape_contour_vec(self, contour_sample_num=None):
+        contour = self.contour
+        if contour_sample_num is not None:
+            contour = contour[:: int(len(contour) / contour_sample_num)]
+        return self.get_napari_shape_vec(contour)
 
     def segment_by_detectron(self):
         pass
@@ -534,11 +537,11 @@ class SingleCellTrajectory:
     def get_mask(self, timeframe):
         return self.timeframe_to_single_cell[timeframe].get_mask()
 
-    def get_timeframe_span_range(self):
+    def get_timeframe_span(self):
         return (min(self.timeframe_set), max(self.timeframe_set))
 
     def get_timeframe_span_length(self):
-        min_t, max_t = self.get_timeframe_span_range()
+        min_t, max_t = self.get_timeframe_span()
         return max_t - min_t
 
     def get_single_cell(self, timeframe: int) -> SingleCellStatic:
@@ -601,11 +604,30 @@ class SingleCellTrajectory:
             bbox_list.append(sc.bbox)
         return bbox_list
 
-    def get_sc_napari_shapes(self):
+    def get_scs_napari_shapes(self, bbox=False, contour_sample_num=20, return_scs=False):
         shapes_data = []
+        scs = []
         for _, sc in self:
-            shapes_data.append(sc.get_napari_shape_bbox_vec())
+            scs.append(sc)
+            if bbox:
+                shapes_data.append(sc.get_napari_shape_bbox_vec())
+            else:
+                shapes_data.append(sc.get_napari_shape_contour_vec(contour_sample_num=contour_sample_num))
+        if return_scs:
+            return shapes_data, scs
         return shapes_data
+
+    def add_nonoverlapping_sct(self, other_sct: "SingleCellTrajectory"):
+        """add the other sct to this sct, but only add the non-overlapping single cells"""
+        if len(self.timeframe_set.intersection(other_sct.timeframe_set)) > 0:
+            raise ValueError("cannot add overlapping single cell trajectories")
+        for timeframe, sc in other_sct:
+            self.add_single_cell(timeframe, sc)
+
+    def copy(self):
+        import copy
+
+        return copy.deepcopy(self)
 
 
 class SingleCellTrajectoryCollection:
@@ -619,6 +641,10 @@ class SingleCellTrajectoryCollection:
     def __getitem__(self, track_id):
         return self.get_trajectory(track_id)
 
+    def __setitem__(self, track_id, trajectory: SingleCellTrajectory):
+        assert track_id == trajectory.track_id, "track_id mismatch"
+        self.track_id_to_trajectory[track_id] = trajectory
+
     def __len__(self):
         return len(self.track_id_to_trajectory)
 
@@ -626,10 +652,15 @@ class SingleCellTrajectoryCollection:
         return iter(self.track_id_to_trajectory.items())
 
     def add_trajectory(self, trajectory: SingleCellTrajectory):
-        self.track_id_to_trajectory[trajectory.track_id] = trajectory
+        if trajectory.track_id in self.track_id_to_trajectory:
+            raise ValueError("trajectory with track_id {} already exists".format(trajectory.track_id))
+        self[trajectory.track_id] = trajectory
 
     def get_trajectory(self, track_id) -> SingleCellTrajectory:
         return self.track_id_to_trajectory[track_id]
+
+    def pop_trajectory(self, track_id):
+        return self.track_id_to_trajectory.pop(track_id)
 
     def to_json_dict(self):
         return {

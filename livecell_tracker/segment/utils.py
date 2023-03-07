@@ -9,6 +9,10 @@ from PIL import Image, ImageSequence
 from tqdm import tqdm
 from skimage import measure
 from skimage.measure import regionprops
+from multiprocessing import Pool
+from skimage.measure import regionprops, find_contours
+from livecell_tracker.segment.ou_simulator import find_contours_opencv
+
 from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecell_tracker.core.single_cell import SingleCellStatic
 
@@ -100,20 +104,42 @@ def match_mask_labels_by_iou(seg_label_mask, gt_label_mask, bg_label=0, return_a
         return gt2seg_map
 
 
-def mask_dataset_to_single_cells(mask_dataset: LiveCellImageDataset, img_dataset: LiveCellImageDataset):
-    single_cells = []
-    for time in mask_dataset.time2url:
-        img = img_dataset.get_img_by_time(time)
-        seg_mask = mask_dataset.get_img_by_time(time)
-        props_list = regionprops(seg_mask)
-        for prop in props_list:
-            single_cells.append(
-                SingleCellStatic(
-                    timeframe=time,
-                    img_dataset=img_dataset,
-                    mask_dataset=mask_dataset,
-                    bbox=prop.bbox,
-                    contour=prop.contour,
-                )
+def process_scs_from_one_label_mask(label_mask_dataset, img_dataset, time, bg_val=0):
+    label_mask = label_mask_dataset.get_img_by_time(time)
+    labels = set(np.unique(label_mask))
+    if bg_val in labels:
+        labels.remove(bg_val)
+    contours = []
+    for label in labels:
+        bin_mask = (label_mask == label).astype(np.uint8)
+        label_contours = find_contours_opencv(bin_mask)
+        assert len(label_contours) == 1
+        contours.append(label_contours[0])
+
+    # contours = find_contours(seg_mask) # skimage: find_contours
+    _scs = []
+    for contour in contours:
+        _scs.append(
+            SingleCellStatic(
+                timeframe=time,
+                img_dataset=img_dataset,
+                mask_dataset=label_mask_dataset,
+                contour=contour,
             )
-    return single_cells
+        )
+    return _scs
+
+
+def process_mask_wrapper(args):
+    return process_scs_from_one_label_mask(*args)
+
+
+def prep_scs_from_mask_dataset(mask_dataset, dic_dataset, cores=None):
+    scs = []
+    inputs = [(mask_dataset, dic_dataset, time) for time in mask_dataset.time2url.keys()]
+    pool = Pool(processes=cores)
+    for _scs in tqdm(pool.imap_unordered(process_mask_wrapper, inputs), total=len(inputs)):
+        scs.extend(_scs)
+    pool.close()
+    pool.join()
+    return scs

@@ -13,12 +13,6 @@ from livecell_tracker.core import (
     SingleCellStatic,
     SingleCellTrajectoryCollection,
 )
-from livecell_tracker.segment.detectron_utils import (
-    convert_detectron_instance_pred_masks_to_binary_masks,
-    convert_detectron_instances_to_label_masks,
-    segment_images_by_detectron,
-    segment_single_img_by_detectron_wrapper,
-)
 from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecell_tracker.preprocess.utils import (
     overlay,
