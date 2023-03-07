@@ -604,13 +604,17 @@ class SingleCellTrajectory:
             bbox_list.append(sc.bbox)
         return bbox_list
 
-    def get_sc_napari_shapes(self, bbox=False, contour_sample_num=20):
+    def get_scs_napari_shapes(self, bbox=False, contour_sample_num=20, return_scs=False):
         shapes_data = []
+        scs = []
         for _, sc in self:
+            scs.append(sc)
             if bbox:
                 shapes_data.append(sc.get_napari_shape_bbox_vec())
             else:
                 shapes_data.append(sc.get_napari_shape_contour_vec(contour_sample_num=contour_sample_num))
+        if return_scs:
+            return shapes_data, scs
         return shapes_data
 
 

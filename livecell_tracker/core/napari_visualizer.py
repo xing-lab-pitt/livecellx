@@ -8,7 +8,7 @@ class NapariVisualizer:
     def viz_traj(traj: SingleCellTrajectory, viewer: Viewer, viewer_kwargs=None):
         if viewer_kwargs is None:
             viewer_kwargs = dict()
-        shapes = traj.get_sc_napari_shapes()
+        shapes = traj.get_scs_napari_shapes()
         shape_layer = viewer.add_shapes(shapes, **viewer_kwargs)
         return shape_layer
 
@@ -43,11 +43,26 @@ class NapariVisualizer:
             viewer_kwargs = dict()
         all_shapes = []
         track_ids = []
+        all_scs = []
+        all_scts = []
         for track_id, traj in trajectories:
-            traj_shapes = traj.get_sc_napari_shapes(bbox=bbox, contour_sample_num=contour_sample_num)
+            traj_shapes, scs = traj.get_scs_napari_shapes(
+                bbox=bbox, contour_sample_num=contour_sample_num, return_scs=True
+            )
             all_shapes.extend(traj_shapes)
             track_ids.extend([int(track_id)] * len(traj_shapes))
-        properties = {"track_id": track_ids}
+            all_scs.extend(scs)
+        print(
+            "length of all_shapes",
+            len(all_shapes),
+            "length of track_ids",
+            len(track_ids),
+            "length of all_scs",
+            len(all_scs),
+            "length of all_scts",
+            len(all_scts),
+        )
+        properties = {"track_id": track_ids, "sc": all_scs}
         shape_layer = viewer.add_shapes(
             all_shapes,
             properties=properties,
