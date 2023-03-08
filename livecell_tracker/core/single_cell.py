@@ -1,5 +1,6 @@
+import itertools
 import json
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Set, Union
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -491,6 +492,8 @@ class SingleCellTrajectory:
         img_dataset: LiveCellImageDataset = None,
         mask_dataset: LiveCellImageDataset = None,
         extra_datasets: Dict[str, LiveCellImageDataset] = None,
+        mother_trajectories=None,
+        daughter_trajectories=None,
     ) -> None:
         self.timeframe_set = set()
         if timeframe_to_single_cell is None:
@@ -502,6 +505,15 @@ class SingleCellTrajectory:
         self.track_id = track_id
         self.mask_dataset = mask_dataset
         self.extra_datasets = extra_datasets
+        if mother_trajectories is None:
+            self.mother_trajectories: Set["SingleCellTrajectory"] = set()
+        else:
+            self.mother_trajectories = mother_trajectories
+
+        if daughter_trajectories is None:
+            self.daughter_trajectories: Set["SingleCellTrajectory"] = set()
+        else:
+            self.daughter_trajectories = daughter_trajectories
 
     def __len__(self):
         return self.get_timeframe_span_length()
@@ -538,6 +550,7 @@ class SingleCellTrajectory:
         return self.timeframe_to_single_cell[timeframe].get_mask()
 
     def get_timeframe_span(self):
+        assert len(self.timeframe_set) > 0, "sct: timeframe set is empty."
         return (min(self.timeframe_set), max(self.timeframe_set))
 
     def get_timeframe_span_length(self):
@@ -624,10 +637,52 @@ class SingleCellTrajectory:
         for timeframe, sc in other_sct:
             self.add_single_cell(timeframe, sc)
 
+    def add_mother(self, mother_sct: "SingleCellTrajectory"):
+        self.mother_trajectories.add(mother_sct)
+
+    def add_daughter(self, daughter_sct: "SingleCellTrajectory"):
+        self.daughter_trajectories.add(daughter_sct)
+
+    def remove_mother(self, mother_sct: "SingleCellTrajectory"):
+        self.mother_trajectories.remove(mother_sct)
+
+    def remove_daughter(self, daughter_sct: "SingleCellTrajectory"):
+        self.daughter_trajectories.remove(daughter_sct)
+
     def copy(self):
         import copy
 
         return copy.deepcopy(self)
+
+    def subsct(self, min_time, max_time):
+        """return a subtrajectory of this trajectory, with timeframes between min_time and max_time. Mother and daugher info will be copied if the min_time and max_time are the start and end of the new trajectory, respectively."""
+        require_copy_mothers_info = False
+        require_copy_daughters_info = False
+        self_span = self.get_timeframe_span()
+
+        # TODO: if time is float case, consider round-off errors
+        if min_time == self_span[0]:
+            require_copy_mothers_info = True
+        if max_time == self_span[1]:
+            require_copy_daughters_info = True
+
+        sub_sct = SingleCellTrajectory()
+        for timeframe, sc in self:
+            if timeframe >= min_time and timeframe <= max_time:
+                sub_sct.add_single_cell(timeframe, sc)
+        if require_copy_mothers_info:
+            sub_sct.mother_trajectories = self.mother_trajectories.copy()
+        if require_copy_daughters_info:
+            sub_sct.daughter_trajectories = self.daughter_trajectories.copy()
+        return sub_sct
+
+    def split(self, split_time):
+        """split this trajectory into two trajectories: [start, split_time), [split_time, end], at the given split time"""
+        if split_time not in self.timeframe_set:
+            raise ValueError("split time not in this trajectory")
+        sct1 = self.subsct(min(self.timeframe_set), split_time - 1)
+        sct2 = self.subsct(split_time, max(self.timeframe_set))
+        return sct1, sct2
 
 
 class SingleCellTrajectoryCollection:
@@ -642,7 +697,11 @@ class SingleCellTrajectoryCollection:
         return self.get_trajectory(track_id)
 
     def __setitem__(self, track_id, trajectory: SingleCellTrajectory):
-        assert track_id == trajectory.track_id, "track_id mismatch"
+        assert (
+            track_id == trajectory.track_id
+        ), "track_id mismatch (between [tacj_id] and [trajectory.track_id]): ({}, {})".format(
+            track_id, trajectory.track_id
+        )
         self.track_id_to_trajectory[track_id] = trajectory
 
     def __len__(self):
@@ -652,6 +711,8 @@ class SingleCellTrajectoryCollection:
         return iter(self.track_id_to_trajectory.items())
 
     def add_trajectory(self, trajectory: SingleCellTrajectory):
+        if trajectory.track_id is None:
+            trajectory.track_id = self._next_track_id()
         if trajectory.track_id in self.track_id_to_trajectory:
             raise ValueError("trajectory with track_id {} already exists".format(trajectory.track_id))
         self[trajectory.track_id] = trajectory
@@ -720,3 +781,6 @@ class SingleCellTrajectoryCollection:
         track_ids = self.get_track_ids()
         random.shuffle(track_ids)
         return self.subset(track_ids[:n])
+
+    def _next_track_id(self):
+        return max(self.get_track_ids()) + 1
