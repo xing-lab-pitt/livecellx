@@ -32,10 +32,10 @@ class NapariVisualizer:
         contour_sample_num=100,
         viewer_kwargs=None,
         text_parameters={
-            "string": "track_id: {track_id}\n",
+            "string": "id: {track_id}\n{status}",
             "size": 12,
             "color": "white",
-            "anchor": "upper_left",
+            "anchor": "center",
             "translation": [-2, 0],
         },
     ):
@@ -44,7 +44,7 @@ class NapariVisualizer:
         all_shapes = []
         track_ids = []
         all_scs = []
-        all_scts = []
+        all_status = []
         for track_id, traj in trajectories:
             traj_shapes, scs = traj.get_scs_napari_shapes(
                 bbox=bbox, contour_sample_num=contour_sample_num, return_scs=True
@@ -52,17 +52,8 @@ class NapariVisualizer:
             all_shapes.extend(traj_shapes)
             track_ids.extend([int(track_id)] * len(traj_shapes))
             all_scs.extend(scs)
-        print(
-            "length of all_shapes",
-            len(all_shapes),
-            "length of track_ids",
-            len(track_ids),
-            "length of all_scs",
-            len(all_scs),
-            "length of all_scts",
-            len(all_scts),
-        )
-        properties = {"track_id": track_ids, "sc": all_scs}
+            all_status.extend([""] * len(traj_shapes))
+        properties = {"track_id": track_ids, "sc": all_scs, "status": all_status}
         shape_layer = viewer.add_shapes(
             all_shapes,
             properties=properties,
