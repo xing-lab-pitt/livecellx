@@ -1,5 +1,5 @@
 import json
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -22,17 +22,17 @@ class SingleCellStatic:
 
     def __init__(
         self,
-        timeframe: int = None,
-        bbox: np.array = None,
-        regionprops: RegionProperties = None,
-        img_dataset: LiveCellImageDataset = None,
-        mask_dataset: LiveCellImageDataset = None,
-        dataset_dict: Dict[str, LiveCellImageDataset] = None,
-        feature_dict: Dict[str, np.array] = dict(),
-        contour: np.array = None,
-        meta: Dict[str, object] = None,
-        uns: Dict[str, object] = None,
-        id: int = None,  # TODO: automatically assign id (uuid)
+        timeframe: Optional[int] = None,
+        bbox: Optional[np.array] = None,
+        regionprops: Optional[RegionProperties] = None,
+        img_dataset: Optional[LiveCellImageDataset] = None,
+        mask_dataset: Optional[LiveCellImageDataset] = None,
+        dataset_dict: Optional[Dict[str, LiveCellImageDataset]] = None,
+        feature_dict: Optional[Dict[str, np.array]] = dict(),
+        contour: Optional[np.array] = None,
+        meta: Optional[Dict[str, object]] = None,
+        uns: Optional[Dict[str, object]] = None,
+        id: Optional[int] = None,  # TODO: automatically assign id (uuid)
     ) -> None:
         """_summary_
 
