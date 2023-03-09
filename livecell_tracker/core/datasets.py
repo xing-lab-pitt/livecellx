@@ -38,7 +38,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         dir_path=None,
-        time2url: Dict[int, str] = None,
+        time2url: Dict[int, Union[str, Path]] = None,
         name="livecell-base",
         ext="tif",
         max_cache_size=50,
