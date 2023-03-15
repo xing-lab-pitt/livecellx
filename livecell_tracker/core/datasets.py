@@ -216,11 +216,21 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self.max_cache_size = json_dict["max_cache_size"]
         return self
 
-    def to_dask(self):
+    def to_dask(self, times=None, ram=False):
         """convert to a dask array for napari visualization"""
         import dask.array as da
+        from dask import delayed
 
-        return da.stack([da.from_array(self.get_img_by_time(time)) for time in self.time2url.keys()])
+        if times is None:
+            times = self.times
+        if ram:
+            return da.stack([da.from_array(self.time2url[time]) for time in times])
+
+        lazy_reader = delayed(self.read_img_url_func)
+        lazy_arrays = [lazy_reader(self.time2url[time]) for time in times]
+        img_shape = self.infer_shape()
+        dask_arrays = [da.from_delayed(lazy_array, shape=img_shape, dtype=int) for lazy_array in lazy_arrays]
+        return da.stack(dask_arrays)
 
     def get_img_by_idx(self, idx):
         """Get an image by some index in the times list"""
@@ -285,6 +295,24 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         if return_path_and_time:
             return self.get_img_by_time(found_time), found_url, found_time
         return self.get_img_by_time(found_time)
+
+    def infer_shape(self):
+        """Infer the shape of the images in the dataset"""
+        img = self.get_img_by_time(self.times[0])
+        return img.shape
+
+    def subset_by_time(self, min_time, max_time, prefix="_subset"):
+        """Return a subset of the dataset based on time [min, max)"""
+        times2url = {}
+        for time in self.times:
+            if time >= min_time and time < max_time:
+                times2url[time] = self.time2url[time]
+        return LiveCellImageDataset(
+            time2url=times2url,
+            name="_subset_" + self.name,
+            ext=self.ext,
+            read_img_url_func=self.read_img_url_func,
+        )
 
 
 class SingleImageDataset(LiveCellImageDataset):
