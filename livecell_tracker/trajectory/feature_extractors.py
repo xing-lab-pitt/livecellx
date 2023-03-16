@@ -1,6 +1,6 @@
 from typing import Union
 from typing import Dict
-import mahotas.features.texture
+# import mahotas.features.texture
 import skimage
 import skimage.measure
 from pandas import Series
@@ -94,3 +94,5 @@ def compute_skimage_regionprops(
             )
     res_table = pd.Series(regionprops_results)
     return res_table
+
+

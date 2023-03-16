@@ -750,6 +750,7 @@ class SingleCellTrajectoryCollection:
         if ax is None:
             fig, ax = plt.subplots()
         sns.histplot(all_traj_lengths, bins=100, ax=ax, **kwargs)
+        ax.set(xlabel = 'Trajectory Length')
         return ax
 
     def get_feature_table(self) -> pd.DataFrame:

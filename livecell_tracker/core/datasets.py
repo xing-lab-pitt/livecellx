@@ -46,6 +46,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         force_posix_path=True,
         read_img_url_func: Callable = read_img_default,
         index_by_time=True,
+        channel: str = None
     ):
         """Initialize the dataset.
 
@@ -73,6 +74,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
 
         self.read_img_url_func = read_img_url_func
         self.index_by_time = index_by_time
+        self.channel = channel
 
         # force posix path if dir_path is passed in
         if isinstance(dir_path, str):
@@ -118,7 +120,15 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             self.time2url = {}
             return
         assert self.ext, "ext must be specified"
-        self.time2url = sorted(glob.glob(str((Path(self.data_dir_path) / Path("*.%s" % (self.ext))))))
+
+        # filter by channel name if specified
+        if self.channel:
+            # channel = Path(channel).as_posix()
+            self.time2url = sorted(glob.glob(str((Path(self.data_dir_path) / Path("*%s.%s" % (self.channel, self.ext))))))
+        else:
+            self.time2url = sorted(glob.glob(str((Path(self.data_dir_path) / Path("*.%s" % (self.ext))))))
+
+        # self.time2url = sorted(glob.glob(str((Path(self.data_dir_path) / Path("*.%s" % (self.ext))))))
         self.time2url = {i: path for i, path in enumerate(self.time2url)}
         self.times = list(self.time2url.keys())
         print("%d %s img file paths loaded: " % (len(self.time2url), self.ext))
