@@ -213,11 +213,12 @@ def main_train():
         )
 
     last_models_checkpoint_callback = ModelCheckpoint(
-        save_top_k=5,
+        save_top_k=3,
         monitor="step",
         mode="max",
         filename="{epoch}-{global_step}",
     )
+    ckpt_callbacks.append(last_models_checkpoint_callback)
     trainer = Trainer(
         gpus=1,
         max_epochs=args.epochs,
