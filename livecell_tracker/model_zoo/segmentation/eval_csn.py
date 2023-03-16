@@ -246,9 +246,8 @@ def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0
         cax = divider.append_axes("right", size="3%", pad=0.05)
         fig.colorbar(im, cax=cax, orientation="vertical")
 
-    # out_mask = model(sample["input"].unsqueeze(0).cuda())
-    original_input_mask = sample["input"].cpu().numpy().squeeze()[2]
-    # original_input_mask = sample["input"].numpy().squeeze()[2]
+    out_mask = model(sample["input"].unsqueeze(0).cuda())
+    original_input_mask = sample["input"].numpy().squeeze()[2]
     original_input_mask = original_input_mask.astype(bool)
 
     gt_mask = sample["gt_mask"].numpy().squeeze()

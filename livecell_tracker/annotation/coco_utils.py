@@ -58,7 +58,7 @@ def coco_to_sc(coco_data: COCO, extract_bbox=False) -> List[SingleCellStatic]:
     """
     img_metas = coco_data.imgs
     sc_list = []
-    # construct dataset
+    # constrcut dataset
     img_id_to_img_path = {}
     for img_id, img_meta in coco_data.imgs.items():
         img_path = img_meta["file_name"]
