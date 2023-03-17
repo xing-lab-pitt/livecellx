@@ -27,6 +27,7 @@ class SingleCellVaeDataset(torch.utils.data.Dataset):
         transforms=None,
         download=None,
         split="",
+        cache_items=True,
     ):
         self.scs = scs
         self.img_shape = img_shape
@@ -35,8 +36,12 @@ class SingleCellVaeDataset(torch.utils.data.Dataset):
         self.transforms = transforms
         self.download = download
         self.split = split
+        self.cache_items = cache_items
+        self.cached_items = {}
 
     def __getitem__(self, idx) -> Union[dict, list, torch.Tensor, tuple]:
+        if self.cache_items and idx in self.cached_items:
+            return self.cached_items[idx]
         img = self.scs[idx].get_img_crop(padding=self.padding)
         img = normalize_img_to_uint8(img)
         img = img.reshape([1] + list(img.shape))
@@ -48,6 +53,8 @@ class SingleCellVaeDataset(torch.utils.data.Dataset):
         #     "img": img,
         # }
         #
+        if self.cache_items:
+            self.cached_items[idx] = img
         return img, torch.tensor([])
 
     def __len__(self):
@@ -230,7 +237,7 @@ config = {
     },
     "trainer_params": {
         "gpus": 1,
-        "max_epochs": 5,
+        "max_epochs": 20000,
     },
     "logging_params": {"save_dir": "vae_logs/", "name": "VanillaVae"},
 }

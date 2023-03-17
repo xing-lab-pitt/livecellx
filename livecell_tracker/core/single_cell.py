@@ -20,6 +20,7 @@ class SingleCellStatic:
     HARALICK_FEATURE_KEY = "_haralick"
     MORPHOLOGY_FEATURE_KEY = "_morphology"
     AUTOENCODER_FEATURE_KEY = "_autoencoder"
+    CACHE_IMG_CROP_KEY = "_cached_img_crop"
 
     def __init__(
         self,
@@ -33,7 +34,8 @@ class SingleCellStatic:
         contour: Optional[np.array] = None,
         meta: Optional[Dict[str, object]] = None,
         uns: Optional[Dict[str, object]] = None,
-        id: Optional[int] = None,  # TODO: automatically assign id (uuid)
+        id: Optional[int] = None,  # TODO: automatically assign id (uuid),
+        cache: Optional[Dict[str, object]] = None,
     ) -> None:
         """_summary_
 
@@ -53,6 +55,7 @@ class SingleCellStatic:
         contour:
             an array of contour coordinates [(x1, y1), (x2, y2), ...)], in a WHOLE image (not in a cropped image)
         """
+        self.cache = cache
         self.regionprops = regionprops
         self.timeframe = timeframe
         self.img_dataset = img_dataset
@@ -77,7 +80,7 @@ class SingleCellStatic:
         if self.meta is None:
             self.meta = dict()
 
-        self.uns = uns
+        self.uns: dict = uns
         if self.uns is None:
             self.uns = dict()
 
@@ -160,12 +163,16 @@ class SingleCellStatic:
         return img_crop
 
     def get_img_crop(self, padding=0, bbox=None):
+        if self.cache and SingleCellStatic.CACHE_IMG_CROP_KEY in self.uns:
+            return self.uns[SingleCellStatic.CACHE_IMG_CROP_KEY].copy()
         if bbox is None:
             bbox = self.bbox
         img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox=bbox, img=self.get_img(), padding=padding)
         # TODO: enable in RAM mode
         # if self.img_crop is None:
         #     self.img_crop = img_crop
+        if self.cache:
+            self.uns[SingleCellStatic.CACHE_IMG_CROP_KEY] = img_crop
         return img_crop
 
     def get_mask_crop(self, bbox=None, dtype=bool, **kwargs):
