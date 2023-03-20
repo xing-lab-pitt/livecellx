@@ -327,7 +327,7 @@ nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir
 # model 89 resume
 # model 76 aug
 model=302
-nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --apply_gt_seg_edt --loss=MSE >train_out_v5_model"$model"_resume.out 2>&1 &
+nohup python ../livecell_tracker/model_zoo/segmentation/train_csn.py --train_dir="./notebook_results/a549_ccp_vim/train_data_v5" --test_dir="./notebook_results/a549_ccp_vim/test_data_v5" --model_version=version_$model --epochs=2000 --kernel_size=1 --batch_size=2 --degrees=180 --translation=0.5 --aug_scale="0.5,2" --input_type=raw_aug_duplicate --apply_gt_seg_edt --loss=MSE >train_out_v5_model"$model"_resume.out 2>&1 &
 
 # model 303
 # model 90 resume
