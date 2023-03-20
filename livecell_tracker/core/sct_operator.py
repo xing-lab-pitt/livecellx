@@ -233,7 +233,7 @@ class SctOperator:
 viewer = napari.view_image(dic_dataset.to_dask(), name="dic_image", cache=True)
 shape_layer = NapariVisualizer.viz_trajectories(traj_collection, viewer, contour_sample_num=20)
 sct_operator = SctOperator(traj_collection, shape_layer, viewer)
-sct_operator.setup_shape_layer(shape_layer, viewer=viewer)
+sct_operator.setup_shape_layer(shape_layer)
 
 
 def create_sct_napari_ui(sct_operator):
