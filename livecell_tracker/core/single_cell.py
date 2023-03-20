@@ -1,6 +1,6 @@
 import itertools
 import json
-from typing import Callable, Dict, List, Optional, Set, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -683,7 +683,7 @@ class SingleCellTrajectory:
             sub_sct.daughter_trajectories = self.daughter_trajectories.copy()
         return sub_sct
 
-    def split(self, split_time):
+    def split(self, split_time) -> Tuple["SingleCellTrajectory", "SingleCellTrajectory"]:
         """split this trajectory into two trajectories: [start, split_time), [split_time, end], at the given split time"""
         if split_time not in self.timeframe_set:
             raise ValueError("split time not in this trajectory")

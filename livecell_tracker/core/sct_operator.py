@@ -228,3 +228,60 @@ class SctOperator:
             self.magicgui_container[4].show()
         else:
             raise ValueError("Invalid mode!")
+
+
+viewer = napari.view_image(dic_dataset.to_dask(), name="dic_image", cache=True)
+shape_layer = NapariVisualizer.viz_trajectories(traj_collection, viewer, contour_sample_num=20)
+sct_operator = SctOperator(traj_collection, shape_layer, viewer)
+sct_operator.setup_shape_layer(shape_layer, viewer=viewer)
+
+
+def create_sct_napari_ui(sct_operator):
+    @magicgui(call_button="connect")
+    def connect_widget():
+        print("connect callback fired!")
+        sct_operator.connect_two_scts()
+
+    @magicgui(call_button="clear selection")
+    def clear_selection_widget():
+        print("clear selection callback fired!")
+        sct_operator.clear_selection()
+
+    @magicgui(call_button="disconnect")
+    def disconnect_widget():
+        print("disconnect callback fired!")
+        sct_operator.disconnect_sct()
+
+    @magicgui(call_button="add mother/daughter relation")
+    def add_mother_daughter_relation_widget():
+        print("add mother/daughter relation callback fired!")
+        sct_operator.add_mother_daughter_relation()
+
+    @magicgui(call_button="set mode", mode={"choices": ["connect", "disconnect", "add mother/daughter relation"]})
+    def switch_mode_widget(mode):
+        print("switch mode callback fired!")
+        if mode == "connect":
+            sct_operator.mode = sct_operator.CONNECT_MODE
+        elif mode == "disconnect":
+            sct_operator.mode = sct_operator.DISCONNECT_MODE
+        elif mode == "add mother/daughter relation":
+            sct_operator.mode = sct_operator.ADD_MOTHER_DAUGHER_MODE
+        sct_operator.hide_function_widgets()
+        sct_operator.show_selected_mode_widget()
+        sct_operator.clear_selection()
+
+    container = Container(
+        widgets=[
+            switch_mode_widget,
+            clear_selection_widget,
+            connect_widget,
+            disconnect_widget,
+            add_mother_daughter_relation_widget,
+        ],
+        labels=False,
+    )
+
+    sct_operator.magicgui_container = container
+    sct_operator.hide_function_widgets()
+    sct_operator.show_selected_mode_widget()
+    sct_operator.viewer.window.add_dock_widget(container, name="SCT Operator")
