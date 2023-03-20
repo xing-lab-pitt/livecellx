@@ -314,6 +314,10 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             read_img_url_func=self.read_img_url_func,
         )
 
+    def get_times(self):
+        """Get the times in the dataset"""
+        return sorted(list(self.time2url.keys()))
+
 
 class SingleImageDataset(LiveCellImageDataset):
     DEFAULT_TIME = 0
