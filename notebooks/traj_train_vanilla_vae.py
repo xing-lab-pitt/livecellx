@@ -1,4 +1,5 @@
 # %%
+from functools import partial
 from livecell_tracker.external import torch_vae
 
 # %%
@@ -42,8 +43,14 @@ class SingleCellVaeDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx) -> Union[dict, list, torch.Tensor, tuple]:
         if self.cache_items and idx in self.cached_items:
             return self.cached_items[idx]
-        img = self.scs[idx].get_img_crop(padding=self.padding)
-        img = normalize_img_to_uint8(img)
+        img = self.scs[idx].get_img_crop(
+            padding=self.padding, preprocess_img_func=partial(normalize_img_to_uint8, dtype=float)
+        )
+
+        # normalize on the single cell level
+        # img = self.scs[idx].get_img_crop(padding=self.padding)
+        # img = normalize_img_to_uint8(img)
+
         img = img.reshape([1] + list(img.shape))
         img = torch.from_numpy(img).float()
         if self.transforms:
@@ -54,7 +61,7 @@ class SingleCellVaeDataset(torch.utils.data.Dataset):
         # }
         #
         if self.cache_items:
-            self.cached_items[idx] = img
+            self.cached_items[idx] = (img, torch.tensor([]))
         return img, torch.tensor([])
 
     def __len__(self):
@@ -87,7 +94,7 @@ from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
 
 single_cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
 for sc in single_cells:
-    sc.cache = True
+    sc.cache = False
 
 print("total number of single cells: ", len(single_cells))
 
@@ -223,23 +230,23 @@ config = {
     "model_params": {"name": "VanillaVAE", "in_channels": 1, "latent_dim": 128},
     "data_params": {
         "data_path": "Data/",
-        "train_batch_size": 256,
-        "val_batch_size": 256,
-        "patch_size": 64,
+        "train_batch_size": 64,
+        "val_batch_size": 64,
+        "patch_size": 256,
         "num_workers": 0,
     },
     "exp_params": {
-        "LR": 0.00001,
+        "LR": 0.001,
         "weight_decay": 0.0,
-        # "scheduler_gamma": 0.95,
-        "kld_weight": 0.00025,
-        "manual_seed": 1265,
+        "scheduler_gamma": 0.99,
+        "kld_weight": 0.00000025,
+        "manual_seed": 1111,
     },
     "trainer_params": {
         "gpus": 1,
-        "max_epochs": 20000,
+        "max_epochs": 2000000,
     },
-    "logging_params": {"save_dir": "vae_logs/", "name": "VanillaVae"},
+    "logging_params": {"save_dir": "vae_logs/", "name": "VanillaVae_normalize_whole_img_patch_256"},
 }
 
 tb_logger = TensorBoardLogger(
@@ -254,7 +261,9 @@ seed_everything(config["exp_params"]["manual_seed"], True)
 vae_img_shape = (256, 256)
 
 in_channels, latent_dim = 1, config["model_params"]["latent_dim"]
-vae_model = VanillaVAE(in_channels, latent_dim)
+vae_model = VanillaVAE(
+    in_channels, latent_dim, hidden_dims=list(np.array([32, 64, 128, 256, 512, 1024, 2048])), img_shape=vae_img_shape
+).cuda()
 experiment = VAEXperiment(vae_model, config["exp_params"]).cuda()
 
 
