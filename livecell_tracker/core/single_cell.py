@@ -35,7 +35,7 @@ class SingleCellStatic:
         meta: Optional[Dict[str, object]] = None,
         uns: Optional[Dict[str, object]] = None,
         id: Optional[int] = None,  # TODO: automatically assign id (uuid),
-        cache: Optional[Dict[str, object]] = None,
+        cache: Optional[Dict[str, object]] = None,  # TODO: now only image crop is cached
     ) -> None:
         """_summary_
 
@@ -150,7 +150,9 @@ class SingleCellStatic:
         return np.array(self.bbox)
 
     @staticmethod
-    def gen_skimage_bbox_img_crop(bbox, img, padding=0):
+    def gen_skimage_bbox_img_crop(bbox, img, padding=0, preprocess_img_func=None):
+        if preprocess_img_func is not None:
+            img = preprocess_img_func(img)
         min_x, max_x, min_y, max_y = (
             int(bbox[0]),
             int(bbox[2]),
@@ -162,17 +164,17 @@ class SingleCellStatic:
         img_crop = img[min_x : max_x + padding, min_y : max_y + padding, ...]
         return img_crop
 
-    def get_img_crop(self, padding=0, bbox=None):
+    def get_img_crop(self, padding=0, bbox=None, **kwargs):
         if self.cache and SingleCellStatic.CACHE_IMG_CROP_KEY in self.uns:
-            return self.uns[SingleCellStatic.CACHE_IMG_CROP_KEY].copy()
+            return self.uns[(SingleCellStatic.CACHE_IMG_CROP_KEY, padding)].copy()
         if bbox is None:
             bbox = self.bbox
-        img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox=bbox, img=self.get_img(), padding=padding)
+        img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox=bbox, img=self.get_img(), padding=padding, **kwargs)
         # TODO: enable in RAM mode
         # if self.img_crop is None:
         #     self.img_crop = img_crop
         if self.cache:
-            self.uns[SingleCellStatic.CACHE_IMG_CROP_KEY] = img_crop
+            self.uns[(SingleCellStatic.CACHE_IMG_CROP_KEY, padding)] = img_crop
         return img_crop
 
     def get_mask_crop(self, bbox=None, dtype=bool, **kwargs):

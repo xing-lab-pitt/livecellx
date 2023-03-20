@@ -251,7 +251,10 @@ def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0
     original_input_mask = original_input_mask.astype(bool)
 
     gt_mask = sample["gt_mask"].numpy().squeeze()
-    out_mask = out_mask[0].cpu().detach().numpy()
+    out_mask = out_mask[0]
+    if model.loss_type == "CE" or model.loss_type == "BCE":
+        out_mask = model.output_to_logits(out_mask)
+    out_mask = out_mask.cpu().detach().numpy()
     fig, axes = plt.subplots(1, 12, figsize=(12 * 7, 6))
 
     ax_idx = 0
