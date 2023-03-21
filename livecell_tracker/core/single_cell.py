@@ -11,6 +11,7 @@ from skimage.measure._regionprops import RegionProperties
 from skimage.measure import regionprops
 
 from livecell_tracker.core.datasets import LiveCellImageDataset
+from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager
 
 
 # TODO: possibly refactor load_from_json methods into a mixin class
