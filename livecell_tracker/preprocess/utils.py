@@ -12,6 +12,26 @@ from tqdm import tqdm
 import cv2 as cv
 
 
+def normalize_features_zscore(features: np.array) -> np.array:
+    """normalize features to z score
+
+    Parameters
+    ----------
+    features : np.array
+        _description_
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    features = features - np.mean(features, axis=0)
+    std = np.std(features, axis=0)
+    if std != 0:
+        features = features / std
+    return features
+
+
 def normalize_img_to_uint8(img: np.array, dtype=np.uint8) -> np.array:
     """calculate z score of img and normalize to range [0, 255]
 
