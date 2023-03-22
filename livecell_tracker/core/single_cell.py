@@ -22,6 +22,7 @@ class SingleCellStatic:
     MORPHOLOGY_FEATURE_KEY = "_morphology"
     AUTOENCODER_FEATURE_KEY = "_autoencoder"
     CACHE_IMG_CROP_KEY = "_cached_img_crop"
+    id_generator = itertools.count()
 
     def __init__(
         self,
@@ -35,7 +36,7 @@ class SingleCellStatic:
         contour: Optional[np.array] = None,
         meta: Optional[Dict[str, object]] = None,
         uns: Optional[Dict[str, object]] = None,
-        id: Optional[int] = None,  # TODO: automatically assign id (uuid),
+        id: Optional[int] = None,  # TODO: automatically assign id (incremental or uuid),
         cache: Optional[Dict[str, object]] = None,  # TODO: now only image crop is cached
     ) -> None:
         """_summary_
@@ -98,6 +99,10 @@ class SingleCellStatic:
             self.img_dataset = self.dataset_dict["raw"]
         if self.mask_dataset is None and "mask" in self.dataset_dict:
             self.mask_dataset = self.dataset_dict["mask"]
+        if id is not None:
+            self.id = id
+        else:
+            self.id = SingleCellStatic.id_generator.__next__()
 
     def compute_regionprops(self, crop=True):
         props = regionprops(
