@@ -25,7 +25,7 @@ class NapariVisualizer:
         res_colors = [mapper.to_rgba(v) for v in values]
         return res_colors
 
-    def viz_trajectories(
+    def gen_trajectories_shapes(
         trajectories: SingleCellTrajectoryCollection,
         viewer: Viewer,
         bbox=False,

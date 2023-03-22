@@ -11,7 +11,13 @@ from livecell_tracker.core.single_cell import SingleCellStatic
 
 
 def compute_haralick_features(
-    sc: SingleCellStatic, ignore_zeros=True, return_mean=True, ret_arr=True, **kwargs
+    sc: SingleCellStatic,
+    feature_key="haralick",
+    ignore_zeros=True,
+    return_mean=True,
+    ret_arr=True,
+    add_feature_to_sc=True,
+    **kwargs
 ) -> Union[np.array, Series]:
     """Returns a list of texture features for the given image.
 
@@ -30,7 +36,10 @@ def compute_haralick_features(
     if ret_arr:
         return features
     feature_names = ["haralick_" + str(i) for i in range(len(features.flatten()))]
-    return Series(features.ravel(), index=feature_names)
+    features_series = Series(features.ravel(), index=feature_names)
+    if add_feature_to_sc:
+        sc.add_feature(feature_key, features_series)
+    return features_series
 
 
 # https://scikit-image.org/docs/stable/api/skimage.measure.html
@@ -73,7 +82,10 @@ SELECTED_SKIMAGE_REGIONPROPOS_COL_DTYPES = {
 
 
 def compute_skimage_regionprops(
-    sc: SingleCellStatic, props=SELECTED_SKIMAGE_REGIONPROPOS_COL_DTYPES.keys()
+    sc: SingleCellStatic,
+    feature_key="skimage",
+    props=SELECTED_SKIMAGE_REGIONPROPOS_COL_DTYPES.keys(),
+    add_feature_to_sc=True,
 ) -> pd.Series:
     label_mask = sc.get_contour_mask().astype(int)
     intensity_mask = sc.get_contour_img(crop=True)
@@ -93,4 +105,6 @@ def compute_skimage_regionprops(
                 % (key, len(regionprops_results[key]))
             )
     res_table = pd.Series(regionprops_results)
+    if add_feature_to_sc:
+        sc.add_feature(feature_key, res_table)
     return res_table

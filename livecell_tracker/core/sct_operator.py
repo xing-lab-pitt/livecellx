@@ -154,8 +154,8 @@ class SctOperator:
 
     def store_shape_layer_info(self):
         # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
-        self.original_face_colors = copy.deepcopy(list(shape_layer.face_color))
-        self.original_properties = copy.deepcopy(shape_layer.properties.copy())
+        self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
+        self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
 
     def disconnect_sct(self):
         assert len(self.select_info) == 1, "Please select one shape to disconnect."
@@ -230,13 +230,19 @@ class SctOperator:
             raise ValueError("Invalid mode!")
 
 
-viewer = napari.view_image(dic_dataset.to_dask(), name="dic_image", cache=True)
-shape_layer = NapariVisualizer.viz_trajectories(traj_collection, viewer, contour_sample_num=20)
-sct_operator = SctOperator(traj_collection, shape_layer, viewer)
-sct_operator.setup_shape_layer(shape_layer)
+def create_sct_napari_ui(sct_operator: SctOperator):
+    """Usage
+    # viewer = napari.view_image(dic_dataset.to_dask(), name="dic_image", cache=True)
+    # shape_layer = NapariVisualizer.viz_trajectories(traj_collection, viewer, contour_sample_num=20)
+    # sct_operator = SctOperator(traj_collection, shape_layer, viewer)
+    # sct_operator.setup_shape_layer(shape_layer)
 
+    Parameters
+    ----------
+    sct_operator : SctOperator
+        _description_
+    """
 
-def create_sct_napari_ui(sct_operator):
     @magicgui(call_button="connect")
     def connect_widget():
         print("connect callback fired!")
