@@ -361,7 +361,13 @@ class SingleCellStatic:
 
     def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.array:
         """return a contour image with background set to background_val"""
-        contour_mask = self.get_contour_mask(crop=crop, **kwargs).astype(bool)
+
+        # TODO: filter kwargs for contour mask case. (currently using the same kwargs as self.gen_skimage_bbox_img_crop)
+        # Do not preprocess the mask when generating the sc image
+        mask_kwargs = kwargs.copy()
+        mask_kwargs.pop("preprocess_img_func")
+        contour_mask = self.get_contour_mask(crop=crop, **mask_kwargs).astype(bool)
+
         contour_img = self.get_img_crop(**kwargs) if crop else self.get_img()
         contour_img[np.logical_not(contour_mask)] = bg_val
         return contour_img

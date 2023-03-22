@@ -86,9 +86,10 @@ def compute_skimage_regionprops(
     feature_key="skimage",
     props=SELECTED_SKIMAGE_REGIONPROPOS_COL_DTYPES.keys(),
     add_feature_to_sc=True,
+    preprocess_img_func=None,
 ) -> pd.Series:
     label_mask = sc.get_contour_mask().astype(int)
-    intensity_mask = sc.get_contour_img(crop=True)
+    intensity_mask = sc.get_contour_img(crop=True, preprocess_img_func=preprocess_img_func)
     regionprops_results = skimage.measure.regionprops_table(label_mask, intensity_mask, properties=props)
     feature_keys = list(regionprops_results.keys())
 
