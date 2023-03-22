@@ -4,7 +4,10 @@ from multiprocessing import Pool
 
 
 def wrap_func(func, args):
-    return func(*args)
+    if isinstance(args, tuple) or isinstance(args, list):
+        return func(*args)
+    elif isinstance(args, dict):
+        return func(**args)
 
 
 def parallelize(func, inputs, cores=None):

@@ -50,7 +50,7 @@ SELECTED_SKIMAGE_REGIONPROPOS_COL_DTYPES = {
     "area_filled": float,
     "axis_major_length": float,
     "axis_minor_length": float,
-    "bbox": int,
+    # "bbox": int,
     "centroid": float,
     "centroid_local": float,
     "centroid_weighted": float,
@@ -87,9 +87,12 @@ def compute_skimage_regionprops(
     props=SELECTED_SKIMAGE_REGIONPROPOS_COL_DTYPES.keys(),
     add_feature_to_sc=True,
     preprocess_img_func=None,
+    sc_level_normalize=True,
 ) -> pd.Series:
     label_mask = sc.get_contour_mask().astype(int)
     intensity_mask = sc.get_contour_img(crop=True, preprocess_img_func=preprocess_img_func)
+    if sc_level_normalize and preprocess_img_func:
+        intensity_mask = preprocess_img_func(intensity_mask)
     regionprops_results = skimage.measure.regionprops_table(label_mask, intensity_mask, properties=props)
     feature_keys = list(regionprops_results.keys())
 
