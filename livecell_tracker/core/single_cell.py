@@ -361,6 +361,9 @@ class SingleCellStatic:
         contour_img[np.logical_not(contour_mask)] = bg_val
         return contour_img
 
+    get_sc_img = get_contour_img
+    get_sc_mask = get_contour_mask
+
     def add_feature(self, name, features: Union[np.array, pd.Series]):
         if not isinstance(features, (np.ndarray, pd.Series)):
             raise TypeError("features must be a numpy array or pandas series")
