@@ -365,7 +365,8 @@ class SingleCellStatic:
         # TODO: filter kwargs for contour mask case. (currently using the same kwargs as self.gen_skimage_bbox_img_crop)
         # Do not preprocess the mask when generating the sc image
         mask_kwargs = kwargs.copy()
-        mask_kwargs.pop("preprocess_img_func")
+        if "preprocess_img_func" in mask_kwargs:
+            mask_kwargs.pop("preprocess_img_func")
         contour_mask = self.get_contour_mask(crop=crop, **mask_kwargs).astype(bool)
 
         contour_img = self.get_img_crop(**kwargs) if crop else self.get_img()
