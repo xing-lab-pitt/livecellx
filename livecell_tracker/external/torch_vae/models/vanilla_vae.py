@@ -6,7 +6,9 @@ from .types_ import *
 
 
 class VanillaVAE(BaseVAE):
-    def __init__(self, in_channels: int, latent_dim: int, hidden_dims: List = None, **kwargs) -> None:
+    def __init__(
+        self, in_channels: int, latent_dim: int, hidden_dims: List = None, conv_feature_dim: int = None, **kwargs
+    ) -> None:
         super(VanillaVAE, self).__init__()
 
         self.latent_dim = latent_dim
@@ -28,13 +30,18 @@ class VanillaVAE(BaseVAE):
             in_channels = h_dim
 
         self.encoder = nn.Sequential(*modules)
-        self.fc_mu = nn.Linear(hidden_dims[-1] * 4, latent_dim)
-        self.fc_var = nn.Linear(hidden_dims[-1] * 4, latent_dim)
+        self.conv_feature_dim = conv_feature_dim
+        if conv_feature_dim is not None:
+            self.fc_mu = nn.Linear(conv_feature_dim, latent_dim)
+            self.fc_var = nn.Linear(conv_feature_dim, latent_dim)
+        else:
+            self.fc_mu = nn.Linear(hidden_dims[-1] * 4, latent_dim)
+            self.fc_var = nn.Linear(hidden_dims[-1] * 4, latent_dim)
 
         # Build Decoder
         modules = []
 
-        self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1] * 4)
+        self.decoder_input = nn.Linear(latent_dim, conv_feature_dim)
 
         hidden_dims.reverse()
 
