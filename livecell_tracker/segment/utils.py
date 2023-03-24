@@ -104,6 +104,57 @@ def match_mask_labels_by_iou(seg_label_mask, gt_label_mask, bg_label=0, return_a
         return gt2seg_map
 
 
+def compute_match_label_map(t1, t2, mask_dataset, iou_threshold=0.2) -> tuple:
+    """compute the label map (mapping between objects) between two time points
+
+    Parameters
+    ----------
+    t1 : _type_
+        _description_
+    t2 : _type_
+        _description_
+    mask_dataset : _type_
+        _description_
+    iou_threshold : float, optional
+        _description_, by default 0.2
+
+    Returns
+    -------
+    A tuple consisting of 3 elements:
+    t1, t2, a dictionary of the form:
+    {
+        t1_label_1: {
+            t2_label_1: {
+                "iou": iou_score
+            },
+            t2_label_2: {
+                "iou": iou_score
+            },
+            ...
+        },
+        t1_label_2: {
+            t2_label_1: {
+                "iou": iou_score
+            },
+        },
+        ...
+    }
+    """
+    label_mask1 = mask_dataset.get_img_by_time(t1)
+    label_mask2 = mask_dataset.get_img_by_time(t2)
+
+    # Note: first arg is mask2 and second arg is mask1 to create a label map from mask1 label to mask2
+    # read match_mask_labels_by_iou docstring for more info
+    _, score_dict = match_mask_labels_by_iou(label_mask2, label_mask1, return_all=True)
+    label_map = {}
+    for label_1 in score_dict:
+        label_map[label_1] = {}
+        for score_info in score_dict[label_1]:
+            if score_info["iou"] > iou_threshold:
+                label_map[label_1][score_info["seg_label"]] = {"iou": score_info["iou"]}
+    return t1, t2, label_map
+
+
 def process_scs_from_one_label_mask(label_mask_dataset, img_dataset, time, bg_val=0):
     label_mask = label_mask_dataset.get_img_by_time(time)
     labels = set(np.unique(label_mask))

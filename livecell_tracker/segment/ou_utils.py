@@ -22,6 +22,25 @@ from pathlib import Path
 import pandas as pd
 from livecell_tracker.preprocess.utils import dilate_or_erode_mask
 
+
+def create_ou_input_from_sc(sc: SingleCellStatic, padding_pixels: int = 0, dtype=float, remove_bg=True):
+    if remove_bg:
+        img_crop = sc.get_contour_img(padding=padding_pixels).astype(dtype)
+    else:
+        img_crop = sc.get_img_crop(padding=padding_pixels).astype(dtype)
+    img_crop = normalize_img_to_uint8(img_crop).astype(dtype)
+    img_crop[sc.get_contour_mask(padding=padding_pixels) == 0] *= -1
+    return img_crop
+
+
+def create_ou_input_from_imgs(img, mask, normalize=True, dtype=float):
+    img_crop = img.astype(dtype)
+    if normalize:
+        img_crop = normalize_img_to_uint8(img_crop).astype(dtype)
+    img_crop[mask == 0] *= -1
+    return img_crop
+
+
 # TODO: adapt to new sc API (check and fix the function below)
 def underseg_overlay_gt_masks(
     seg_label: int, scs: List[SingleCellStatic], padding_scale=1.5, seg_mask=None
