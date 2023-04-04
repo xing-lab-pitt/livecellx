@@ -6,8 +6,15 @@
 Livecell-tracker is a pure python framework for extracting (segmenting and tracking) sinlge cell trajectories from long live-cell imaging data, and then computing as well as analyzing single cell features in latent space.
 
 **This is a placeholder for livecell-tracker future releases. Currently this repo showcases a basic use case to segment images, track cells with opencv/SORT/btrack and generate cell features in our CX-A label-free dataset.   
-The majority of our analysis methods/notebooks are in `https://github.com/xing-lab-pitt/xing-vimentin-dic-pipeline` maintained by Xing lab, and being added to this repo. Please check later in Nov. 2022 for a complete version with our manuscript.**
+The majority of our analysis methods/notebooks are in `https://github.com/xing-lab-pitt/xing-vimentin-dic-pipeline` maintained by Xing lab, and being added to this repo. Please check later in April. 2023 for a complete version with our manuscript.**
 ## Installation
+**General package requirements**  
+
+Note: if you encounter issue related to lap and numpy, please install numpy first and then install lap. If there is any issue with numba and numpy, please follow the error message and resolve numba and numpy version issues. (suggestions: ask chatgpt regarding how to resolve dependency issues)  
+`pip install -r requirements.txt`  
+`pip install .`  
+(or `pip install -e .` if you would like to install an editable version and develop the package)
+
 
 **Pytorch**  
 Please refer to [Pytorch Official Website](https://pytorch.org/get-started/locally) to receive most recent installation instructions. Here we simply provide two examples used in our cases.  
@@ -21,10 +28,8 @@ On our 2080Ti/3090 workstations and CUDA 11.7:
 check if you are using cuda (refer to pytorch docs for TPU or other devices):
 `torch.cuda.is_available(), torch.cuda.current_device(), torch.cuda.device_count()`
 
-**General package requirements**  
-`pip install -r requirements.txt`
 
-**Detectron2**  
+**Detectron2 (optional)**  
 
 Please refer to latest detectron2 documentation to install detectron2 for segmentation if you cannot build from source with the following commands.  
 
