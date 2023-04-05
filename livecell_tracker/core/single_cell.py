@@ -1,6 +1,6 @@
 import itertools
 import json
-from typing import Callable, Dict, List, Optional, Set, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -11,6 +11,7 @@ from skimage.measure._regionprops import RegionProperties
 from skimage.measure import regionprops
 
 from livecell_tracker.core.datasets import LiveCellImageDataset
+from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager
 
 
 # TODO: possibly refactor load_from_json methods into a mixin class
@@ -20,6 +21,8 @@ class SingleCellStatic:
     HARALICK_FEATURE_KEY = "_haralick"
     MORPHOLOGY_FEATURE_KEY = "_morphology"
     AUTOENCODER_FEATURE_KEY = "_autoencoder"
+    CACHE_IMG_CROP_KEY = "_cached_img_crop"
+    id_generator = itertools.count()
 
     def __init__(
         self,
@@ -33,7 +36,8 @@ class SingleCellStatic:
         contour: Optional[np.array] = None,
         meta: Optional[Dict[str, object]] = None,
         uns: Optional[Dict[str, object]] = None,
-        id: Optional[int] = None,  # TODO: automatically assign id (uuid)
+        id: Optional[int] = None,  # TODO: automatically assign id (incremental or uuid),
+        cache: Optional[Dict[str, object]] = None,  # TODO: now only image crop is cached
     ) -> None:
         """_summary_
 
@@ -53,6 +57,7 @@ class SingleCellStatic:
         contour:
             an array of contour coordinates [(x1, y1), (x2, y2), ...)], in a WHOLE image (not in a cropped image)
         """
+        self.cache = cache
         self.regionprops = regionprops
         self.timeframe = timeframe
         self.img_dataset = img_dataset
@@ -77,7 +82,7 @@ class SingleCellStatic:
         if self.meta is None:
             self.meta = dict()
 
-        self.uns = uns
+        self.uns: dict = uns
         if self.uns is None:
             self.uns = dict()
 
@@ -94,6 +99,10 @@ class SingleCellStatic:
             self.img_dataset = self.dataset_dict["raw"]
         if self.mask_dataset is None and "mask" in self.dataset_dict:
             self.mask_dataset = self.dataset_dict["mask"]
+        if id is not None:
+            self.id = id
+        else:
+            self.id = SingleCellStatic.id_generator.__next__()
 
     def compute_regionprops(self, crop=True):
         props = regionprops(
@@ -147,7 +156,9 @@ class SingleCellStatic:
         return np.array(self.bbox)
 
     @staticmethod
-    def gen_skimage_bbox_img_crop(bbox, img, padding=0):
+    def gen_skimage_bbox_img_crop(bbox, img, padding=0, preprocess_img_func=None):
+        if preprocess_img_func is not None:
+            img = preprocess_img_func(img)
         min_x, max_x, min_y, max_y = (
             int(bbox[0]),
             int(bbox[2]),
@@ -159,13 +170,17 @@ class SingleCellStatic:
         img_crop = img[min_x : max_x + padding, min_y : max_y + padding, ...]
         return img_crop
 
-    def get_img_crop(self, padding=0, bbox=None):
+    def get_img_crop(self, padding=0, bbox=None, **kwargs):
+        if self.cache and SingleCellStatic.CACHE_IMG_CROP_KEY in self.uns:
+            return self.uns[(SingleCellStatic.CACHE_IMG_CROP_KEY, padding)].copy()
         if bbox is None:
             bbox = self.bbox
-        img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox=bbox, img=self.get_img(), padding=padding)
+        img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox=bbox, img=self.get_img(), padding=padding, **kwargs)
         # TODO: enable in RAM mode
         # if self.img_crop is None:
         #     self.img_crop = img_crop
+        if self.cache:
+            self.uns[(SingleCellStatic.CACHE_IMG_CROP_KEY, padding)] = img_crop
         return img_crop
 
     def get_mask_crop(self, bbox=None, dtype=bool, **kwargs):
@@ -318,7 +333,9 @@ class SingleCellStatic:
         ).astype(dtype)
 
     @staticmethod
-    def gen_contour_mask(contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255) -> np.array:
+    def gen_contour_mask(
+        contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255, dtype=bool
+    ) -> np.array:
         from skimage.draw import line, polygon
 
         assert img is not None or shape is not None, "either img or shape must be provided"
@@ -333,23 +350,35 @@ class SingleCellStatic:
         else:
             res_shape = shape
 
-        res_mask = np.zeros(res_shape, dtype=bool)
+        res_mask = np.zeros(res_shape, dtype=dtype)
         rows, cols = polygon(contour[:, 0], contour[:, 1])
         res_mask[rows, cols] = mask_val
         res_mask = SingleCellStatic.gen_skimage_bbox_img_crop(bbox, res_mask, padding=padding)
         return res_mask
 
-    def get_contour_mask(self, padding=0, crop=True, bbox=None) -> np.array:
+    def get_contour_mask(self, padding=0, crop=True, bbox=None, dtype=bool) -> np.array:
         """if contour points are not closed, use this function to fill the polygon points in self.contour"""
         contour = self.contour
-        return SingleCellStatic.gen_contour_mask(contour, self.get_img(), bbox=bbox, padding=padding, crop=crop)
+        return SingleCellStatic.gen_contour_mask(
+            contour, self.get_img(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
+        )
 
     def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.array:
         """return a contour image with background set to background_val"""
-        contour_mask = self.get_contour_mask(crop=crop, **kwargs).astype(bool)
+
+        # TODO: filter kwargs for contour mask case. (currently using the same kwargs as self.gen_skimage_bbox_img_crop)
+        # Do not preprocess the mask when generating the sc image
+        mask_kwargs = kwargs.copy()
+        if "preprocess_img_func" in mask_kwargs:
+            mask_kwargs.pop("preprocess_img_func")
+        contour_mask = self.get_contour_mask(crop=crop, **mask_kwargs).astype(bool)
+
         contour_img = self.get_img_crop(**kwargs) if crop else self.get_img()
         contour_img[np.logical_not(contour_mask)] = bg_val
         return contour_img
+
+    get_sc_img = get_contour_img
+    get_sc_mask = get_contour_mask
 
     def add_feature(self, name, features: Union[np.array, pd.Series]):
         if not isinstance(features, (np.ndarray, pd.Series)):
@@ -676,7 +705,7 @@ class SingleCellTrajectory:
             sub_sct.daughter_trajectories = self.daughter_trajectories.copy()
         return sub_sct
 
-    def split(self, split_time):
+    def split(self, split_time) -> Tuple["SingleCellTrajectory", "SingleCellTrajectory"]:
         """split this trajectory into two trajectories: [start, split_time), [split_time, end], at the given split time"""
         if split_time not in self.timeframe_set:
             raise ValueError("split time not in this trajectory")

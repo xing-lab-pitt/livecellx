@@ -4,9 +4,9 @@ requires = ["flit_core >=3.4,<4"]
 
 [project]
 # name = "livecell-profiler"
-name = "livecell-tracker"
+name = "livecell"
 version = "0.0.2"
-description = "live-cell tracking package including instance segmentation and tracker"
+description = "live-cell analysis package including instance segmentation and tracker"
 authors = [{ name = "Ke Ni", email = "ken67@pitt.edu" }]
 readme = "readme.md"
 classifiers = ["License :: OSI Approved :: MIT License"]
