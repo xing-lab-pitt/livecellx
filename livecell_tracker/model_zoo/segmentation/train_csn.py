@@ -211,20 +211,19 @@ def main_train():
                 filename="{epoch:02d}-{" + criterion + ":.4f}",
             )
         )
-
     last_models_checkpoint_callback = ModelCheckpoint(
-        save_top_k=3,
-        monitor="step",
-        mode="max",
+        save_last=True,
         filename="{epoch}-{global_step}",
     )
     ckpt_callbacks.append(last_models_checkpoint_callback)
+
     trainer = Trainer(
         gpus=1,
         max_epochs=args.epochs,
         resume_from_checkpoint=args.model_ckpt,
         logger=logger,
         callbacks=ckpt_callbacks,
+        log_every_n_steps=100,
     )
     trainer.fit(model)
 

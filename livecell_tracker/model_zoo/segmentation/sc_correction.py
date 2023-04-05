@@ -161,7 +161,6 @@ class CorrectSegNet(LightningModule):
         loss = self.compute_loss(output, y)
         predicted_labels = torch.argmax(output, dim=1)
         self.log("train_loss", loss, batch_size=self.batch_size, on_step=True, on_epoch=True, prog_bar=True)
-
         # monitor more stats during training
         # compute on subdirs
         if self.global_step % 1000 != 0:
@@ -182,6 +181,13 @@ class CorrectSegNet(LightningModule):
             batched_acc = self.val_accuracy(bin_output[subdir_indexer].long(), y[subdir_indexer].long())
             self.log(f"train_acc_{subdir}", batched_acc, prog_bar=True)
         return loss
+
+    def training_epoch_end(self, outputs):
+        # calculate the epoch-level loss using the outputs list
+        epoch_loss = torch.stack([x["loss"] for x in outputs]).mean()
+
+        # log the epoch loss
+        self.log("train_loss_epoch", epoch_loss, on_step=False, on_epoch=True)
 
     def validation_step(self, batch, batch_idx, dataloader_idx):
         # print("[validation_step] x shape: ", batch["input"].shape)
