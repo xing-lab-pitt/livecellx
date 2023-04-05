@@ -333,7 +333,9 @@ class SingleCellStatic:
         ).astype(dtype)
 
     @staticmethod
-    def gen_contour_mask(contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255) -> np.array:
+    def gen_contour_mask(
+        contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255, dtype=bool
+    ) -> np.array:
         from skimage.draw import line, polygon
 
         assert img is not None or shape is not None, "either img or shape must be provided"
@@ -348,16 +350,18 @@ class SingleCellStatic:
         else:
             res_shape = shape
 
-        res_mask = np.zeros(res_shape, dtype=bool)
+        res_mask = np.zeros(res_shape, dtype=dtype)
         rows, cols = polygon(contour[:, 0], contour[:, 1])
         res_mask[rows, cols] = mask_val
         res_mask = SingleCellStatic.gen_skimage_bbox_img_crop(bbox, res_mask, padding=padding)
         return res_mask
 
-    def get_contour_mask(self, padding=0, crop=True, bbox=None) -> np.array:
+    def get_contour_mask(self, padding=0, crop=True, bbox=None, dtype=bool) -> np.array:
         """if contour points are not closed, use this function to fill the polygon points in self.contour"""
         contour = self.contour
-        return SingleCellStatic.gen_contour_mask(contour, self.get_img(), bbox=bbox, padding=padding, crop=crop)
+        return SingleCellStatic.gen_contour_mask(
+            contour, self.get_img(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
+        )
 
     def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.array:
         """return a contour image with background set to background_val"""
