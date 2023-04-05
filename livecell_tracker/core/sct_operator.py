@@ -11,6 +11,7 @@ class SctOperator:
     CONNECT_MODE = 0
     DISCONNECT_MODE = 1
     ADD_MOTHER_DAUGHER_MODE = 2
+    DELETE_TRAJECTORY_MODE = 3
 
     def __init__(
         self,
@@ -67,6 +68,9 @@ class SctOperator:
             else:
                 selection_face_color = (0, 0, 1, 1)
                 selection_status_text = "daughter"
+        elif self.mode == self.DELETE_TRAJECTORY_MODE:
+            selection_face_color = (0, 0, 0, 1)
+            selection_status_text = "delete?"
 
         face_colors = list(shape_layer.face_color)
         face_colors[selected_shape_index] = selection_face_color
@@ -215,6 +219,17 @@ class SctOperator:
         self.clear_selection()
         print("<add mother-daughter relation operation complete>")
 
+    def delete_selected_sct(self):
+        assert len(self.select_info) == 1, "Please select one shape to delete."
+        sct, sc, shape_index = self.select_info[0]
+        print("deleting shape...")
+        self.shape_layer.selected_data = [shape_index]
+        self.shape_layer.remove_selected()
+        self.traj_collection.pop_trajectory(sct.track_id)
+        self.store_shape_layer_info()
+        self.clear_selection()
+        print("<delete operation complete>")
+
     def hide_function_widgets(self):
         for i in range(2, len(self.magicgui_container)):
             self.magicgui_container[i].hide()
@@ -226,6 +241,8 @@ class SctOperator:
             self.magicgui_container[3].show()
         elif self.mode == self.ADD_MOTHER_DAUGHER_MODE:
             self.magicgui_container[4].show()
+        elif self.mode == self.DELETE_TRAJECTORY_MODE:
+            self.magicgui_container[5].show()
         else:
             raise ValueError("Invalid mode!")
 
@@ -263,18 +280,28 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         print("add mother/daughter relation callback fired!")
         sct_operator.add_mother_daughter_relation()
 
-    @magicgui(call_button="set mode", mode={"choices": ["connect", "disconnect", "add mother/daughter relation"]})
+    @magicgui(
+        auto_call=True, mode={"choices": ["connect", "disconnect", "add mother/daughter relation", "delete trajectory"]}
+    )
     def switch_mode_widget(mode):
         print("switch mode callback fired!")
+        print("mode changed to", mode)
         if mode == "connect":
             sct_operator.mode = sct_operator.CONNECT_MODE
         elif mode == "disconnect":
             sct_operator.mode = sct_operator.DISCONNECT_MODE
         elif mode == "add mother/daughter relation":
             sct_operator.mode = sct_operator.ADD_MOTHER_DAUGHER_MODE
+        elif mode == "delete trajectory":
+            sct_operator.mode = sct_operator.DELETE_TRAJECTORY_MODE
         sct_operator.hide_function_widgets()
         sct_operator.show_selected_mode_widget()
         sct_operator.clear_selection()
+
+    @magicgui(call_button="delete trajectory")
+    def delete_trajectory_widget():
+        print("delete trajectory callback fired!")
+        sct_operator.delete_selected_sct()
 
     container = Container(
         widgets=[
@@ -283,6 +310,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
             connect_widget,
             disconnect_widget,
             add_mother_daughter_relation_widget,
+            delete_trajectory_widget,
         ],
         labels=False,
     )
