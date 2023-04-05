@@ -24,19 +24,21 @@ from livecell_tracker.preprocess.utils import dilate_or_erode_mask
 
 
 def create_ou_input_from_sc(
-    sc: SingleCellStatic, padding_pixels: int = 0, dtype=float, remove_bg=True, one_object=True, scale=0
+    sc: SingleCellStatic, padding_pixels: int = 0, dtype=float, remove_bg=True, one_object=True, scale=0, bbox=None
 ):
+    if bbox is None:
+        bbox = sc.get_bbox()
     if remove_bg:
-        img_crop = sc.get_contour_img(padding=padding_pixels).astype(dtype)
+        img_crop = sc.get_contour_img(padding=padding_pixels, bbox=bbox).astype(dtype)
     else:
-        img_crop = sc.get_img_crop(padding=padding_pixels).astype(dtype)
+        img_crop = sc.get_img_crop(padding=padding_pixels, bbox=bbox).astype(dtype)
     img_crop = normalize_img_to_uint8(img_crop).astype(dtype)
     if one_object:
-        sc_mask = sc.get_contour_mask(padding=padding_pixels)
+        sc_mask = sc.get_contour_mask(padding=padding_pixels, bbox=bbox)
         sc_mask = dilate_or_erode_mask(sc_mask.astype(np.uint8), scale_factor=scale).astype(bool)
         img_crop[~sc_mask] *= -1
     else:
-        img_crop[sc.get_mask_crop(padding=padding_pixels) == 0] *= -1
+        img_crop[sc.get_mask_crop(padding=padding_pixels, bbox=bbox) == 0] *= -1
     return img_crop
 
 
