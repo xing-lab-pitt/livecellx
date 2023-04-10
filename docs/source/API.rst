@@ -37,21 +37,21 @@ Data IO
     .. autosummary::
     :toctree: _autosummary
 
-    livecell_tracker.core.io_utils.save_tiff
-    livecell_tracker.core.io_utils.save_png
-    livecell_tracker.core.io_utils.save_general
-        .. .. autoclass:: livecell_tracker.core.datasets.LiveCellImageDataset
-        ..     :members:
-        ..     :inherited-members:
+        livecell_tracker.core.io_utils.save_tiff
+        livecell_tracker.core.io_utils.save_png
+        livecell_tracker.core.io_utils.save_general
+            .. .. autoclass:: livecell_tracker.core.datasets.LiveCellImageDataset
+            ..     :members:
+            ..     :inherited-members:
 
 
-        .. .. autoclass:: livecell_tracker.core.SingleCellStatic
-        ..     :members:
-        ..     :inherited-members:
+            .. .. autoclass:: livecell_tracker.core.SingleCellStatic
+            ..     :members:
+            ..     :inherited-members:
 
-    ..
-    livecell_tracker.core.datasets
-    livecell_tracker.core.datasets.LiveCellImageDataset
+        ..
+        livecell_tracker.core.datasets
+        livecell_tracker.core.datasets.LiveCellImageDataset
 
 
 Model Zoo
@@ -73,7 +73,11 @@ Segmentation
 
 Track
 ~~~~~~~~~~~~~~~~~~
+.. autoclass:: livecell_tracker.core.SingleCellTrajectory
 
+    .. automethod:: __init__
+    .. automethod:: add_single_cell
+    
 
 Annotation
 ~~~~~~~~~~~~~~~~~~
