@@ -467,7 +467,7 @@ class SingleCellStatic:
 
     def show_panel(self, padding=0, figsize=(20, 10), **kwargs):
         crop = True
-        fig, axes = plt.subplots(1, 5, figsize=figsize)
+        fig, axes = plt.subplots(1, 6, figsize=figsize)
         self.show(ax=axes[0], crop=False, padding=padding, **kwargs)
         axes[0].set_title("img")
         self.show_mask(ax=axes[1], crop=False, padding=padding, **kwargs)
@@ -478,6 +478,8 @@ class SingleCellStatic:
         axes[3].set_title("contour_mask")
         self.show_mask(ax=axes[4], crop=True, padding=padding, **kwargs)
         axes[4].set_title("mask_crop")
+        self.show(ax=axes[5], crop=True, padding=padding, **kwargs)
+        axes[5].set_title("img_crop")
         return axes
 
     def copy(self):
