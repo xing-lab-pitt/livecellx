@@ -32,7 +32,7 @@ class SingleCellStatic:
         img_dataset: Optional[LiveCellImageDataset] = None,
         mask_dataset: Optional[LiveCellImageDataset] = None,
         dataset_dict: Optional[Dict[str, LiveCellImageDataset]] = None,
-        feature_dict: Optional[Dict[str, np.array]] = dict(),
+        feature_dict: Optional[Dict[str, np.array]] = None,
         contour: Optional[np.array] = None,
         meta: Optional[Dict[str, object]] = None,
         uns: Optional[Dict[str, object]] = None,
@@ -66,6 +66,9 @@ class SingleCellStatic:
         self.mask_dataset = mask_dataset
 
         self.feature_dict = feature_dict
+        if self.feature_dict is None:
+            self.feature_dict = dict()
+        
         self.bbox = bbox
         self.contour = np.array(contour, dtype=int)
 
