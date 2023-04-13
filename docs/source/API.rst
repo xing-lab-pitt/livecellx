@@ -7,21 +7,21 @@ Import livecell_tracker as::
 
    import livecell_tracker as lct
 
-
-
-Core
-~~~~~~~~~~~~~~~~~~
+.. toctree::
+   :maxdepth: 4
 
 
 Single Cell Classes
-------------------
+---------------------
     .. autosummary::
-        :toctree: _autosummary
-        :template: class.rst
+    :toctree: _autosummary
+    :template: class.rst
+    :caption: Single cell classes
 
-            livecell_tracker.core.SingleCellStatic
-            livecell_tracker.core.SingleCellTrajectory
-            livecell_tracker.core.SingleCellTrajectoryCollection
+    livecell_tracker.core.SingleCellStatic
+    livecell_tracker.core.SingleCellTrajectory
+    livecell_tracker.core.SingleCellTrajectoryCollection
+
 
 Dataset Classes
 ------------------
@@ -29,7 +29,7 @@ Dataset Classes
         :toctree: _autosummary
         :template: class.rst
 
-            livecell_tracker.core.datasets.LiveCellImageDataset
+        livecell_tracker.core.datasets.LiveCellImageDataset
 
 
 Data IO
@@ -66,9 +66,23 @@ Model Zoo
 
 Segmentation
 ~~~~~~~~~~~~~~~~~~
-    .. autosummary::
-        :toctree: _autosummary
-        livecell_tracker.segment.*
+    .. automodule:: livecell_tracker.segment.utils
+        :members:
+    .. automodule:: livecell_tracker.segment.cellpose_utils
+        :members:
+    .. automodule:: livecell_tracker.segment.detectron_utils
+        :members:
+    .. automodule:: livecell_tracker.segment.ou_simulator
+        :members:
+    .. automodule:: livecell_tracker.segment.ou_utils
+        :members:
+    .. automodule:: livecell_tracker.segment.ou_viz
+        :members:
+
+    .. .. autosummary::
+    ..     :toctree: _autosummary
+
+
 
 
 Track
