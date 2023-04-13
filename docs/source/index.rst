@@ -7,7 +7,7 @@ Welcome to livecell_tracker's documentation!
 ============================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
    
    API
