@@ -1,6 +1,5 @@
 from typing import Union
 from typing import Dict
-import mahotas.features.texture
 import skimage
 import skimage.measure
 from pandas import Series
@@ -31,6 +30,8 @@ def compute_haralick_features(
     list
         A list of texture features.
     """
+    import mahotas.features.texture
+
     image = sc.get_contour_img(crop=True)
     features = mahotas.features.texture.haralick(image, ignore_zeros=ignore_zeros, return_mean=return_mean, **kwargs)
     if ret_arr:
