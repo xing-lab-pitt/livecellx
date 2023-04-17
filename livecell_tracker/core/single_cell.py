@@ -68,7 +68,7 @@ class SingleCellStatic:
         self.feature_dict = feature_dict
         if self.feature_dict is None:
             self.feature_dict = dict()
-        
+
         self.bbox = bbox
         self.contour = np.array(contour, dtype=int)
 
@@ -117,20 +117,38 @@ class SingleCellStatic:
         return props[0]
 
     # TODO: optimize compute overlap mask functions by taking union of two single cell's merged bboxes and then only operate on the union region to make the process faster
-    def compute_overlap_mask(self, other_cell: "SingleCellStatic"):
-        mask = self.get_contour_mask(crop=False).astype(bool)
-        return np.logical_and(mask, other_cell.get_contour_mask(crop=False).astype(bool))
+    def compute_overlap_mask(self, other_cell: "SingleCellStatic", bbox=None):
+        if bbox is None:
+            bbox = self.bbox
+        mask = self.get_contour_mask(bbox=bbox).astype(bool)
+        return np.logical_and(mask, other_cell.get_contour_mask(bbox=bbox).astype(bool))
 
-    def compute_overlap_percent(self, other_cell: "SingleCellStatic"):
-        mask = self.get_contour_mask(crop=False).astype(bool)
-        overlap_mask = self.compute_overlap_mask(other_cell)
+    def compute_overlap_percent(self, other_cell: "SingleCellStatic", bbox=None):
+        """compute overlap defined by: overlap = intersection / self's arean
+
+        Parameters
+        ----------
+        other_cell : SingleCellStatic
+            _description_
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
+        if bbox is None:
+            bbox = self.bbox
+        mask = self.get_contour_mask(bbox=bbox).astype(bool)
+        overlap_mask = self.compute_overlap_mask(other_cell, bbox=bbox)
         return np.sum(overlap_mask) / np.sum(mask)
 
-    def compute_iou(self, other_cell: "SingleCellStatic"):
-        mask = self.get_contour_mask(crop=False).astype(bool)
-        overlap_mask = self.compute_overlap_mask(other_cell)
+    def compute_iou(self, other_cell: "SingleCellStatic", bbox=None):
+        if bbox is None:
+            bbox = self.bbox
+        mask = self.get_contour_mask(bbox=bbox).astype(bool)
+        overlap_mask = self.compute_overlap_mask(other_cell, bbox=bbox)
         return np.sum(overlap_mask) / (
-            np.sum(mask) + np.sum(other_cell.get_contour_mask(crop=False).astype(bool)) - np.sum(overlap_mask)
+            np.sum(mask) + np.sum(other_cell.get_contour_mask(bbox=bbox).astype(bool)) - np.sum(overlap_mask)
         )
 
     def update_regionprops(self):
@@ -143,7 +161,7 @@ class SingleCellStatic:
         return self.img_dataset.get_img_by_time(self.timeframe)
 
     def get_mask(self, dtype=bool):
-        if not self.mask_dataset is None:
+        if not (self.mask_dataset is None):
             return self.mask_dataset[self.timeframe]
         elif self.contour is not None:
             shape = self.get_img().shape
@@ -152,6 +170,10 @@ class SingleCellStatic:
             return mask
         else:
             raise ValueError("mask dataset and contour are both None")
+
+    def get_label_mask(self, dtype=int):
+        mask = self.get_mask(dtype=dtype)
+        return mask
 
     def get_bbox(self) -> np.array:
         if self.bbox is None:
@@ -194,6 +216,9 @@ class SingleCellStatic:
             bbox = self.bbox
         return SingleCellStatic.gen_skimage_bbox_img_crop(bbox, self.get_mask(), **kwargs).astype(dtype=dtype)
 
+    def get_label_mask_crop(self, bbox=None, dtype=int, **kwargs):
+        return self.get_mask_crop(bbox=bbox, dtype=dtype, **kwargs)
+
     def update_bbox(self, bbox=None):
         if bbox is None and self.contour is not None:
             self.bbox = self.get_bbox_from_contour(self.contour)
@@ -224,6 +249,20 @@ class SingleCellStatic:
         return res
 
     def load_from_json_dict(self, json_dict, img_dataset=None):
+        """load from json dict
+
+        Parameters
+        ----------
+        json_dict : _type_
+            _description_
+        img_dataset : _type_, optional
+            _description_, by default None
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         self.timeframe = json_dict["timeframe"]
         self.bbox = np.array(json_dict["bbox"], dtype=float)
         self.feature_dict = json_dict["feature_dict"]
@@ -360,7 +399,12 @@ class SingleCellStatic:
         return res_mask
 
     def get_contour_mask(self, padding=0, crop=True, bbox=None, dtype=bool) -> np.array:
-        """if contour points are not closed, use this function to fill the polygon points in self.contour"""
+        contour = self.contour
+        return SingleCellStatic.gen_contour_mask(
+            contour, self.get_img(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
+        )
+
+    def get_contour_label_mask(self, padding=0, crop=True, bbox=None, dtype=int) -> np.array:
         contour = self.contour
         return SingleCellStatic.gen_contour_mask(
             contour, self.get_img(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
@@ -382,6 +426,7 @@ class SingleCellStatic:
 
     get_sc_img = get_contour_img
     get_sc_mask = get_contour_mask
+    get_sc_label_mask = get_contour_label_mask
 
     def add_feature(self, name, features: Union[np.array, pd.Series]):
         if not isinstance(features, (np.ndarray, pd.Series)):
@@ -445,6 +490,15 @@ class SingleCellStatic:
             ax.imshow(self.get_mask(), **kwargs)
         return ax
 
+    def show_label_mask(self, padding=0, ax: plt.Axes = None, crop=True, **kwargs):
+        if ax is None:
+            ax = plt.gca()
+        if crop:
+            ax.imshow(self.get_label_mask_crop(padding=padding), **kwargs)
+        else:
+            ax.imshow(self.get_label_mask(crop=crop, padding=padding), **kwargs)
+        return ax
+
     def show_contour_mask(self, padding=0, ax: plt.Axes = None, crop=True, **kwargs):
         if ax is None:
             ax = plt.gca()
@@ -479,8 +533,8 @@ class SingleCellStatic:
         axes[2].set_title("contour_img")
         self.show_contour_mask(ax=axes[3], crop=crop, padding=padding, **kwargs)
         axes[3].set_title("contour_mask")
-        self.show_mask(ax=axes[4], crop=True, padding=padding, **kwargs)
-        axes[4].set_title("mask_crop")
+        self.show_label_mask(ax=axes[4], crop=True, padding=padding, **kwargs)
+        axes[4].set_title("label_crop")
         self.show(ax=axes[5], crop=True, padding=padding, **kwargs)
         axes[5].set_title("img_crop")
         return axes
@@ -529,11 +583,13 @@ class SingleCellTrajectory:
         mother_trajectories=None,
         daughter_trajectories=None,
     ) -> None:
-        self.timeframe_set = set()
         if timeframe_to_single_cell is None:
             self.timeframe_to_single_cell = dict()
         else:
             self.timeframe_to_single_cell = timeframe_to_single_cell
+        self.timeframe_set = set(self.timeframe_to_single_cell.keys())
+        self.times = sorted(self.timeframe_set)
+
         self.img_dataset = img_dataset
         self.img_total_timeframe = len(img_dataset) if img_dataset is not None else None
         self.track_id = track_id
@@ -576,6 +632,7 @@ class SingleCellTrajectory:
     def add_single_cell(self, timeframe, cell: SingleCellStatic):
         self.timeframe_to_single_cell[timeframe] = cell
         self.timeframe_set.add(timeframe)
+        self.times = sorted(self.timeframe_set)
 
     def get_img(self, timeframe):
         return self.timeframe_to_single_cell[timeframe].get_img()
@@ -602,7 +659,8 @@ class SingleCellTrajectory:
         res = {
             "track_id": int(self.track_id),
             "timeframe_to_single_cell": {
-                int(float(timeframe)): sc.to_json_dict() for timeframe, sc in self.timeframe_to_single_cell.items()
+                int(float(timeframe)): sc.to_json_dict(dataset_json=False)
+                for timeframe, sc in self.timeframe_to_single_cell.items()
             },
             "dataset_info": self.img_dataset.to_json_dict(),
         }
@@ -717,6 +775,18 @@ class SingleCellTrajectory:
         sct1 = self.subsct(min(self.timeframe_set), split_time - 1)
         sct2 = self.subsct(split_time, max(self.timeframe_set))
         return sct1, sct2
+
+    def next_time(self, time: Union[int, float]) -> Union[int, float]:
+        import bisect
+
+        def get_next_largest_element(sorted_list, elem):
+            index = bisect.bisect(sorted_list, elem)
+            if index == len(sorted_list):
+                return None  # No larger element found
+            else:
+                return sorted_list[index]
+
+        return get_next_largest_element(self.times, time)
 
 
 class SingleCellTrajectoryCollection:

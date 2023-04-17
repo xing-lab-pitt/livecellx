@@ -121,7 +121,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self.time2url = sorted(glob.glob(str((Path(self.data_dir_path) / Path("*.%s" % (self.ext))))))
         self.time2url = {i: path for i, path in enumerate(self.time2url)}
         self.times = list(self.time2url.keys())
-        print("%d %s img file paths loaded: " % (len(self.time2url), self.ext))
+        print("%d %s img file paths loaded;" % (len(self.time2url), self.ext))
         return self.time2url
 
     def __len__(self):
