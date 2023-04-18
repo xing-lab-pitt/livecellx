@@ -51,7 +51,7 @@ def normalize_img_to_uint8(img: np.array, dtype=np.uint8) -> np.array:
     return img.astype(dtype)
 
 
-def livetracker_standard_normalize(img):
+def standard_preprocess(img):
     img = normalize_img_to_uint8(img)
     return img
 

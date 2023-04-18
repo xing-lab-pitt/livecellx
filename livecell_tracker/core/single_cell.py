@@ -777,6 +777,7 @@ class SingleCellTrajectory:
         return sct1, sct2
 
     def next_time(self, time: Union[int, float]) -> Union[int, float]:
+        # TODO: we may save a linked list of timeframes, so that we can do this in O(1) time
         import bisect
 
         def get_next_largest_element(sorted_list, elem):
