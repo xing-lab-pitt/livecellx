@@ -44,6 +44,11 @@ def save_general(img: np.array, path: str, mode="L"):
     elif mode == "L":
         img = img.astype(np.uint8)
 
+    ext = path.split(".")[-1]
+    if ext == "png" and mode == "I":
+        print("Warning: png format does not support 32-bit pixel values, will use 16-bit mode instead")
+        mode = "I;16"
+
     if mode == "I":
         img = Image.fromarray(img.astype(np.int32), mode=mode)
     else:
