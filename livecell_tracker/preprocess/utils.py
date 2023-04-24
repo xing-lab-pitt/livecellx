@@ -10,6 +10,7 @@ from cellpose.io import imread
 from PIL import Image, ImageSequence, ImageEnhance
 from tqdm import tqdm
 import cv2 as cv
+from livecell_tracker.preprocess.correct_bg import correct_background_bisplrep, correct_background_polyfit
 
 
 def normalize_features_zscore(features: np.array) -> np.array:
@@ -51,7 +52,12 @@ def normalize_img_to_uint8(img: np.array, dtype=np.uint8) -> np.array:
     return img.astype(dtype)
 
 
-def standard_preprocess(img):
+def standard_preprocess(img, bg_correct_func=None):
+
+    if bg_correct_func is None:
+        img = correct_background_polyfit(img, 2)
+    else:
+        img = bg_correct_func(img)
     img = normalize_img_to_uint8(img)
     return img
 
