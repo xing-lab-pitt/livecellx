@@ -11,6 +11,7 @@ from skimage.measure import regionprops, label
 
 from livecell_tracker.core.single_cell import SingleCellStatic
 from livecell_tracker.segment.ou_utils import create_ou_input_from_sc
+from livecell_tracker.preprocess.utils import normalize_img_to_uint8, enhance_contrast
 
 
 def viz_ou_sc_outputs(
@@ -23,16 +24,27 @@ def viz_ou_sc_outputs(
     one_object=True,
     scale=0,
     out_threshold=1,
+    save_path=None,
+    show=True,
 ):
     ou_input = create_ou_input_from_sc(
         sc, padding_pixels=padding_pixels, dtype=dtype, remove_bg=remove_bg, one_object=one_object, scale=scale
     )
     viz_ou_outputs(
-        ou_input, sc.get_sc_mask(padding=padding_pixels, dtype=int), model, transforms, out_threshold=out_threshold
+        ou_input,
+        sc.get_sc_mask(padding=padding_pixels, dtype=int),
+        model,
+        transforms,
+        out_threshold=out_threshold,
+        original_img=sc.get_img_crop(padding=padding_pixels),
+        save_path=save_path,
+        show=show,
     )
 
 
-def viz_ou_outputs(ou_input, original_mask, model, input_transforms, out_threshold, show=True):
+def viz_ou_outputs(
+    ou_input, original_mask, model, input_transforms, out_threshold, show=True, original_img=None, save_path=None
+):
     original_shape = ou_input.shape
     original_ou_input = ou_input.copy()
     ou_input = input_transforms(torch.tensor([ou_input]))
@@ -81,8 +93,12 @@ def viz_ou_outputs(ou_input, original_mask, model, input_transforms, out_thresho
     watershed_mask = watershed(-edt_distance, markers, mask=edt_distance > out_threshold)
 
     # visualize the input and all 3 output channels
-    if show:
-        fig, axes = plt.subplots(1, 7, figsize=(15, 5))
+    if show or (save_path is not None):
+        if original_img is not None:
+            num_figures = 8
+        else:
+            num_figures = 7
+        fig, axes = plt.subplots(1, num_figures, figsize=(15, 5))
         axes[0].imshow(original_ou_input)
         axes[0].set_title("input")
         axes[1].imshow(output[0, 0].cpu().detach().numpy())
@@ -97,5 +113,12 @@ def viz_ou_outputs(ou_input, original_mask, model, input_transforms, out_thresho
         axes[5].set_title("output c0 > 1")
         axes[6].imshow(watershed_mask)
         axes[6].set_title("watershed mask")
+        if original_img is not None:
+            axes[7].imshow(enhance_contrast(normalize_img_to_uint8(original_img)))
+            axes[7].set_title("original img")
+    if show:
         plt.show()
+    if save_path is not None:
+        plt.savefig(save_path)
+
     return output, watershed_mask
