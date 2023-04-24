@@ -8,7 +8,7 @@ import skimage.measure
 import shutil
 
 
-def extend_overseg_subdir(df_path, overseg_out_dir: Path):
+def extend_overseg_subdir_df(df_path, overseg_out_dir: Path):
     RAW_COL = "raw"
     SEG_COL = "seg"
     RAW_SEG_COL = "raw_seg"
@@ -18,6 +18,7 @@ def extend_overseg_subdir(df_path, overseg_out_dir: Path):
     if overseg_out_dir.exists():
         print("Deleting existing directory: ", overseg_out_dir)
         shutil.rmtree(overseg_out_dir, ignore_errors=True)
+    print("output to: ", overseg_out_dir)
     df = pd.read_csv(df_path)
     raw_out_dir = overseg_out_dir / "raw"
 
@@ -46,14 +47,22 @@ def extend_overseg_subdir(df_path, overseg_out_dir: Path):
 
     overseg_train_path_tuples = []
     augmented_overseg_data = []
-    filename_pattern = "img-%d-seg-%d.png"
+    filename_pattern = "img-%d-seg-%d.tif"
     overseg_metadata = []
-    overseg_erosion_scale_factors = np.linspace(-0.1, 0, 10)
+    # overseg_erosion_scale_factors = np.linspace(-0.1, 0, 10)
+
+    # Since we already erode all the oversegmentation samples in the previous step,
+    # we don't need to erode them again here.
+    overseg_erosion_scale_factors = np.array([0])
     all_df = None
 
     sample_id = 0
+    orig_raw_path_set = set()
     for row_idx in range(len(df)):
         orig_raw_path = df[RAW_COL][row_idx]
+
+        orig_raw_path_set.add(orig_raw_path)
+
         orig_seg_path = df[SEG_COL][row_idx]
         orig_raw_seg_path = df[RAW_SEG_COL][row_idx]
         orig_gt_label_path = df[GT_LABEL_COL][row_idx]
