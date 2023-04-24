@@ -32,6 +32,8 @@ def create_ou_input_from_sc(
         img_crop = sc.get_contour_img(padding=padding_pixels, bbox=bbox).astype(dtype)
     else:
         img_crop = sc.get_img_crop(padding=padding_pixels, bbox=bbox).astype(dtype)
+
+    # TODO: issue: during training, we normalize on the entire image...
     img_crop = normalize_img_to_uint8(img_crop).astype(dtype)
     if one_object:
         sc_mask = sc.get_contour_mask(padding=padding_pixels, bbox=bbox)
@@ -182,7 +184,7 @@ def underseg_overlay_scs(
     return (img_crop, seg_crop, combined_gt_mask)
 
 
-def gen_aug_diff_mask(aug_mask: np.array, combined_gt_mask: np.array) -> np.array:
+def gen_aug_diff_mask(aug_mask: np.array, combined_gt_mask: np.array, dtype=np.int32) -> np.array:
     """generate a mask based on the difference between the augmented mask and the combined gt mask
     0: no difference
     -1: augmented mask is 0, combined gt mask is 1 -> over-segmentation
@@ -201,11 +203,11 @@ def gen_aug_diff_mask(aug_mask: np.array, combined_gt_mask: np.array) -> np.arra
     np.array
         _description_
     """
-    aug_mask = aug_mask.astype(int)  # prevent uint8 overflow (-1 in diff case below)
-    underseg_mask = np.zeros(aug_mask.shape)
-    underseg_mask[combined_gt_mask > 0] = 1
-    combined_gt_mask = combined_gt_mask.astype(int)
-    diff_mask = aug_mask - combined_gt_mask  # should only contain 0 and 1
+    aug_mask = aug_mask.astype(dtype)  # prevent uint8 overflow (-1 in diff case below)
+    # underseg_mask = np.zeros(aug_mask.shape)
+    # underseg_mask[combined_gt_mask > 0] = 1
+    combined_gt_mask = combined_gt_mask.astype(dtype)
+    diff_mask = aug_mask - combined_gt_mask  # should only contain -1, 0 and 1
     assert len(np.unique(diff_mask)) <= 3
 
     return diff_mask
