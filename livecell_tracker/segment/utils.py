@@ -104,6 +104,16 @@ def match_mask_labels_by_iou(seg_label_mask, gt_label_mask, bg_label=0, return_a
         return gt2seg_map
 
 
+def filter_labels_match_map(gt2seg_iou__map, iou_threshold):
+    label_map = {}
+    for label_1 in gt2seg_iou__map:
+        label_map[label_1] = {}
+        for score_info in gt2seg_iou__map[label_1]:
+            if score_info["iou"] > iou_threshold:
+                label_map[label_1][score_info["seg_label"]] = {"iou": score_info["iou"]}
+    return label_map
+
+
 def compute_match_label_map(t1, t2, mask_dataset, iou_threshold=0.2) -> tuple:
     """compute the label map (mapping between objects) between two time points
 
