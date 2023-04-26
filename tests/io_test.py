@@ -1,12 +1,12 @@
 from livecell_tracker.core.datasets import LiveCellImageDataset
 from livecell_tracker.core import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
-from conftest import TestUtils
-from pathlib import PurePosixPath
+from .conftest import TestUtils
+from pathlib import PurePosixPath, PureWindowsPath
 
 
 def test_posix_pathlib_convert_windows_path():
-    p = PurePosixPath("c:\\windows")
-    assert p.as_posix() == "c:/windows", "pathlib bug?..."
+    p = PureWindowsPath("c:\\windows")
+    assert p.as_posix() == "c:/windows", "pathlib bug? correct: c:/windows, actual: %s" % p.as_posix()
 
 
 def test_posix_paths():
@@ -25,7 +25,7 @@ def test_LiveCellImageDataset_json():
 
 # TODO
 def test_SingleCell_json():
-    sc = SingleCellStatic()
+    sc = SingleCellStatic(contour=[(1, 2), (3, 4)])
     pass
 
 
