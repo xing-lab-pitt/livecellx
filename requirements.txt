@@ -28,7 +28,7 @@ opencv-contrib-python
 # Tracking
 ################################################################################
 # For sort tracker
-lap
+lap[alldeps]
 filterpy
 
 
