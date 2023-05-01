@@ -16,7 +16,7 @@ Note: if you encounter issue related to lap and numpy, please install numpy firs
 (or `pip install -e .` if you would like to install an editable version and develop the package)
 
 
-**Pytorch**  
+**Pytorch (including torchvision)**  
 Please refer to [Pytorch Official Website](https://pytorch.org/get-started/locally) to receive most recent installation instructions. Here we simply provide two examples used in our cases.  
 
 Install via pip:  
