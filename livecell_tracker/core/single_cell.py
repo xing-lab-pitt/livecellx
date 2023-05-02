@@ -1,7 +1,7 @@
 import itertools
 import json
 from typing import Callable, Dict, List, Optional, Set, Tuple, Union
-
+from collections import deque
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -70,7 +70,10 @@ class SingleCellStatic:
             self.feature_dict = dict()
 
         self.bbox = bbox
-        self.contour = np.array(contour, dtype=int)
+        if contour is None:
+            print(">>> [SingleCellStatic] WARNING: contour is None, please check if this is intended.")
+            contour = np.array([], dtype=int)
+        self.contour = contour
 
         # infer bbox from regionprops
         if (bbox is None) and (regionprops is not None):
@@ -304,18 +307,28 @@ class SingleCellStatic:
         return single_cells
 
     @staticmethod
-    def write_single_cells_json(single_cells: List["SingleCellStatic"], path: str):
+    def write_single_cells_json(single_cells: List["SingleCellStatic"], path: str, dataset_dir: str):
         """write a json file containing a list of single cells
 
         Parameters
         ----------
-        path :
-        path to json file
+        single_cells : List of single cells
+        path : path to json file
+        dataset_dir : path to dataset directory, by default None
         """
         import json
 
         with open(path, "w+") as f:
-            json.dump([sc.to_json_dict() for sc in single_cells], f)
+            # json.dump([sc.to_json_dict() for sc in single_cells], f)
+            all_sc_jsons = []
+            for sc in single_cells:
+                sc_json = sc.to_json_dict()
+                if dataset_dir is not None:
+                    sc_json["dataset_path"] = dataset_dir
+                img_dataset = sc.img_dataset
+                img_dataset.write_json(out_dir=dataset_dir)
+                all_sc_jsons.append(sc_json)
+            json.dump(all_sc_jsons, f)
 
     def write_json(self, path=None):
         if path is None:
@@ -776,7 +789,19 @@ class SingleCellTrajectory:
         sct2 = self.subsct(split_time, max(self.timeframe_set))
         return sct1, sct2
 
-    def next_time(self, time: Union[int, float]) -> Union[int, float]:
+    def next_time(self, time: Union[int, float]) -> Union[int, float, None]:
+        """return the next time in this trajectory after the given time. If the given time is the last time in this trajectory, return None
+
+        Parameters
+        ----------
+        time : Union[int, float]
+            _description_
+
+        Returns
+        -------
+        Union[int, float, None]
+            _description_
+        """
         # TODO: we may save a linked list of timeframes, so that we can do this in O(1) time
         import bisect
 

@@ -7,7 +7,7 @@ import sys
 import time
 from collections import deque
 from datetime import timedelta
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, WindowsPath, PureWindowsPath
 from typing import Callable, List, Dict, Union
 
 import numpy as np
@@ -21,6 +21,7 @@ from PIL import Image
 from torch import Tensor
 from torch.nn import init
 from torch.utils.data import DataLoader, random_split
+import uuid
 
 
 def read_img_default(url: str) -> np.ndarray:
@@ -29,6 +30,7 @@ def read_img_default(url: str) -> np.ndarray:
     return img
 
 
+# TODO: add a method to get/cache all labels in a mask dataset at a specific time t
 class LiveCellImageDataset(torch.utils.data.Dataset):
     """Dataset for loading images into RAM, possibly cache images and load them on demand.
     This class only contains one channel's imaging data. For multichannel data, we assume you have a single image for each channel.
@@ -39,13 +41,14 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self,
         dir_path=None,
         time2url: Dict[int, Union[str, Path]] = None,
-        name="livecell-base",
+        name=None,  # "livecell-base",
         ext="tif",
         max_cache_size=50,
         num_imgs=None,
         force_posix_path=True,
         read_img_url_func: Callable = read_img_default,
         index_by_time=True,
+        is_windows_path=False,
     ):
         """Initialize the dataset.
 
@@ -95,10 +98,14 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         # force posix path
         if force_posix_path:
             # TODO: fix pathlib issues on windows;
-            # TODO should work without .replace('\\', '/'), but it doesn't on Ke's windows py3.8; need confirmation
-            self.time2url = {
-                time: str(Path(path).as_posix()).replace("\\", "/") for time, path in self.time2url.items()
-            }
+
+            if is_windows_path:
+                self.time2url = {time: str(PureWindowsPath(path).as_posix()) for time, path in self.time2url.items()}
+            else:
+                # TODO: decide prevent users from accidentally using windows path?
+                self.time2url = {
+                    time: str(Path(path).as_posix()).replace("\\", "/") for time, path in self.time2url.items()
+                }
 
         if num_imgs is not None:
             tmp_tuples = list(self.time2url.items())
@@ -110,7 +117,10 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self.cache_img_idx_to_img = {}
         self.max_cache_size = max_cache_size
         self.img_idx_queue = deque()
-        self.name = name
+
+        # randomly generate a name
+        if name is None:
+            self.name = str(uuid.uuid4())
 
     def update_time2url_from_dir_path(self):
         """Update the time2url dictionary from the directory path"""
@@ -180,14 +190,22 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             "img_path_list": self.time2url,
             "max_cache_size": int(self.max_cache_size),
             "ext": self.ext,
+            "time2url": self.time2url,
         }
 
     # TODO: refactor
-    def write_json(self, path=None):
+    def write_json(self, path=None, overwrite=True, out_dir=None):
         """Write the dataset info to a local json file."""
+
+        if path is None and (out_dir is not None):
+            path = Path(out_dir) / Path("livecell-dataset-%s.json" % (self.name))
+
         if path is None:
             return json.dumps(self.to_dict())
         else:
+            if (not overwrite) and os.path.exists(path):
+                print(">>> [LiveCellDataset] skip writing to an existing path: %s" % (path))
+                return
             with open(path, "w+") as f:
                 json.dump(self.to_dict(), f)
 

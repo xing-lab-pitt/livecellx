@@ -2,7 +2,8 @@ import glob
 import os
 import os.path
 from pathlib import Path
-
+from typing import Tuple
+from collections import deque
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image, ImageSequence
@@ -11,6 +12,7 @@ from skimage import measure
 from skimage.measure import regionprops
 from multiprocessing import Pool
 from skimage.measure import regionprops, find_contours
+
 from livecell_tracker.segment.ou_simulator import find_contours_opencv
 
 from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
@@ -204,3 +206,44 @@ def prep_scs_from_mask_dataset(mask_dataset, dic_dataset, cores=None):
     pool.close()
     pool.join()
     return scs
+
+
+def judge_connected_bfs(mask: np.ndarray, label1: int, label2: int) -> Tuple[bool, int]:
+    def _is_valid(x: int, y: int, rows: int, cols: int) -> bool:
+        return 0 <= x < rows and 0 <= y < cols
+
+    rows, cols = mask.shape
+    start = None
+    for i in range(rows):
+        for j in range(cols):
+            if mask[i, j] == label1:
+                start = (i, j)
+                break
+        if start is not None:
+            break
+
+    if start is None:
+        return False, 0
+
+    visited = np.zeros_like(mask, dtype=bool)
+    queue = deque([(start[0], start[1], 0)])
+    visited[start] = True
+    connected_pixels = 0
+
+    directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+
+    while queue:
+        x, y, d = queue.popleft()
+
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+
+            if _is_valid(nx, ny, rows, cols) and not visited[nx, ny]:
+                if mask[nx, ny] == label2:
+                    connected_pixels += 1
+                elif mask[nx, ny] == label1:
+                    queue.append((nx, ny, d + 1))
+
+                visited[nx, ny] = True
+
+    return connected_pixels > 0, connected_pixels
