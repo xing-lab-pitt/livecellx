@@ -200,13 +200,14 @@ if __name__ == "__main__":
 
     from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
 
+    print("<start converting label masks to single cell objects>")
     single_cells = prep_scs_from_mask_dataset(label_mask_dataset, dic_dataset, cores=None)
     # single_cells = single_cells[:5]
 
     from livecell_tracker.core.parallel import parallelize
 
     # %%
-
+    print("<start parallely setting single cell labels>")
     single_cells = parallelize(set_sc_label, [[sc] for sc in single_cells], cores=None)
 
     # %%
@@ -231,9 +232,6 @@ if __name__ == "__main__":
 
     # %%
     times = sorted(single_cells_by_time.keys())
-    for time in times[:5]:
-        print(time, len(single_cells_by_time[time]))
-
     # %% [markdown]
     # Visualize one single cell
 
@@ -249,6 +247,8 @@ if __name__ == "__main__":
         else:
             continue
         inputs.append((t1, t2, label_mask_dataset))
+
+    print("<start computing label match map between consecutive time points>")
     label_match_outputs = parallelize(compute_match_label_map, inputs, None)
 
     # %%
