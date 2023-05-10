@@ -46,9 +46,14 @@ def normalize_img_to_uint8(img: np.array, dtype=np.uint8) -> np.array:
     _type_
         _description_
     """
-    img = (img - np.mean(img.flatten())) / np.std(img.flatten())
+    std = np.std(img.flatten())
+    if std != 0:
+        img = (img - np.mean(img.flatten())) / std
+    else:
+        img = img - np.mean(img.flatten())
     img = img + abs(np.min(img.flatten()))
-    img = img / np.max(img) * 255
+    if np.max(img) != 0:
+        img = img / np.max(img) * 255
     return img.astype(dtype)
 
 
