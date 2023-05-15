@@ -183,15 +183,20 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
 
     def to_json_dict(self) -> dict:
         """Return the dataset info as a dictionary object"""
-        # img_path_list = [str(PurePosixPath(path)) for path in self.img_path_list]
         return {
             "name": self.name,
             "data_dir_path": str(self.data_dir_path),
-            "img_path_list": self.time2url,
             "max_cache_size": int(self.max_cache_size),
             "ext": self.ext,
             "time2url": self.time2url,
         }
+
+    def get_default_json_path(self, out_dir=None):
+        """Return the default json path for this dataset"""
+        filename = Path("livecell-dataset-%s.json" % (self.name))
+        if out_dir is None:
+            return filename
+        return Path(out_dir) / filename
 
     # TODO: refactor
     def write_json(self, path=None, overwrite=True, out_dir=None):
@@ -234,7 +239,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         if update_time2url_from_dir_path:
             self.update_time2url_from_dir_path()
         else:
-            self.time2url = json_dict["img_path_list"]
+            self.time2url = json_dict["time2url"]
         self.max_cache_size = json_dict["max_cache_size"]
         return self
 

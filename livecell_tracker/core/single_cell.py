@@ -12,7 +12,7 @@ from skimage.measure import regionprops
 
 from livecell_tracker.core.datasets import LiveCellImageDataset
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager
-
+from livecell_tracker.livecell_logger import main_warning
 
 # TODO: possibly refactor load_from_json methods into a mixin class
 class SingleCellStatic:
@@ -71,7 +71,7 @@ class SingleCellStatic:
 
         self.bbox = bbox
         if contour is None:
-            print(">>> [SingleCellStatic] WARNING: contour is None, please check if this is intended.")
+            main_warning(">>> [SingleCellStatic] WARNING: contour is None, please check if this is intended.")
             contour = np.array([], dtype=int)
         self.contour = contour
 
@@ -234,18 +234,28 @@ class SingleCellStatic:
 
     def update_contour(self, contour, update_bbox=True, dtype=int):
         self.contour = np.array(contour, dtype=dtype)
+        if len(contour) == 0:
+            return
         # TODO: 3D?
         if update_bbox:
             self.bbox = self.get_bbox_from_contour(self.contour)
 
     def to_json_dict(self, dataset_json=True):
         """returns a dict that can be converted to json"""
+        # TODO: modularize: make data structures containing json acceptable types
+        import copy
+
+        self.meta_copy = copy.deepcopy(self.meta)
+        for key in self.meta_copy:
+            if isinstance(self.meta_copy[key], np.ndarray):
+                self.meta_copy[key] = self.meta_copy[key].tolist()
+
         res = {
             "timeframe": int(self.timeframe),
             "bbox": list(np.array(self.bbox, dtype=float)),
             "feature_dict": self.feature_dict,
             "contour": self.contour.tolist(),
-            "meta": self.meta,
+            "meta": self.meta_copy,
         }
         if dataset_json:
             res["dataset_json"] = self.img_dataset.to_json_dict()
@@ -284,9 +294,11 @@ class SingleCellStatic:
         # )
         return self
 
+    inflate_from_json_dict = load_from_json_dict
+
     @staticmethod
     # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
-    def load_single_cells_json(path: str) -> List["SingleCellStatic"]:
+    def load_single_cells_json(path: str, dataset_json_path: str) -> List["SingleCellStatic"]:
         """load a json file containing a list of single cells
 
         Parameters
@@ -303,11 +315,16 @@ class SingleCellStatic:
 
         with open(path, "r") as f:
             sc_dict_list = json.load(f)
-        single_cells = [SingleCellStatic().load_from_json_dict(data) for data in sc_dict_list]
+        with open(dataset_json_path, "r") as f:
+            dataset_json = json.load(f)
+        img_dataset = LiveCellImageDataset().load_from_json_dict(dataset_json)
+
+        # contour = [] here to suppress warning
+        single_cells = [SingleCellStatic(contour=[]).load_from_json_dict(data, img_dataset) for data in sc_dict_list]
         return single_cells
 
     @staticmethod
-    def write_single_cells_json(single_cells: List["SingleCellStatic"], path: str, dataset_dir: str):
+    def write_single_cells_json(single_cells: List["SingleCellStatic"], path: str, dataset_dir: str, return_list=False):
         """write a json file containing a list of single cells
 
         Parameters
@@ -318,16 +335,18 @@ class SingleCellStatic:
         """
         import json
 
+        all_sc_jsons = []
+        for sc in single_cells:
+            sc_json = sc.to_json_dict(dataset_json=False)
+            if dataset_dir is not None:
+                sc_json["dataset_path"] = str(dataset_dir)
+            img_dataset = sc.img_dataset
+            img_dataset.write_json(out_dir=dataset_dir)
+            all_sc_jsons.append(sc_json)
+        if return_list:
+            return all_sc_jsons
         with open(path, "w+") as f:
             # json.dump([sc.to_json_dict() for sc in single_cells], f)
-            all_sc_jsons = []
-            for sc in single_cells:
-                sc_json = sc.to_json_dict()
-                if dataset_dir is not None:
-                    sc_json["dataset_path"] = dataset_dir
-                img_dataset = sc.img_dataset
-                img_dataset.write_json(out_dir=dataset_dir)
-                all_sc_jsons.append(sc_json)
             json.dump(all_sc_jsons, f)
 
     def write_json(self, path=None):
