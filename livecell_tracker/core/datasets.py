@@ -195,19 +195,23 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
 
     # TODO: refactor
     def write_json(self, path=None, overwrite=True, out_dir=None):
-        """Write the dataset info to a local json file."""
+        """Write the dataset info to a local json file. Returns a json string if path is None."""
 
         if path is None and (out_dir is not None):
             path = Path(out_dir) / Path("livecell-dataset-%s.json" % (self.name))
 
         if path is None:
+            # TODO: raise error here?
             return json.dumps(self.to_dict())
-        else:
-            if (not overwrite) and os.path.exists(path):
-                print(">>> [LiveCellDataset] skip writing to an existing path: %s" % (path))
-                return
-            with open(path, "w+") as f:
-                json.dump(self.to_dict(), f)
+
+        path = Path(path)
+        if not path.parent.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+        if (not overwrite) and os.path.exists(path):
+            print(">>> [LiveCellDataset] skip writing to an existing path: %s" % (path))
+            return
+        with open(path, "w+") as f:
+            json.dump(self.to_json_dict(), f)
 
     def load_from_json_dict(self, json_dict, update_time2url_from_dir_path=False):
         """Load from a json dict. If update_img_paths is True, then we will update the img_path_list based on the data_dir_path.
