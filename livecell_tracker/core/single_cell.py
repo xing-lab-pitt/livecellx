@@ -9,6 +9,7 @@ from matplotlib.animation import FuncAnimation
 import pandas as pd
 from skimage.measure._regionprops import RegionProperties
 from skimage.measure import regionprops
+import uuid
 
 from livecell_tracker.core.datasets import LiveCellImageDataset
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager
@@ -108,7 +109,8 @@ class SingleCellStatic:
         if id is not None:
             self.id = id
         else:
-            self.id = SingleCellStatic.id_generator.__next__()
+            # self.id = SingleCellStatic.id_generator.__next__()
+            self.id = uuid.uuid4()
 
     def compute_regionprops(self, crop=True):
         props = regionprops(
@@ -256,6 +258,7 @@ class SingleCellStatic:
             "feature_dict": self.feature_dict,
             "contour": self.contour.tolist(),
             "meta": self.meta_copy,
+            "id": str(self.id),
         }
         if dataset_json:
             res["dataset_json"] = self.img_dataset.to_json_dict()
@@ -280,7 +283,7 @@ class SingleCellStatic:
         self.bbox = np.array(json_dict["bbox"], dtype=float)
         self.feature_dict = json_dict["feature_dict"]
         self.contour = np.array(json_dict["contour"], dtype=float)
-
+        self.id = json_dict["id"]
         if "meta" in json_dict:
             self.meta = json_dict["meta"]
         if img_dataset is None and "dataset_json" in json_dict:
