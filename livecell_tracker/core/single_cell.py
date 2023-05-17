@@ -112,6 +112,9 @@ class SingleCellStatic:
             # self.id = SingleCellStatic.id_generator.__next__()
             self.id = uuid.uuid4()
 
+    def __repr__(self) -> str:
+        return f"SingleCellStatic(id={self.id}, timeframe={self.timeframe}, bbox={self.bbox})"
+
     def compute_regionprops(self, crop=True):
         props = regionprops(
             label_image=self.get_contour_mask(crop=crop).astype(int), intensity_image=self.get_contour_img(crop=crop)
@@ -639,6 +642,9 @@ class SingleCellTrajectory:
             self.daughter_trajectories: Set["SingleCellTrajectory"] = set()
         else:
             self.daughter_trajectories = daughter_trajectories
+
+    def __repr__(self) -> str:
+        return f"SingleCellTrajectory(track_id={self.track_id}, #timeframe set={len(self)})"
 
     def __len__(self):
         return self.get_timeframe_span_length()
