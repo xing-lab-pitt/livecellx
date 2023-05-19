@@ -269,6 +269,7 @@ class SctOperator:
             SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
             sample_paths.append(sample_json_path)
         print("<saving annotations complete>")
+        return sample_paths
 
     def hide_function_widgets(self):
         for i in range(2, len(self.magicgui_container)):
