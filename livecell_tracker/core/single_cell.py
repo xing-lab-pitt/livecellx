@@ -265,8 +265,11 @@ class SingleCellStatic:
         }
         if include_dataset_json:
             res["dataset_json"] = self.img_dataset.to_json_dict()
+
         if dataset_json_dir:
             res["dataset_json_dir"] = str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
+
+            # TODO: add arg to let users define their own json dataset paths
             if self.img_dataset is not None:
                 res[SCKM.JSON_IMG_DATASET_JSON_PATH] = str(
                     self.img_dataset.get_default_json_path(out_dir=dataset_json_dir)
@@ -344,11 +347,11 @@ class SingleCellStatic:
         import json
 
         with open(path, "r") as f:
-            sc_dict_list = json.load(f)
+            sc_json_dict_list = json.load(f)
 
         # contour = [] here to suppress warning
         single_cells = []
-        for data in sc_dict_list:
+        for data in sc_json_dict_list:
             if SCKM.JSON_IMG_DATASET_JSON_PATH in data:
                 # load json from img_dataset_json_path
                 img_dataset_json_path = data[SCKM.JSON_IMG_DATASET_JSON_PATH]

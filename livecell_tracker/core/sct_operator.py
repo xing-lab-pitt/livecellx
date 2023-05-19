@@ -1,6 +1,6 @@
 import copy
 from functools import partial
-from typing import Optional
+from typing import Optional, Union
 from magicgui import magicgui
 from magicgui.widgets import Container, PushButton, Widget, create_widget
 from napari.layers import Shapes
@@ -12,6 +12,7 @@ class SctOperator:
     DISCONNECT_MODE = 1
     ADD_MOTHER_DAUGHER_MODE = 2
     DELETE_TRAJECTORY_MODE = 3
+    ANNOTATE_CLICK_MODE = 4
 
     def __init__(
         self,
@@ -29,6 +30,7 @@ class SctOperator:
         self.viewer = viewer
         self.magicgui_container = magicgui_container
         self.mode = SctOperator.CONNECT_MODE
+        self.annotate_click_samples = []
 
     def select_shape(self, event, shape_layer=None):
         if shape_layer is None:
@@ -71,6 +73,9 @@ class SctOperator:
         elif self.mode == self.DELETE_TRAJECTORY_MODE:
             selection_face_color = (0, 0, 0, 1)
             selection_status_text = "delete?"
+        elif self.mode == self.ANNOTATE_CLICK_MODE:
+            selection_face_color = (102 / 255, 179 / 255, 1, 1)
+            selection_status_text = "selected"
 
         face_colors = list(shape_layer.face_color)
         face_colors[selected_shape_index] = selection_face_color
@@ -230,6 +235,31 @@ class SctOperator:
         self.clear_selection()
         print("<delete operation complete>")
 
+    def annotate_click(self):
+        print("<annotating click>: adding a sample")
+        sample = []
+        for selected_shape in self.select_info:
+            sct, sc, shape_index = selected_shape
+            sample.append(sc)
+        self.annotate_click_samples.append(sample)
+        self.clear_selection()
+        print("<annotate click operation complete>")
+
+    def save_annotations(self, sample_out_dir: Union[Path, str], filename_pattern: str = "sample_{sample_index}.json"):
+        print("<saving annotations>")
+        if isinstance(sample_out_dir, str):
+            sample_out_dir = Path(sample_out_dir)
+        sample_out_dir.mkdir(exist_ok=True)
+        sample_dataset_dir = sample_out_dir / "datasets"
+        samples = self.annotate_click_samples
+        sample_paths = []
+
+        for i, sample in enumerate(samples):
+            sample_json_path = sample_out_dir / (filename_pattern.format(sample_index=i))
+            SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
+            sample_paths.append(sample_json_path)
+        print("<saving annotations complete>")
+
     def hide_function_widgets(self):
         for i in range(2, len(self.magicgui_container)):
             self.magicgui_container[i].hide()
@@ -243,6 +273,8 @@ class SctOperator:
             self.magicgui_container[4].show()
         elif self.mode == self.DELETE_TRAJECTORY_MODE:
             self.magicgui_container[5].show()
+        elif self.mode == self.ANNOTATE_CLICK_MODE:
+            self.magicgui_container[6].show()
         else:
             raise ValueError("Invalid mode!")
 
@@ -280,8 +312,22 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         print("add mother/daughter relation callback fired!")
         sct_operator.add_mother_daughter_relation()
 
+    @magicgui(call_button="delete trajectory")
+    def delete_trajectory_widget():
+        print("delete trajectory callback fired!")
+        sct_operator.delete_selected_sct()
+
+    @magicgui(call_button="click&annotate")
+    def annotate_click_widget():
+        print("annotate callback fired!")
+        # sct_operator.delete_selected_sct()
+        sct_operator.annotate_click()
+
     @magicgui(
-        auto_call=True, mode={"choices": ["connect", "disconnect", "add mother/daughter relation", "delete trajectory"]}
+        auto_call=True,
+        mode={
+            "choices": ["connect", "disconnect", "add mother/daughter relation", "delete trajectory", "click&annotate"]
+        },
     )
     def switch_mode_widget(mode):
         print("switch mode callback fired!")
@@ -294,14 +340,11 @@ def create_sct_napari_ui(sct_operator: SctOperator):
             sct_operator.mode = sct_operator.ADD_MOTHER_DAUGHER_MODE
         elif mode == "delete trajectory":
             sct_operator.mode = sct_operator.DELETE_TRAJECTORY_MODE
+        elif mode == "click&annotate":
+            sct_operator.mode = sct_operator.ANNOTATE_CLICK_MODE
         sct_operator.hide_function_widgets()
         sct_operator.show_selected_mode_widget()
         sct_operator.clear_selection()
-
-    @magicgui(call_button="delete trajectory")
-    def delete_trajectory_widget():
-        print("delete trajectory callback fired!")
-        sct_operator.delete_selected_sct()
 
     container = Container(
         widgets=[
@@ -311,6 +354,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
             disconnect_widget,
             add_mother_daughter_relation_widget,
             delete_trajectory_widget,
+            annotate_click_widget,
         ],
         labels=False,
     )
