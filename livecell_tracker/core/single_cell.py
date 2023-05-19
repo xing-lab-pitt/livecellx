@@ -12,7 +12,7 @@ from skimage.measure import regionprops
 import uuid
 
 from livecell_tracker.core.datasets import LiveCellImageDataset
-from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager
+from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
 from livecell_tracker.livecell_logger import main_warning
 
 # TODO: possibly refactor load_from_json methods into a mixin class
@@ -245,7 +245,7 @@ class SingleCellStatic:
         if update_bbox:
             self.bbox = self.get_bbox_from_contour(self.contour)
 
-    def to_json_dict(self, dataset_json=True):
+    def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
         """returns a dict that can be converted to json"""
         # TODO: modularize: make data structures containing json acceptable types
         import copy
@@ -263,11 +263,21 @@ class SingleCellStatic:
             "meta": self.meta_copy,
             "id": str(self.id),
         }
-        if dataset_json:
+        if include_dataset_json:
             res["dataset_json"] = self.img_dataset.to_json_dict()
+        if dataset_json_dir:
+            res["dataset_json_dir"] = str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
+            if self.img_dataset is not None:
+                res[SCKM.JSON_IMG_DATASET_JSON_PATH] = str(
+                    self.img_dataset.get_default_json_path(out_dir=dataset_json_dir)
+                )
+            if self.mask_dataset is not None:
+                res[SCKM.JSON_MASK_DATASET_JSON_PATH] = str(
+                    self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir)
+                )
         return res
 
-    def load_from_json_dict(self, json_dict, img_dataset=None):
+    def load_from_json_dict(self, json_dict, img_dataset=None, mask_dataset=None):
         """load from json dict
 
         Parameters
@@ -287,12 +297,26 @@ class SingleCellStatic:
         self.feature_dict = json_dict["feature_dict"]
         self.contour = np.array(json_dict["contour"], dtype=float)
         self.id = json_dict["id"]
+
+        if SCKM.JSON_IMG_DATASET_JSON_PATH in json_dict:
+            self.meta[SCKM.JSON_IMG_DATASET_JSON_PATH] = json_dict[SCKM.JSON_IMG_DATASET_JSON_PATH]
+        if SCKM.JSON_MASK_DATASET_JSON_PATH in json_dict:
+            self.meta[SCKM.JSON_MASK_DATASET_JSON_PATH] = json_dict[SCKM.JSON_MASK_DATASET_JSON_PATH]
+
         if "meta" in json_dict:
             self.meta = json_dict["meta"]
-        if img_dataset is None and "dataset_json" in json_dict:
-            self.img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict["dataset_json"])
-        else:
-            self.img_dataset = img_dataset
+
+        self.img_dataset = img_dataset
+        self.mask_dataset = mask_dataset
+
+        if self.img_dataset is None and SCKM.JSON_IMG_DATASET_JSON_PATH in self.meta:
+            main_warning(
+                f"the current single cell:{self}'s img dataset is None, you may want to load it from json in meta"
+            )
+        if self.mask_dataset is None and SCKM.JSON_MASK_DATASET_JSON_PATH in self.meta:
+            main_warning(
+                f"the current single cell:{self}'s mask dataset is None, you may want to load it from json in meta"
+            )
 
         # TODO: discuss and decide whether to keep mask dataset
         # self.mask_dataset = LiveCellImageDataset(
@@ -304,7 +328,7 @@ class SingleCellStatic:
 
     @staticmethod
     # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
-    def load_single_cells_json(path: str, dataset_json_path: str) -> List["SingleCellStatic"]:
+    def load_single_cells_json(path: str, dataset_json_dir=None, json=None) -> List["SingleCellStatic"]:
         """load a json file containing a list of single cells
 
         Parameters
@@ -321,12 +345,24 @@ class SingleCellStatic:
 
         with open(path, "r") as f:
             sc_dict_list = json.load(f)
-        with open(dataset_json_path, "r") as f:
-            dataset_json = json.load(f)
-        img_dataset = LiveCellImageDataset().load_from_json_dict(dataset_json)
 
         # contour = [] here to suppress warning
-        single_cells = [SingleCellStatic(contour=[]).load_from_json_dict(data, img_dataset) for data in sc_dict_list]
+        single_cells = []
+        for data in sc_dict_list:
+            if SCKM.JSON_IMG_DATASET_JSON_PATH in data:
+                # load json from img_dataset_json_path
+                img_dataset_json_path = data[SCKM.JSON_IMG_DATASET_JSON_PATH]
+                img_dataset_json = json.load(open(img_dataset_json_path, "r"))
+                img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict=img_dataset_json)
+            if SCKM.JSON_MASK_DATASET_JSON_PATH in data:
+                # load json from mask_dataset_json_path
+                mask_dataset_json_path = data[SCKM.JSON_MASK_DATASET_JSON_PATH]
+                mask_dataset_json = json.load(open(mask_dataset_json_path, "r"))
+                mask_dataset = LiveCellImageDataset().load_from_json_dict(json_dict=mask_dataset_json)
+            sc = SingleCellStatic(contour=[]).load_from_json_dict(
+                data, img_dataset=img_dataset, mask_dataset=mask_dataset
+            )
+            single_cells.append(sc)
         return single_cells
 
     @staticmethod
@@ -343,11 +379,13 @@ class SingleCellStatic:
 
         all_sc_jsons = []
         for sc in single_cells:
-            sc_json = sc.to_json_dict(dataset_json=False)
-            if dataset_dir is not None:
-                sc_json["dataset_path"] = str(dataset_dir)
+            sc_json = sc.to_json_dict(include_dataset_json=False, dataset_json_dir=dataset_dir)
+            # if dataset_dir is not None:
+            #     sc_json["dataset_path"] = str(dataset_dir)
             img_dataset = sc.img_dataset
+            mask_dataset = sc.mask_dataset
             img_dataset.write_json(out_dir=dataset_dir)
+            mask_dataset.write_json(out_dir=dataset_dir)
             all_sc_jsons.append(sc_json)
         if return_list:
             return all_sc_jsons
