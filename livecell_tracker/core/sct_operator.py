@@ -4,7 +4,8 @@ from typing import Optional, Union
 from magicgui import magicgui
 from magicgui.widgets import Container, PushButton, Widget, create_widget
 from napari.layers import Shapes
-from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection
+from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic
+from pathlib import Path
 
 
 class SctOperator:
@@ -245,12 +246,21 @@ class SctOperator:
         self.clear_selection()
         print("<annotate click operation complete>")
 
-    def save_annotations(self, sample_out_dir: Union[Path, str], filename_pattern: str = "sample_{sample_index}.json"):
+    def save_annotations(
+        self,
+        sample_out_dir: Union[Path, str],
+        filename_pattern: str = "sample_{sample_index}.json",
+        sample_dataset_dir: Optional[Union[Path, str]] = None,
+    ):
         print("<saving annotations>")
         if isinstance(sample_out_dir, str):
             sample_out_dir = Path(sample_out_dir)
         sample_out_dir.mkdir(exist_ok=True)
-        sample_dataset_dir = sample_out_dir / "datasets"
+        if sample_dataset_dir is None:
+            sample_dataset_dir = sample_out_dir / "datasets"
+        elif isinstance(sample_dataset_dir, str):
+            sample_dataset_dir = Path(sample_dataset_dir)
+
         samples = self.annotate_click_samples
         sample_paths = []
 
