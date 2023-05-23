@@ -3,6 +3,7 @@ import unittest
 import glob
 from pathlib import Path
 import numpy as np
+from livecell_tracker import sample_data
 from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
 from livecell_tracker.core.datasets import LiveCellImageDataset
 from livecell_tracker.core import (
@@ -13,14 +14,9 @@ from livecell_tracker.core import (
 class SingleCellStaticIOTest(unittest.TestCase): 
     def setUp(self):
         io_out_dir = Path("test_io_output")
-        dataset_dir_path = Path("../datasets/test_data_STAV-A549/DIC_data")
-        mask_dataset_path = Path("../datasets/test_data_STAV-A549/mask_data")
-        mask_dataset = LiveCellImageDataset(mask_dataset_path, ext="png")
-
-        time2url = sorted(glob.glob(str((Path(dataset_dir_path) / Path("*_DIC.tif")))))
-        time2url = {i: path for i, path in enumerate(time2url)}
-        dic_dataset = LiveCellImageDataset(time2url=time2url, ext="tif")
+        dic_dataset, mask_dataset = sample_data.tutorial_three_image_sys()
         single_cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
+
         self.cell = single_cells[0]
         self.include_dataset_json = False
         self.dataset_json_dir = None
