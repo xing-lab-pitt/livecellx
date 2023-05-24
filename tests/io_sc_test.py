@@ -12,17 +12,19 @@ from livecell_tracker.core import (
     SingleCellTrajectoryCollection,
 )
 class SingleCellStaticIOTest(unittest.TestCase): 
-    def setUp(self):
-        io_out_dir = Path("test_io_output")
+    @classmethod
+    def setUpClass(cls):
         dic_dataset, mask_dataset = sample_data.tutorial_three_image_sys()
         single_cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
 
-        self.cell = single_cells[0]
-        self.include_dataset_json = False
-        self.dataset_json_dir = None
-        self.img_dataset = None
-        self.mask_dataset = None
-
+        cls.cell = single_cells[0]
+        cls.include_dataset_json = False
+        cls.dataset_json_dir = None
+        cls.img_dataset = None
+        cls.mask_dataset = None
+    
+    def setUp(self):
+        self.io_out_dir = Path("test_io_output")
 
     def tearDown(self):
         # This method will be called after each test. Clean up the test fixture here.
@@ -70,7 +72,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
         # Validate contour
         np.testing.assert_array_equal(self.cell.contour, new_cell.contour, "contour does not match")
         # Validate id
-        self.assertEqual(self.cell.id, new_cell.id, "id does not match")
+        self.assertEqual(str(self.cell.id), new_cell.id, "id does not match")
         # Validate meta
         self.assertEqual(self.cell.meta, new_cell.meta, "meta does not match")
 
