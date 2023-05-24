@@ -13,7 +13,7 @@ DEFAULT_DATA_DIR = Path("./datasets")
 def tutorial_three_image_sys(
     dic_dataset_path=Path("./datasets/test_data_STAV-A549/DIC_data"),
     mask_dataset_path=Path("./datasets/test_data_STAV-A549/mask_data"),
-    url="https://pitt-my.sharepoint.com/:u:/g/personal/ken67_pitt_edu/EegFUrWemsNEuNHdx6l_eZ4BT1WHhmbF0YWr5jSkTFICdg?download=1",
+    url="https://www.dropbox.com/s/p7gjpvgs0qop1ko/test_data_STAV-A549_v0.zip?dl=0",
     dir=None,
 ):
     if dir is None:
