@@ -44,9 +44,12 @@ git clone https://github.com/facebookresearch/detectron2.git
 python -m pip install -e detectron2
 ```
 
-**{avi, mp4} movie generation**
+**For {avi, mp4} movie generation**
 `conda install -c conda-forge ffmpeg`
 
+## Precommit [Dev]  
+`pip install pre-commit`  
+`pre-commit install`
 
 ## Expected input/output for each submodule
 
