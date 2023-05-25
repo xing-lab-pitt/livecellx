@@ -231,6 +231,11 @@ class SctOperator:
         print("deleting shape...")
         self.shape_layer.selected_data = [shape_index]
         self.shape_layer.remove_selected()
+        # remove all the shapes with track_id == sct.track_id
+        for i in range(len(self.shape_layer.properties["track_id"]) - 1, -1, -1):
+            if self.shape_layer.properties["track_id"][i] == sct.track_id:
+                self.shape_layer.selected_data = [i]
+                self.shape_layer.remove_selected()
         self.traj_collection.pop_trajectory(sct.track_id)
         self.store_shape_layer_info()
         self.clear_selection()
