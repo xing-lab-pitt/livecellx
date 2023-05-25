@@ -1,6 +1,5 @@
 import json
 import unittest
-import glob
 from pathlib import Path
 import numpy as np
 from livecell_tracker import sample_data
@@ -11,9 +10,12 @@ from livecell_tracker.core import (
     SingleCellStatic,
     SingleCellTrajectoryCollection,
 )
-class SingleCellStaticIOTest(unittest.TestCase): 
+
+
+class SingleCellStaticIOTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+
         dic_dataset, mask_dataset = sample_data.tutorial_three_image_sys()
         single_cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
 
@@ -22,14 +24,14 @@ class SingleCellStaticIOTest(unittest.TestCase):
         cls.dataset_json_dir = None
         cls.img_dataset = None
         cls.mask_dataset = None
-    
+
     def setUp(self):
         self.io_out_dir = Path("test_io_output")
 
     def tearDown(self):
         # This method will be called after each test. Clean up the test fixture here.
         # If setup included opening files or establishing network connections, close them here.
-    
+
         pass
 
     # TODO
@@ -45,16 +47,16 @@ class SingleCellStaticIOTest(unittest.TestCase):
         result = self.cell.to_json_dict()
 
         assert isinstance(result, dict)
-        assert result['timeframe'] == self.cell.timeframe
-        assert result['bbox'] == self.cell.bbox.tolist()
-        assert result['feature_dict'] == self.cell.feature_dict
-        assert result['contour'] == self.cell.contour.tolist()
-        assert result['meta'] == self.cell.meta_copy
-        assert result['id'] == str(self.cell.id)
+        assert result["timeframe"] == self.cell.timeframe
+        assert result["bbox"] == self.cell.bbox.tolist()
+        assert result["feature_dict"] == self.cell.feature_dict
+        assert result["contour"] == self.cell.contour.tolist()
+        assert result["meta"] == self.cell.meta_copy
+        assert result["id"] == str(self.cell.id)
         if self.include_dataset_json:
-            assert result['id'] == str(self.cell.id)
+            assert result["id"] == str(self.cell.id)
         if self.dataset_json_dir:
-            assert result['id'] == str(self.cell.id)
+            assert result["id"] == str(self.cell.id)
 
     def test_load_from_json_dict(self):
         json_dict = self.cell.to_json_dict()
@@ -76,5 +78,6 @@ class SingleCellStaticIOTest(unittest.TestCase):
         # Validate meta
         self.assertEqual(self.cell.meta, new_cell.meta, "meta does not match")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
