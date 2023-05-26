@@ -226,17 +226,18 @@ class SctOperator:
         print("<add mother-daughter relation operation complete>")
 
     def delete_selected_sct(self):
-        assert len(self.select_info) == 1, "Please select one shape to delete."
-        sct, sc, shape_index = self.select_info[0]
+        # sct, sc, shape_index = self.select_info[0]
+        selected_track_ids = [sct.track_id for sct, sc, shape_index in self.select_info]
         print("deleting shape...")
-        self.shape_layer.selected_data = [shape_index]
-        self.shape_layer.remove_selected()
+        selected_track_id_set = set(selected_track_ids)
         # remove all the shapes with track_id == sct.track_id
+        self.shape_layer.selected_data = []
         for i in range(len(self.shape_layer.properties["track_id"]) - 1, -1, -1):
-            if self.shape_layer.properties["track_id"][i] == sct.track_id:
-                self.shape_layer.selected_data = [i]
-                self.shape_layer.remove_selected()
-        self.traj_collection.pop_trajectory(sct.track_id)
+            if self.shape_layer.properties["track_id"][i] in selected_track_id_set:
+                self.shape_layer.selected_data.add(i)
+        self.shape_layer.remove_selected()
+        for track_id in selected_track_ids:
+            self.traj_collection.pop_trajectory(track_id)
         self.store_shape_layer_info()
         self.clear_selection()
         print("<delete operation complete>")
