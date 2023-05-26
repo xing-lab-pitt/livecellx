@@ -21,12 +21,12 @@ def tutorial_three_image_sys(
     dic_dataset_path=Path("./datasets/test_data_STAV-A549/DIC_data"),
     mask_dataset_path=Path("./datasets/test_data_STAV-A549/mask_data"),
     url="https://www.dropbox.com/s/p7gjpvgs0qop1ko/test_data_STAV-A549_v0.zip?dl=1",
-    dir=None,
+    dir=DEFAULT_DATA_DIR,
 ):
     if dir is None:
         dir = DEFAULT_DATA_DIR
-    zip_filepath = download_data(url, filename="test_data_STAV-A549.zip", dir=DEFAULT_DATA_DIR)
-    extract_zip_data(filepath=zip_filepath, dest=DEFAULT_DATA_DIR)
+    zip_filepath = download_data(url, filename="test_data_STAV-A549.zip", dir=dir)
+    extract_zip_data(filepath=zip_filepath, dest=dir)
     mask_dataset = LiveCellImageDataset(mask_dataset_path, ext="png")
     dic_dataset = LiveCellImageDataset(dic_dataset_path, ext="tif")
     return dic_dataset, mask_dataset
@@ -51,5 +51,7 @@ def download_data(url, filename=None, dir=DEFAULT_DATA_DIR):
         ]
         urllib.request.install_opener(opener)
         urlretrieve(url, filepath, reporthook=LoggerManager.get_main_logger().request_report_hook)
+    else:
+        main_info("Data already exists at " + filepath)
 
     return filepath
