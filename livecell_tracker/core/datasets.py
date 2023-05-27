@@ -360,9 +360,16 @@ class SingleImageDataset(LiveCellImageDataset):
             index_by_time=True,
         )
         self.img = img
+        self.url = None
 
     def read_single_img_url_func(self, url):
         return self.img.copy()
+
+    def get_img_by_time(self, time) -> np.array:
+        return self.read_single_img_url_func(self.url)
+
+    def get_img_by_idx(self, idx):
+        return self.read_single_img_url_func(self.url)
 
 
 # TODO

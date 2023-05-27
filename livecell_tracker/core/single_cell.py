@@ -257,7 +257,7 @@ class SingleCellStatic:
         if update_bbox:
             self.bbox = self.get_bbox_from_contour(self.contour)
 
-    def update_sc_mask_by_crop(self, mask, padding_pixels=np.zeros(2, dtype=int), bbox=None):
+    def update_sc_mask_by_crop(self, mask, padding_pixels=np.zeros(2, dtype=int), bbox: np.array = None):
         """
         Updates the single cell mask by cropping the input mask to the bounding box of the single cell and updating the contour.
 
@@ -277,13 +277,24 @@ class SingleCellStatic:
         """
         from livecell_tracker.segment.utils import find_contours_opencv
 
-        self.mask_dataset = SingleImageDataset(mask)
+        if isinstance(padding_pixels, int):
+            padding_pixels = np.array([padding_pixels, padding_pixels])
         contours = find_contours_opencv(mask)
-        assert len(contours) == 1
+        assert len(contours) == 1, "Input mask has more than one contour."
         if bbox is None:
             bbox = self.bbox
+
         self.contour = contours[0] + [bbox[0], bbox[1]] - padding_pixels
+        old_bbox = self.bbox
         self.update_bbox()
+        new_whole_mask = self.get_mask().copy()
+        # use self bbox to update the new_whole_mask
+        x_min = max(old_bbox[0] - padding_pixels[0], 0)
+        x_max = min(old_bbox[2] + padding_pixels[0], new_whole_mask.shape[0])
+        y_min = max(old_bbox[1] - padding_pixels[1], 0)
+        y_max = min(old_bbox[3] + padding_pixels[1], new_whole_mask.shape[1])
+        new_whole_mask[x_min:x_max, y_min:y_max] = mask
+        self.mask_dataset = SingleImageDataset(new_whole_mask)
 
     def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
         """returns a dict that can be converted to json"""
