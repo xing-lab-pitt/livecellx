@@ -11,9 +11,10 @@ from skimage.measure._regionprops import RegionProperties
 from skimage.measure import regionprops
 import uuid
 
-from livecell_tracker.core.datasets import LiveCellImageDataset
+from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
 from livecell_tracker.livecell_logger import main_warning
+
 
 # TODO: possibly refactor load_from_json methods into a mixin class
 class SingleCellStatic:
@@ -189,7 +190,7 @@ class SingleCellStatic:
         return np.array(self.bbox)
 
     @staticmethod
-    def gen_skimage_bbox_img_crop(bbox, img, padding=0, preprocess_img_func=None):
+    def gen_skimage_bbox_img_crop(bbox, img, padding=0, pad_zeros=False, preprocess_img_func=None):
         if preprocess_img_func is not None:
             img = preprocess_img_func(img)
         min_x, max_x, min_y, max_y = (
@@ -201,6 +202,17 @@ class SingleCellStatic:
         min_x = max(0, min_x - padding)
         min_y = max(0, min_y - padding)
         img_crop = img[min_x : max_x + padding, min_y : max_y + padding, ...]
+
+        # pad the image if the bbox is too close to the edge
+        if pad_zeros:
+            if min_x == 0:
+                img_crop = np.pad(img_crop, ((padding, 0), (0, 0), (0, 0)), mode="constant")
+            if min_y == 0:
+                img_crop = np.pad(img_crop, ((0, 0), (padding, 0), (0, 0)), mode="constant")
+            if max_x + padding > img.shape[0]:
+                img_crop = np.pad(img_crop, ((0, padding), (0, 0), (0, 0)), mode="constant")
+            if max_y + padding > img.shape[1]:
+                img_crop = np.pad(img_crop, ((0, 0), (0, padding), (0, 0)), mode="constant")
         return img_crop
 
     def get_img_crop(self, padding=0, bbox=None, **kwargs):
@@ -244,6 +256,34 @@ class SingleCellStatic:
         # TODO: 3D?
         if update_bbox:
             self.bbox = self.get_bbox_from_contour(self.contour)
+
+    def update_sc_mask_by_crop(self, mask, padding_pixels=np.zeros(2, dtype=int), bbox=None):
+        """
+        Updates the single cell mask by cropping the input mask to the bounding box of the single cell and updating the contour.
+
+        Parameters
+        ----------
+        mask : np.ndarray
+            The input mask to crop.
+        padding_pixels : np.ndarray, optional
+            The number of pixels to pad the bounding box by, by default np.zeros(2, dtype=int).
+        bbox : np.ndarray, optional
+            The bounding box of the single cell, by default None.
+
+        Raises
+        ------
+        AssertionError
+            If the input mask has more than one contour.
+        """
+        from livecell_tracker.segment.utils import find_contours_opencv
+
+        self.mask_dataset = SingleImageDataset(mask)
+        contours = find_contours_opencv(mask)
+        assert len(contours) == 1
+        if bbox is None:
+            bbox = self.bbox
+        self.contour = contours[0] + [bbox[0], bbox[1]] - padding_pixels
+        self.update_bbox()
 
     def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
         """returns a dict that can be converted to json"""

@@ -24,7 +24,7 @@ from torch.utils.data import DataLoader, random_split
 import uuid
 
 
-def read_img_default(url: str) -> np.ndarray:
+def read_img_default(url: str, **kwargs) -> np.ndarray:
     img = Image.open(url)
     img = np.array(img)
     return img
@@ -113,6 +113,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             tmp_tuples = tmp_tuples[:num_imgs]
             self.time2url = {time: path for time, path in tmp_tuples}
         self.times = list(self.time2url.keys())
+        self.urls = list(self.time2url.values())
 
         self.cache_img_idx_to_img = {}
         self.max_cache_size = max_cache_size
@@ -262,7 +263,8 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     def get_img_by_idx(self, idx):
         """Get an image by some index in the times list"""
         time = self.times[idx]
-        img = self.read_img_url_func(self.time2url[time])
+        url = self.urls[idx]
+        img = self.read_img_url_func(url)
         return img
 
     def get_img_by_time(self, time) -> np.array:
@@ -354,11 +356,12 @@ class SingleImageDataset(LiveCellImageDataset):
             time2url={SingleImageDataset.DEFAULT_TIME: "InMemory"},
             name=name,
             ext=ext,
-            read_img_url_func=self.read_img_url_func,
+            read_img_url_func=self.read_single_img_url_func,
+            index_by_time=True,
         )
         self.img = img
 
-    def read_img_url_func(self, url):
+    def read_single_img_url_func(self, url):
         return self.img.copy()
 
 
