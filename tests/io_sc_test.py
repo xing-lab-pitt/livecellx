@@ -17,9 +17,8 @@ class SingleCellStaticIOTest(unittest.TestCase):
     def setUpClass(cls):
 
         dic_dataset, mask_dataset = sample_data.tutorial_three_image_sys()
-        single_cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
-
-        cls.cell = single_cells[0]
+        cls.cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
+        cls.cell = cls.cells[0]
         cls.include_dataset_json = False
         cls.dataset_json_dir = None
         cls.img_dataset = None
@@ -27,12 +26,14 @@ class SingleCellStaticIOTest(unittest.TestCase):
 
     def setUp(self):
         self.io_out_dir = Path("test_io_output")
+        self.io_out_dir.mkdir(exist_ok=True)  # Make sure the directory exists before each test
 
     def tearDown(self):
         # This method will be called after each test. Clean up the test fixture here.
         # If setup included opening files or establishing network connections, close them here.
-
-        pass
+        json_path = self.io_out_dir / "test_single_cells.json"
+        if json_path.is_file():
+            json_path.unlink()
 
     # TODO
     def test_read_traj_collection(self):
@@ -77,6 +78,48 @@ class SingleCellStaticIOTest(unittest.TestCase):
         self.assertEqual(str(self.cell.id), new_cell.id, "id does not match")
         # Validate meta
         self.assertEqual(self.cell.meta, new_cell.meta, "meta does not match")
+
+    def test_write_single_cells_json(self):
+        json_path = self.io_out_dir / "test_single_cells.json"
+
+        SingleCellStatic.write_single_cells_json(self.cells, str(json_path), str(self.io_out_dir))
+        self.assertTrue(json_path.is_file())
+        # Now check that the file was correctly written
+        with open(json_path, "r") as f:
+            sc_json_dict_list = json.load(f)
+
+        # Check that the json data matches the cell data
+        for i, cell in enumerate(self.cells):
+            self.assertEqual(str(cell.id), sc_json_dict_list[i]["id"], "id does not match")
+            self.assertEqual(cell.timeframe, sc_json_dict_list[i]["timeframe"], "timeframe does not match")
+            np.testing.assert_array_equal(cell.bbox, np.array(sc_json_dict_list[i]["bbox"]), "bbox does not match")
+            self.assertEqual(cell.feature_dict, sc_json_dict_list[i]["feature_dict"], "feature_dict does not match")
+            np.testing.assert_array_equal(
+                cell.contour, np.array(sc_json_dict_list[i]["contour"]), "contour does not match"
+            )
+            self.assertEqual(cell.meta, sc_json_dict_list[i]["meta"], "meta does not match")
+
+    def test_load_single_cells_json(self):
+        json_path = self.io_out_dir / "test_single_cells.json"
+
+        SingleCellStatic.write_single_cells_json(self.cells, str(json_path), str(self.io_out_dir))
+        loaded_cells = SingleCellStatic.load_single_cells_json(str(json_path))
+
+        # Check that the loaded cells match the original ones
+        for i, loaded_cell in enumerate(loaded_cells):
+            original_cell = self.cells[i]
+            # Validate timeframe
+            self.assertEqual(original_cell.timeframe, loaded_cell.timeframe, "timeframe does not match")
+            # Validate bbox
+            np.testing.assert_array_equal(original_cell.bbox, loaded_cell.bbox, "bbox does not match")
+            # Validate feature_dict
+            self.assertEqual(original_cell.feature_dict, loaded_cell.feature_dict, "feature_dict does not match")
+            # Validate contour
+            np.testing.assert_array_equal(original_cell.contour, loaded_cell.contour, "contour does not match")
+            # Validate id
+            self.assertEqual(str(original_cell.id), loaded_cell.id, "id does not match")
+            # Validate meta
+            self.assertEqual(original_cell.meta, loaded_cell.meta, "meta does not match")
 
 
 if __name__ == "__main__":
