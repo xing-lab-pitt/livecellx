@@ -280,7 +280,7 @@ class SingleCellStatic:
         if isinstance(padding_pixels, int):
             padding_pixels = np.array([padding_pixels, padding_pixels])
         contours = find_contours_opencv(mask)
-        assert len(contours) == 1, "Input mask has more than one contour."
+        assert len(contours) == 1, f"Input mask does not have exactly one contour. #contours: {len(contours)}"
         if bbox is None:
             bbox = self.bbox
 
@@ -590,10 +590,14 @@ class SingleCellStatic:
         coords = [[x1, y1], [x1, y2], [x2, y2], [x2, y1]]
         return self.get_napari_shape_vec(coords)
 
-    def get_napari_shape_contour_vec(self, contour_sample_num=None):
+    def get_napari_shape_contour_vec(self, contour_sample_num: float = np.inf):
         contour = self.contour
+        if len(contour) == 0:
+            return []
+        slice_step = int(len(contour) / contour_sample_num)
+        slice_step = max(slice_step, 1)  # make sure slice_step is at least 1
         if contour_sample_num is not None:
-            contour = contour[:: int(len(contour) / contour_sample_num)]
+            contour = contour[::slice_step]
         return self.get_napari_shape_vec(contour)
 
     def segment_by_detectron(self):
