@@ -36,7 +36,7 @@ def process_scs_from_label_mask(label_mask_dataset, dic_dataset, time, bg_val=0)
     for label in labels:
         bin_mask = (label_mask == label).astype(np.uint8)
         label_contours = find_contours_opencv(bin_mask)
-        assert len(label_contours) == 1
+        assert len(label_contours) == 1, "at time {}, label {} has {} contours".format(time, label, len(label_contours))
         contours.append(label_contours[0])
 
     # contours = find_contours(seg_mask) # skimage: find_contours
