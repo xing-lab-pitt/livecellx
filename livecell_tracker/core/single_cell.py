@@ -40,6 +40,7 @@ class SingleCellStatic:
         uns: Optional[Dict[str, object]] = None,
         id: Optional[int] = None,  # TODO: automatically assign id (incremental or uuid),
         cache: Optional[Dict[str, object]] = None,  # TODO: now only image crop is cached
+        update_mask_dataset_by_contour=False,
     ) -> None:
         """_summary_
 
@@ -81,7 +82,7 @@ class SingleCellStatic:
         if (bbox is None) and (regionprops is not None):
             self.bbox = regionprops.bbox
         elif (bbox is None) and contour is not None:
-            self.update_contour(self.contour, update_bbox=True)
+            self.update_contour(self.contour, update_bbox=True, update_mask_dataset=update_mask_dataset_by_contour)
         # TODO: enable img_crops caching ONLY in RAM mode, otherwise caching these causes memory issues
         # self.raw_img = self.get_img()
         # self.img_crop = None
@@ -249,8 +250,12 @@ class SingleCellStatic:
         # self.img_crop = None
         # self.mask_crop = None
 
-    def update_contour(self, contour, update_bbox=True, dtype=int):
+    def update_contour(self, contour, update_bbox=True, update_mask_dataset=True, dtype=int):
         self.contour = np.array(contour, dtype=dtype)
+        if update_mask_dataset:
+            new_mask = SingleCellStatic.gen_contour_mask(self.contour, img=self.get_img(), crop=False, dtype=bool)
+            self.mask_dataset = SingleImageDataset(new_mask)
+
         if len(contour) == 0:
             return
         # TODO: 3D?
