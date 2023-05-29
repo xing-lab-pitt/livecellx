@@ -3,6 +3,7 @@ from skimage.measure import regionprops
 import pandas as pd
 from livecell_tracker.core.io_utils import save_tiff
 import numpy as np
+import numpy.typing as npt
 import json
 from livecell_tracker.core import (
     SingleCellTrajectory,
@@ -44,12 +45,12 @@ def create_ou_input_from_sc(
     return img_crop
 
 
-def create_ou_input_from_imgs(img, mask, normalize=True, dtype=float):
-    img_crop = img.astype(dtype)
+def create_ou_input_from_img_mask(img: npt.NDArray, mask, normalize=True, dtype=float):
+    img = img.astype(dtype).copy()
     if normalize:
-        img_crop = normalize_img_to_uint8(img_crop).astype(dtype)
-    img_crop[mask == 0] *= -1
-    return img_crop
+        img = normalize_img_to_uint8(img).astype(dtype)
+    img[mask == 0] *= -1
+    return img
 
 
 # TODO: adapt to new sc API (check and fix the function below)
