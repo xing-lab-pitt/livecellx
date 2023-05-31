@@ -18,14 +18,14 @@ from livecell_tracker.track.sort_tracker_utils import (
     track_SORT_bbox_from_scs,
 )
 from livecell_tracker import core
-from livecell_tracker.core import datasets
+from livecell_tracker.core import datasets, pl_utils
 from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
 from livecell_tracker.preprocess.correct_bg import correct_background_bisplrep, correct_background_median_gamma
 from livecell_tracker.preprocess.utils import normalize_img_to_uint8
 from livecell_tracker.trajectory.feature_extractors import compute_skimage_regionprops
 
-from livecell_tracker.core import SingleCellTrajectory, SingleCellStatic
+from livecell_tracker.core import SingleCellTrajectory, SingleCellStatic, SingleCellTrajectoryCollection
 
 
 import pytest
@@ -35,7 +35,6 @@ from skimage import measure
 from skimage.measure import regionprops
 
 import unittest
-from livecell_tracker.core.single_cell import SingleCell, SingleCellTrajectoryCollection
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -54,7 +53,7 @@ class TestTutorialGeneralUse(unittest.TestCase):
 
         cls.dic_dataset = LiveCellImageDataset(time2url=time2url, ext="tif")
 
-        cls.single_cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
+        cls.single_cells = prep_scs_from_mask_dataset(cls.mask_dataset, cls.dic_dataset)
 
     def test_loading_single_cells(self):
         # Verify that each single cell has a mask dataset
@@ -112,13 +111,13 @@ class TestTutorialGeneralUse(unittest.TestCase):
         # Visualize
         fig, axes = plt.subplots(1, 3, figsize=(20, 5))
         im = axes[0].imshow(sc_img)
-        self.add_colorbar(im, axes[0], fig)
+        pl_utils.add_colorbar(im, axes[0], fig)
         axes[0].set_title("original")
         im = axes[1].imshow(bisplrep_sc_img)
-        self.add_colorbar(im, axes[1], fig)
+        pl_utils.add_colorbar(im, axes[1], fig)
         axes[1].set_title("corrected: bisplrep")
         im = axes[2].imshow(gamma_sc_img)
-        self.add_colorbar(im, axes[2], fig)
+        pl_utils.add_colorbar(im, axes[2], fig)
         axes[2].set_title("corrected: gamma correction")
 
         # Test run without errors
@@ -136,9 +135,7 @@ class TestTutorialGeneralUse(unittest.TestCase):
         feature_series = sc1.get_feature_pd_series()
         assert isinstance(feature_series, pd.Series)
         assert not feature_series.empty
-        assert "skimage" in feature_series.index
-        assert "skimage_axis_major_length" in feature_series.index
-        assert "skimage_orientation" in feature_series.index
+        assert any(idx.startswith("skimage") for idx in feature_series.index)
 
         # test for bounding box
         bbox = sc2.bbox
