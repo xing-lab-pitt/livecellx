@@ -16,8 +16,8 @@ def correct_background_median_gamma(image: np.ndarray, disk_size: int = 15) -> n
 
     """
     # Apply local median filter to remove noise
-    selem = morphology.disk(disk_size)
-    image_median = filters.rank.median(image, selem=selem)
+    footprint = morphology.disk(disk_size)
+    image_median = filters.rank.median(image, footprint=footprint)
 
     # Subtract background
     image_bg = exposure.adjust_gamma(image_median, gamma=2)
