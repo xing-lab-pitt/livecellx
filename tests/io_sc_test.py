@@ -28,13 +28,6 @@ class SingleCellStaticIOTest(unittest.TestCase):
         self.io_out_dir = Path("test_io_output")
         self.io_out_dir.mkdir(exist_ok=True)  # Make sure the directory exists before each test
 
-    def tearDown(self):
-        # This method will be called after each test. Clean up the test fixture here.
-        # If setup included opening files or establishing network connections, close them here.
-        json_path = self.io_out_dir / "test_single_cells.json"
-        if json_path.is_file():
-            json_path.unlink()
-
     # TODO
     def test_read_traj_collection(self):
         return
@@ -120,6 +113,40 @@ class SingleCellStaticIOTest(unittest.TestCase):
             self.assertEqual(str(original_cell.id), loaded_cell.id, "id does not match")
             # Validate meta
             self.assertEqual(original_cell.meta, loaded_cell.meta, "meta does not match")
+
+    def test_write_json(self):
+        # Test write to file
+        json_path = self.io_out_dir / "test_single_cell.json"
+        self.cell.write_json(str(json_path))
+        self.assertTrue(json_path.is_file(), "JSON file not created")
+        # Now check that the file was correctly written
+        with open(json_path, "r") as f:
+            sc_json_dict = json.load(f)
+        # Validate the properties
+        self.assertEqual(str(self.cell.id), sc_json_dict["id"], "id does not match")
+        self.assertEqual(self.cell.timeframe, sc_json_dict["timeframe"], "timeframe does not match")
+        np.testing.assert_array_equal(self.cell.bbox, np.array(sc_json_dict["bbox"]), "bbox does not match")
+        self.assertEqual(self.cell.feature_dict, sc_json_dict["feature_dict"], "feature_dict does not match")
+        np.testing.assert_array_equal(self.cell.contour, np.array(sc_json_dict["contour"]), "contour does not match")
+        self.assertEqual(self.cell.meta, sc_json_dict["meta"], "meta does not match")
+
+        # Test write to string
+        json_str = self.cell.write_json()
+        sc_json_dict = json.loads(json_str)
+        # Validate the properties
+        self.assertEqual(str(self.cell.id), sc_json_dict["id"], "id does not match")
+        self.assertEqual(self.cell.timeframe, sc_json_dict["timeframe"], "timeframe does not match")
+        np.testing.assert_array_equal(self.cell.bbox, np.array(sc_json_dict["bbox"]), "bbox does not match")
+        self.assertEqual(self.cell.feature_dict, sc_json_dict["feature_dict"], "feature_dict does not match")
+        np.testing.assert_array_equal(self.cell.contour, np.array(sc_json_dict["contour"]), "contour does not match")
+        self.assertEqual(self.cell.meta, sc_json_dict["meta"], "meta does not match")
+
+    def tearDown(self):
+        # This method will be called after each test. Clean up the test fixture here.
+        # If setup included opening files or establishing network connections, close them here.
+        json_path = self.io_out_dir / "test_single_cells.json"
+        if json_path.is_file():
+            json_path.unlink()
 
 
 if __name__ == "__main__":
