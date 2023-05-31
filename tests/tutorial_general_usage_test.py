@@ -17,6 +17,7 @@ from livecell_tracker.track.sort_tracker_utils import (
     track_SORT_bbox_from_contours,
     track_SORT_bbox_from_scs,
 )
+from livecell_tracker import sample_data
 from livecell_tracker import core
 from livecell_tracker.core import datasets, pl_utils
 from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
@@ -43,16 +44,7 @@ class TestTutorialGeneralUse(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # load the single_cells here, this code will run once before all tests
-        dataset_dir_path = Path("./datasets/test_data_STAV-A549/DIC_data")
-        mask_dataset_path = Path("./datasets/test_data_STAV-A549/mask_data")
-
-        cls.mask_dataset = LiveCellImageDataset(mask_dataset_path, ext="png")
-
-        time2url = sorted(glob.glob(str((Path(dataset_dir_path) / Path("*_DIC.tif")))))
-        time2url = {i: path for i, path in enumerate(time2url)}
-
-        cls.dic_dataset = LiveCellImageDataset(time2url=time2url, ext="tif")
-
+        cls.dic_dataset, cls.mask_dataset = sample_data.tutorial_three_image_sys()
         cls.single_cells = prep_scs_from_mask_dataset(cls.mask_dataset, cls.dic_dataset)
 
     def test_loading_single_cells(self):
