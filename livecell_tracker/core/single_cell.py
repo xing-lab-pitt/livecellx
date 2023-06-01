@@ -790,7 +790,7 @@ class SingleCellTrajectory:
 
     def get_timeframe_span_length(self):
         min_t, max_t = self.get_timeframe_span()
-        return max_t - min_t
+        return max_t - min_t + 1
 
     def get_single_cell(self, timeframe: int) -> SingleCellStatic:
         return self.timeframe_to_single_cell[timeframe]
