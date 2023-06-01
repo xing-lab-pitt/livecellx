@@ -323,7 +323,7 @@ class SingleCellStatic:
             res["dataset_json"] = self.img_dataset.to_json_dict()
 
         if dataset_json_dir:
-            res["dataset_json_dir"] = str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
+            res["dataset_json_dir"] = str(dataset_json_dir)
 
             # TODO: add arg to let users define their own json dataset paths
             if self.img_dataset is not None:
@@ -735,8 +735,10 @@ class SingleCellTrajectory:
         self.mask_dataset = mask_dataset
         self.extra_datasets = extra_datasets
         if mother_trajectories is None:
+            # TODO: add mother trajectories ids
             self.mother_trajectories: Set["SingleCellTrajectory"] = set()
         else:
+            # TODO: add mother trajectories ids
             self.mother_trajectories = mother_trajectories
 
         if daughter_trajectories is None:
@@ -831,6 +833,61 @@ class SingleCellTrajectory:
                 img_dataset = self.img_dataset
         self.timeframe_set = set(self.timeframe_to_single_cell.keys())
         return self
+
+    def to_json_dict(self):
+        res = {
+            "track_id": int(self.track_id),
+            "timeframe_to_single_cell": {
+                int(float(timeframe)): sc.to_dict()  # Updated to call to_dict() instead of to_json_dict()
+                for timeframe, sc in self.timeframe_to_single_cell.items()
+            },
+            "dataset_info": self.img_dataset.to_dict(),  # Updated to call to_dict() instead of to_json_dict()
+        }
+        return res
+
+    def write_json(self, path=None):
+        # Convert the object's data to a JSON string
+        json_string = json.dumps(self.to_dict())
+
+        # If a path is provided, write the JSON string to a file at that path
+        if path is not None:
+            with open(path, "w") as file:
+                file.write(json_string)
+        # Otherwise, simply return the JSON string
+        else:
+            return json_string
+
+    def load_from_json_dict(self, json_dict):
+        self.track_id = json_dict["track_id"]
+
+        # If img_dataset already exists, use it. Otherwise, create a new one from the JSON data
+        if hasattr(self, "img_dataset") and self.img_dataset is not None:
+            img_dataset = self.img_dataset
+        else:
+            img_dataset = LiveCellImageDataset.from_dict(json_dict["dataset_info"])  # Updated to use from_dict()
+
+        self.img_dataset = img_dataset
+        self.img_total_timeframe = len(img_dataset)
+
+        self.timeframe_to_single_cell = {}
+        for timeframe, sc_data in json_dict["timeframe_to_single_cell"].items():
+            sc = SingleCellStatic(int(timeframe), img_dataset=img_dataset).from_dict(
+                sc_data
+            )  # Updated to use from_dict()
+            self.timeframe_to_single_cell[int(timeframe)] = sc
+
+        self.timeframe_set = set(self.timeframe_to_single_cell.keys())
+        return self
+
+    @staticmethod
+    def from_json(json_string):
+        # Parse the JSON string into a Python dictionary
+        data = json.loads(json_string)
+
+        # Create a new SingleCellTrajectory instance and load the data into it
+        instance = SingleCellTrajectory().load_from_json_dict(data)
+
+        return instance
 
     def get_sc_feature_table(self):
         feature_table = None
