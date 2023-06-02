@@ -33,6 +33,20 @@ class ScSegOperator:
     MANUAL_CORRECT_SEG_MODE = 0
     CSN_CORRECT_SEG_MODE = 1
 
+    DEFAULT_CSN_MODEL = None
+
+    @staticmethod
+    def load_default_csn_model(path, cuda=True):
+        import torch
+        from livecell_tracker.model_zoo.segmentation.sc_correction import CorrectSegNet
+
+        model = CorrectSegNet.load_from_checkpoint(path)
+        if cuda:
+            model.cuda()
+        model.eval()
+        ScSegOperator.DEFAULT_CSN_MODEL = model
+        return model
+
     def __init__(
         self,
         sc: SingleCellStatic,
@@ -41,6 +55,7 @@ class ScSegOperator:
         face_color=(0, 0, 1, 1),
         magicgui_container=None,
         csn_model=None,
+        create_sc_layer=True,
     ):
         """
         Parameters
@@ -61,6 +76,9 @@ class ScSegOperator:
 
         if not (self.shape_layer is None):
             self.setup_edit_contour_shape_layer()
+
+        if create_sc_layer:
+            self.create_sc_layer()
 
     def create_sc_layer(self, name=None, contour_sample_num=100):
         if name is None:
@@ -196,6 +214,13 @@ class ScSegOperator:
 
     def csn_correct_seg_callback(self, padding_pixels=50):
         print("csn_correct_seg_callback fired")
+        if self.csn_model is None and ScSegOperator.DEFAULT_CSN_MODEL is None:
+            print("No CSN model is loaded. Please load a CSN model first.")
+            return
+        elif self.csn_model is None:
+            print("Using default CSN model and loading it to the operator...")
+            self.csn_model = ScSegOperator.DEFAULT_CSN_MODEL
+
         create_ou_input_kwargs = {
             "padding_pixels": padding_pixels,
             "dtype": float,
