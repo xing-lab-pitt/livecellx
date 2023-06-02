@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 import numpy as np
 from livecell_tracker import sample_data
+from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
 from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
 from livecell_tracker.core.datasets import LiveCellImageDataset
 from livecell_tracker.core import (
@@ -38,7 +39,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
         # TODO: recursively check all the trajectories and all single cell objects
 
     def test_to_json_dict(self):
-        result = self.cell.to_json_dict()
+        result = self.cell.to_json_dict(include_dataset_json=True, dataset_json_dir=self.dataset_json_dir)
 
         assert isinstance(result, dict)
         assert result["timeframe"] == self.cell.timeframe
@@ -47,10 +48,30 @@ class SingleCellStaticIOTest(unittest.TestCase):
         assert result["contour"] == self.cell.contour.tolist()
         assert result["meta"] == self.cell.meta_copy
         assert result["id"] == str(self.cell.id)
+
         if self.include_dataset_json:
-            assert result["id"] == str(self.cell.id)
+            assert "dataset_json" in result
+            dataset_json = result["dataset_json"]
+            assert isinstance(dataset_json, dict)
+            assert "name" in dataset_json
+            assert "data_dir_path" in dataset_json
+            assert "max_cache_size" in dataset_json
+            assert "ext" in dataset_json
+            assert "time2url" in dataset_json
+
         if self.dataset_json_dir:
-            assert result["id"] == str(self.cell.id)
+            assert "dataset_json_dir" in result
+            assert result["dataset_json_dir"] == str(
+                self.cell.img_dataset.get_default_json_path(out_dir=self.dataset_json_dir)
+            )
+            assert SCKM.JSON_IMG_DATASET_JSON_PATH in result
+            assert result[SCKM.JSON_IMG_DATASET_JSON_PATH] == str(
+                self.cell.img_dataset.get_default_json_path(out_dir=self.dataset_json_dir)
+            )
+            assert SCKM.JSON_MASK_DATASET_JSON_PATH in result
+            assert result[SCKM.JSON_MASK_DATASET_JSON_PATH] == str(
+                self.cell.mask_dataset.get_default_json_path(out_dir=self.dataset_json_dir)
+            )
 
     def test_load_from_json_dict(self):
         json_dict = self.cell.to_json_dict()
