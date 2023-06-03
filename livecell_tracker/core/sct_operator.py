@@ -1,6 +1,7 @@
 import copy
 from functools import partial
 from typing import Optional, Union
+import numpy as np
 from magicgui import magicgui
 from magicgui.widgets import Container, PushButton, Widget, create_widget
 from napari.layers import Shapes
@@ -25,6 +26,7 @@ class SctOperator:
         viewer,
         operator="connect",
         magicgui_container=None,
+        sct_observers=None,
     ):
         self.select_info = []  # [cur_sct, cur_sc, selected_shape_index]
         self.operator = operator
@@ -35,6 +37,10 @@ class SctOperator:
         self.magicgui_container = magicgui_container
         self.mode = SctOperator.CONNECT_MODE
         self.annotate_click_samples = []
+
+    def selected_scs(self):
+        cur_properties = self.shape_layer.current_properties
+        return cur_properties["sc"]
 
     def select_shape(self, event, shape_layer=None):
         if shape_layer is None:
@@ -117,6 +123,26 @@ class SctOperator:
         self.shape_layer.properties = properties
         self.shape_layer.face_color = face_colors
         print("<update track_id properties complete>")
+
+    def update_shape_layer_by_sc(self, sc: SingleCellStatic):
+        print("<update shape layer by sc>")
+        properties = self.shape_layer.properties
+        scs = properties["sc"]
+        update_shape_index = None
+        for shape_index, tmp_sc in enumerate(scs):
+            if tmp_sc.id == sc.id:
+                update_shape_index = shape_index
+
+        if update_shape_index is None:
+            main_warning("sc not found in shape layer")
+            return
+
+        # update the sc's shape data in self.shape_layer
+        shape_data = list(self.shape_layer.data)
+        shape_data[update_shape_index] = np.array(sc.get_napari_shape_contour_vec())
+        print("<setting shapes...>")
+        self.shape_layer.data = shape_data
+        print("<update shape layer by sc complete>")
 
     def connect_two_scts(self):
         assert len(self.select_info) == 2, "Please select two shapes to connect."
@@ -264,7 +290,7 @@ class SctOperator:
         if len(current_properties) > 1:
             main_warning("More than one shape is selected. The first selected shape is used for editing.")
         cur_sc = current_properties["sc"][0]
-        sc_operator = ScSegOperator(cur_sc, viewer=self.viewer, create_sc_layer=True)
+        sc_operator = ScSegOperator(cur_sc, viewer=self.viewer, create_sc_layer=True, sct_observers=[self])
         create_sc_seg_napari_ui(sc_operator)
         return sc_operator
 

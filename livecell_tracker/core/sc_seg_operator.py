@@ -56,6 +56,7 @@ class ScSegOperator:
         magicgui_container=None,
         csn_model=None,
         create_sc_layer=True,
+        sct_observers: Optional[list] = None,
     ):
         """
         Parameters
@@ -73,6 +74,10 @@ class ScSegOperator:
         self.mode = self.MANUAL_CORRECT_SEG_MODE
         self.magicgui_container = magicgui_container
         self.csn_model = csn_model
+
+        self.sct_observers = sct_observers
+        if sct_observers is None:
+            self.sct_observers = []
 
         if not (self.shape_layer is None):
             self.setup_edit_contour_shape_layer()
@@ -195,8 +200,13 @@ class ScSegOperator:
         for i in range(2, len(self.magicgui_container)):
             self.magicgui_container[i].hide()
 
+    def notify_sct_observers(self):
+        for observer in self.sct_observers:
+            observer.update_shape_layer_by_sc(self.sc)
+
     def save_seg_callback(self):
         """Save the segmentation to the single cell object."""
+        print("<save_seg_callback fired>")
 
         def _get_contour_from_shape_layer(layer: Shapes):
             """Get contour coordinates from a shape layer in napari."""
@@ -209,8 +219,11 @@ class ScSegOperator:
         # Get the contour coordinates from the shape layer
         contour = _get_contour_from_shape_layer(self.shape_layer)
         # Store the contour in the single cell object
-        self.sc.contour = contour
-        self.sc.update_bbox()
+        self.sc.update_contour(contour)
+        print("<save_seg_callback finished>")
+
+        # Notify the observers
+        self.notify_sct_observers()
 
     def csn_correct_seg_callback(self, padding_pixels=50):
         print("csn_correct_seg_callback fired")
