@@ -11,7 +11,6 @@ import pandas as pd
 from skimage.measure._regionprops import RegionProperties
 from skimage.measure import regionprops
 import uuid
-import btrack
 
 from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
