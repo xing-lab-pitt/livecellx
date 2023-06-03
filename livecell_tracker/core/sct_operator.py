@@ -132,6 +132,8 @@ class SctOperator:
         for shape_index, tmp_sc in enumerate(scs):
             if tmp_sc.id == sc.id:
                 update_shape_index = shape_index
+            if tmp_sc.id == sc.id and tmp_sc != sc:
+                main_warning("sc with same id but different shape found in shape layer")
 
         if update_shape_index is None:
             main_warning("sc not found in shape layer")
@@ -194,7 +196,10 @@ class SctOperator:
     def store_shape_layer_info(self):
         # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
         self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
+        # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
+        self.original_scs = self.shape_layer.properties["sc"]
         self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
+        self.original_properties["sc"] = self.original_scs
 
     def disconnect_sct(self):
         assert len(self.select_info) == 1, "Please select one shape to disconnect."
