@@ -1,6 +1,7 @@
 import itertools
 import json
-from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+import copy
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from collections import deque
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -10,6 +11,7 @@ import pandas as pd
 from skimage.measure._regionprops import RegionProperties
 from skimage.measure import regionprops
 import uuid
+import btrack
 
 from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
@@ -134,7 +136,7 @@ class SingleCellStatic:
         return np.logical_and(mask, other_cell.get_contour_mask(bbox=bbox).astype(bool))
 
     def compute_overlap_percent(self, other_cell: "SingleCellStatic", bbox=None):
-        """compute overlap defined by: overlap = intersection / self's arean
+        """compute overlap defined by: overlap = intersection / self's area
 
         Parameters
         ----------
@@ -304,8 +306,6 @@ class SingleCellStatic:
     def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
         """returns a dict that can be converted to json"""
         # TODO: modularize: make data structures containing json acceptable types
-        import copy
-
         self.meta_copy = copy.deepcopy(self.meta)
         for key in self.meta_copy:
             if isinstance(self.meta_copy[key], np.ndarray):
@@ -721,6 +721,7 @@ class SingleCellTrajectory:
         extra_datasets: Dict[str, LiveCellImageDataset] = None,
         mother_trajectories=None,
         daughter_trajectories=None,
+        meta: Dict[str, Any] = None,
     ) -> None:
         if timeframe_to_single_cell is None:
             self.timeframe_to_single_cell = dict()
@@ -734,17 +735,23 @@ class SingleCellTrajectory:
         self.track_id = track_id
         self.mask_dataset = mask_dataset
         self.extra_datasets = extra_datasets
+
         if mother_trajectories is None:
-            # TODO: add mother trajectories ids
             self.mother_trajectories: Set["SingleCellTrajectory"] = set()
         else:
-            # TODO: add mother trajectories ids
             self.mother_trajectories = mother_trajectories
 
         if daughter_trajectories is None:
             self.daughter_trajectories: Set["SingleCellTrajectory"] = set()
         else:
             self.daughter_trajectories = daughter_trajectories
+
+        if meta is not None:
+            self.meta = meta
+        else:
+            self.meta = {}
+            self.meta["mother_trajectory_ids"] = [mother.track_id for mother in self.mother_trajectories]
+            self.meta["daughter_trajectory_ids"] = [daughter.track_id for daughter in self.daughter_trajectories]
 
     def __repr__(self) -> str:
         return f"SingleCellTrajectory(track_id={self.track_id}, #timeframe set={len(self)})"
@@ -759,6 +766,10 @@ class SingleCellTrajectory:
 
     def __iter__(self):
         return iter(self.timeframe_to_single_cell.items())
+
+    def update_meta_trajectories(self):
+        self.meta["mother_trajectory_ids"] = [mother.track_id for mother in self.mother_trajectories]
+        self.meta["daughter_trajectory_ids"] = [daughter.track_id for daughter in self.daughter_trajectories]
 
     def compute_features(self, feature_key: str, func: Callable):
         """_summary_
@@ -799,30 +810,75 @@ class SingleCellTrajectory:
         self.timeframe_set.remove(timeframe)
         return self.timeframe_to_single_cell.pop(timeframe)
 
-    def to_dict(self):
+    def to_json_dict(self, dataset_json_dir=None):
+        # Check if mother and daughter trajectories exist in metadata. If not, add them
+        if "mother_trajectory_ids" not in self.meta or "daughter_trajectory_ids" not in self.meta:
+            self.update_meta_trajectories()
         res = {
             "track_id": int(self.track_id),
             "timeframe_to_single_cell": {
                 int(float(timeframe)): sc.to_json_dict(dataset_json=False)
                 for timeframe, sc in self.timeframe_to_single_cell.items()
             },
-            "dataset_info": self.img_dataset.to_json_dict(),
+            # Store mother and daughter trajectories, and other information in metadata
+            "meta": self.meta,
+            # Store json directory for img and mask datasets
+            "img_dataset_json_dir": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
+            if self.img_dataset is not None
+            else None,
+            "mask_dataset_json_dir": str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
+            if self.mask_dataset is not None
+            else None,
+            "extra_datasets_json_dir": {
+                k: str(v.get_default_json_path(out_dir=dataset_json_dir)) for k, v in self.extra_datasets.items()
+            }
+            if self.extra_datasets is not None
+            else None,
         }
         return res
 
     def write_json(self, path=None):
         if path is None:
-            return json.dumps(self.to_dict())
+            return json.dumps(self.to_json_dict())
         else:
             with open(path, "w+") as f:
-                json.dump(self.to_dict(), f)
+                json.dump(self.to_json_dict(), f)
 
     def load_from_json_dict(self, json_dict, img_dataset=None, share_img_dataset=True):
         self.track_id = json_dict["track_id"]
+        if "meta" in json_dict:
+            self.meta = json_dict["meta"]
+
+        # Load img dataset
         if img_dataset:
             self.img_dataset = img_dataset
         else:
-            self.img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict["dataset_info"])
+            # Load json from img_dataset_json_dir
+            if "img_dataset_json_dir" in json_dict and json_dict["img_dataset_json_dir"] is not None:
+                with open(json_dict["img_dataset_json_dir"], "r") as f:
+                    img_dataset_json = json.load(f)
+                self.img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict=img_dataset_json)
+            else:
+                self.img_dataset = None
+
+        # Load json from mask_dataset_json_dir
+        if "mask_dataset_json_path" in json_dict and json_dict["mask_dataset_json_path"] is not None:
+            with open(json_dict["mask_dataset_json_path"], "r") as f:
+                mask_dataset_json = json.load(f)
+            self.mask_dataset = LiveCellImageDataset().load_from_json_dict(mask_dataset_json)
+        else:
+            self.mask_dataset = None
+
+        # Load json from extra_datasets_json_dir
+        if "extra_datasets_json_dir" in json_dict and json_dict["extra_datasets_json_dir"] is not None:
+            self.extra_datasets = {}
+            for k, v in json_dict["extra_datasets_json_dir"].items():
+                with open(v, "r") as f:
+                    extra_dataset_json = json.load(f)
+                self.extra_datasets[k] = LiveCellImageDataset().load_from_json_dict(extra_dataset_json)
+        else:
+            self.extra_datasets = None
+
         self.img_total_timeframe = len(self.img_dataset)
         self.timeframe_to_single_cell = {}
         for timeframe, sc in json_dict["timeframe_to_single_cell"].items():
@@ -831,63 +887,22 @@ class SingleCellTrajectory:
             ).load_from_json_dict(sc, img_dataset=self.img_dataset)
             if img_dataset is None and share_img_dataset:
                 img_dataset = self.img_dataset
-        self.timeframe_set = set(self.timeframe_to_single_cell.keys())
-        return self
-
-    def to_json_dict(self):
-        res = {
-            "track_id": int(self.track_id),
-            "timeframe_to_single_cell": {
-                int(float(timeframe)): sc.to_dict()  # Updated to call to_dict() instead of to_json_dict()
-                for timeframe, sc in self.timeframe_to_single_cell.items()
-            },
-            "dataset_info": self.img_dataset.to_dict(),  # Updated to call to_dict() instead of to_json_dict()
-        }
-        return res
-
-    def write_json(self, path=None):
-        # Convert the object's data to a JSON string
-        json_string = json.dumps(self.to_dict())
-
-        # If a path is provided, write the JSON string to a file at that path
-        if path is not None:
-            with open(path, "w") as file:
-                file.write(json_string)
-        # Otherwise, simply return the JSON string
-        else:
-            return json_string
-
-    def load_from_json_dict(self, json_dict):
-        self.track_id = json_dict["track_id"]
-
-        # If img_dataset already exists, use it. Otherwise, create a new one from the JSON data
-        if hasattr(self, "img_dataset") and self.img_dataset is not None:
-            img_dataset = self.img_dataset
-        else:
-            img_dataset = LiveCellImageDataset.from_dict(json_dict["dataset_info"])  # Updated to use from_dict()
-
-        self.img_dataset = img_dataset
-        self.img_total_timeframe = len(img_dataset)
-
-        self.timeframe_to_single_cell = {}
-        for timeframe, sc_data in json_dict["timeframe_to_single_cell"].items():
-            sc = SingleCellStatic(int(timeframe), img_dataset=img_dataset).from_dict(
-                sc_data
-            )  # Updated to use from_dict()
-            self.timeframe_to_single_cell[int(timeframe)] = sc
 
         self.timeframe_set = set(self.timeframe_to_single_cell.keys())
+        self.times = sorted(self.timeframe_set)
+
         return self
+
+    def inflate_other_trajectories(self, track_id_to_trajectory: Dict[int, "SingleCellTrajectory"]):
+        """inflate the other trajectories in this trajectory's mother and daughter trajectories"""
+        self.mother_trajectories = {self.track_id_to_trajectory[id] for id in self.meta["mother_trajectory_ids"]}
+        self.daughter_trajectories = {self.track_id_to_trajectory[id] for id in self.meta["daughter_trajectory_ids"]}
 
     @staticmethod
-    def from_json(json_string):
-        # Parse the JSON string into a Python dictionary
-        data = json.loads(json_string)
-
-        # Create a new SingleCellTrajectory instance and load the data into it
-        instance = SingleCellTrajectory().load_from_json_dict(data)
-
-        return instance
+    def load_from_json_file(path):
+        with open(path, "r") as file:
+            json_dict = json.load(file)
+        return SingleCellTrajectory().load_from_json_dict(json_dict)
 
     def get_sc_feature_table(self):
         feature_table = None
@@ -1002,6 +1017,14 @@ class SingleCellTrajectory:
 
 
 class SingleCellTrajectoryCollection:
+    """
+    Represents a collection of single-cell trajectories.
+
+    Attributes:
+    - track_id_to_trajectory: A dictionary mapping track IDs to SingleCellTrajectory objects.
+    - _iter_index: An index used for iterating over the track ID to trajectory mapping.
+    """
+
     def __init__(self) -> None:
         self.track_id_to_trajectory = dict()
         self._iter_index = 0
@@ -1053,6 +1076,7 @@ class SingleCellTrajectoryCollection:
     def load_from_json_dict(self, json_dict):
         self.track_id_to_trajectory = {}
         for track_id, trajectory_dict in json_dict["track_id_to_trajectory"].items():
+            # TODO: track_id = int(float(track_id)) remove extra float conversion in the future
             self.track_id_to_trajectory[int(float(track_id))] = SingleCellTrajectory().load_from_json_dict(
                 trajectory_dict
             )
