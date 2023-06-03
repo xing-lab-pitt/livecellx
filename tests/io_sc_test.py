@@ -61,7 +61,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
 
         if self.dataset_json_dir:
             assert "dataset_json_dir" in result
-            assert result["dataset_json_dir"] == str(out_dir=self.dataset_json_dir)
+            assert result["dataset_json_dir"] == str(self.dataset_json_dir)
             assert SCKM.JSON_IMG_DATASET_JSON_PATH in result
             assert result[SCKM.JSON_IMG_DATASET_JSON_PATH] == str(
                 self.cell.img_dataset.get_default_json_path(out_dir=self.dataset_json_dir)
