@@ -323,7 +323,7 @@ class SingleCellStatic:
             res["dataset_json"] = self.img_dataset.to_json_dict()
 
         if dataset_json_dir:
-            res["dataset_json_dir"] = str(out_dir=dataset_json_dir)
+            res["dataset_json_dir"] = str(dataset_json_dir)
 
             # TODO: add arg to let users define their own json dataset paths
             if self.img_dataset is not None:
