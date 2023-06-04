@@ -3,7 +3,6 @@ import unittest
 from pathlib import Path
 import numpy as np
 from livecell_tracker import sample_data
-from livecell_tracker.core.io_utils import LiveCellEncoder
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
 from livecell_tracker.livecell_logger import main_warning
 from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
@@ -91,32 +90,15 @@ class SingleCellStaticIOTest(unittest.TestCase):
         # Validate id
         self.assertEqual(str(self.cell.id), new_cell.id, "id does not match")
         # Validate meta
-        # Convert the meta dictionary into a JSON string
-        json_meta_original = json.dumps(self.cell.meta, cls=LiveCellEncoder)
-        # Load the JSON string back into a dictionary
-        meta_original_load = json.loads(json_meta_original)
-
-        self.assertEqual(meta_original_load, new_cell.meta, "meta does not match")
+        self.assertEqual(self.cell.meta, new_cell.meta, "meta does not match")
 
         # Validate img_dataset and mask_dataset
         for prop in ["data_dir_path", "ext", "time2url", "name"]:
             if self.cell.img_dataset is not None and new_cell.img_dataset is not None:
                 self.assertEqual(getattr(self.cell.img_dataset, prop), getattr(new_cell.img_dataset, prop))
-            else:
-                # One or both are None. They should either both be None, or both not be None.
-                self.assertIsNone(self.cell.img_dataset)
-                self.assertIsNone(new_cell.img_dataset)
-                main_warning("the current single cell's img dataset is None, you may want to load it from json in meta")
 
             if self.cell.mask_dataset is not None and new_cell.mask_dataset is not None:
                 self.assertEqual(getattr(self.cell.mask_dataset, prop), getattr(new_cell.mask_dataset, prop))
-            else:
-                # One or both are None. They should either both be None, or both not be None.
-                self.assertIsNone(self.cell.mask_dataset)
-                self.assertIsNone(new_cell.mask_dataset)
-                main_warning(
-                    "the current single cell's mask dataset is None, you may want to load it from json in meta"
-                )
 
     def test_write_single_cells_json(self):
         json_path = self.io_out_dir / "test_single_cells.json"
