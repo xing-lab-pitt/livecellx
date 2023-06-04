@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 import numpy as np
 from livecell_tracker import sample_data
+from livecell_tracker.core.io_utils import LiveCellEncoder
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
 from livecell_tracker.livecell_logger import main_warning
 from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
@@ -48,16 +49,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
         assert result["feature_dict"] == self.cell.feature_dict
         assert result["contour"] == self.cell.contour.tolist()
         assert result["id"] == str(self.cell.id)
-
-        # Load meta back from the JSON string
-        json_meta = json.loads(result["meta"])
-
-        # Convert any np.ndarray objects in self.cell.meta to lists for comparison
-        meta_converted = {
-            key: value.tolist() if isinstance(value, np.ndarray) else value for key, value in self.cell.meta.items()
-        }
-
-        assert json_meta == meta_converted
+        assert result["meta"] == self.cell.meta
 
         if self.include_dataset_json:
             assert "dataset_json" in result
@@ -99,39 +91,32 @@ class SingleCellStaticIOTest(unittest.TestCase):
         # Validate id
         self.assertEqual(str(self.cell.id), new_cell.id, "id does not match")
         # Validate meta
-        self.assertEqual(self.cell.meta, new_cell.meta, "meta does not match")
+        # Convert the meta dictionary into a JSON string
+        json_meta_original = json.dumps(self.cell.meta, cls=LiveCellEncoder)
+        # Load the JSON string back into a dictionary
+        meta_original_load = json.loads(json_meta_original)
 
-        # Validate img_dataset
-        if self.cell.img_dataset and new_cell.img_dataset:  # both not None
-            # Validate selected properties of LiveCellImageDataset
-            self.assertEqual(
-                self.cell.img_dataset.data_dir_path, new_cell.img_dataset.data_dir_path, "data_dir_path does not match"
-            )
-            self.assertEqual(self.cell.img_dataset.ext, new_cell.img_dataset.ext, "ext does not match")
-            self.assertEqual(self.cell.img_dataset.time2url, new_cell.img_dataset.time2url, "time2url does not match")
-            self.assertEqual(self.cell.img_dataset.name, new_cell.img_dataset.name, "name does not match")
-        else:
-            # One or both are None. They should either both be None, or both not be None.
-            self.assertIsNone(self.cell.img_dataset)
-            self.assertIsNone(new_cell.img_dataset)
-            main_warning("the current single cell's img dataset is None, you may want to load it from json in meta")
+        self.assertEqual(meta_original_load, new_cell.meta, "meta does not match")
 
-        # Validate mask_dataset
-        if self.cell.mask_dataset and new_cell.mask_dataset:  # both not None
-            # Validate selected properties of LiveCellImageDataset
-            self.assertEqual(
-                self.cell.mask_dataset.data_dir_path,
-                new_cell.mask_dataset.data_dir_path,
-                "data_dir_path does not match",
-            )
-            self.assertEqual(self.cell.mask_dataset.ext, new_cell.mask_dataset.ext, "ext does not match")
-            self.assertEqual(self.cell.mask_dataset.time2url, new_cell.mask_dataset.time2url, "time2url does not match")
-            self.assertEqual(self.cell.mask_dataset.name, new_cell.mask_dataset.name, "name does not match")
-        else:
-            # One or both are None. They should either both be None, or both not be None.
-            self.assertIsNone(self.cell.mask_dataset)
-            self.assertIsNone(new_cell.mask_dataset)
-            main_warning("the current single cell's mask dataset is None, you may want to load it from json in meta")
+        # Validate img_dataset and mask_dataset
+        for prop in ["data_dir_path", "ext", "time2url", "name"]:
+            if self.cell.img_dataset is not None and new_cell.img_dataset is not None:
+                self.assertEqual(getattr(self.cell.img_dataset, prop), getattr(new_cell.img_dataset, prop))
+            else:
+                # One or both are None. They should either both be None, or both not be None.
+                self.assertIsNone(self.cell.img_dataset)
+                self.assertIsNone(new_cell.img_dataset)
+                main_warning("the current single cell's img dataset is None, you may want to load it from json in meta")
+
+            if self.cell.mask_dataset is not None and new_cell.mask_dataset is not None:
+                self.assertEqual(getattr(self.cell.mask_dataset, prop), getattr(new_cell.mask_dataset, prop))
+            else:
+                # One or both are None. They should either both be None, or both not be None.
+                self.assertIsNone(self.cell.mask_dataset)
+                self.assertIsNone(new_cell.mask_dataset)
+                main_warning(
+                    "the current single cell's mask dataset is None, you may want to load it from json in meta"
+                )
 
     def test_write_single_cells_json(self):
         json_path = self.io_out_dir / "test_single_cells.json"
