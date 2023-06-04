@@ -246,6 +246,13 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self.max_cache_size = json_dict["max_cache_size"]
         return self
 
+    @staticmethod
+    def load_from_json_file(path, **kwargs):
+        path = Path(path)
+        with open(path, "r") as f:
+            json_dict = json.load(f)
+        return LiveCellImageDataset().load_from_json_dict(json_dict, **kwargs)
+
     def to_dask(self, times=None, ram=False):
         """convert to a dask array for napari visualization"""
         import dask.array as da
