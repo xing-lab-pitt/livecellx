@@ -13,6 +13,7 @@ from skimage.measure import regionprops
 import uuid
 
 from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
+from livecell_tracker.core.io_utils import LiveCellEncoder
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
 from livecell_tracker.livecell_logger import main_warning
 
@@ -304,18 +305,15 @@ class SingleCellStatic:
 
     def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
         """returns a dict that can be converted to json"""
-        # TODO: modularize: make data structures containing json acceptable types
-        self.meta_copy = copy.deepcopy(self.meta)
-        for key in self.meta_copy:
-            if isinstance(self.meta_copy[key], np.ndarray):
-                self.meta_copy[key] = self.meta_copy[key].tolist()
+        # Convert the metadata to JSON string using LiveCellEncoder
+        json_meta = json.dumps(self.meta, cls=LiveCellEncoder)
 
         res = {
             "timeframe": int(self.timeframe),
             "bbox": list(np.array(self.bbox, dtype=float)),
             "feature_dict": self.feature_dict,
             "contour": self.contour.tolist(),
-            "meta": self.meta_copy,
+            "meta": json_meta,
             "id": str(self.id),
         }
         if include_dataset_json:
@@ -813,6 +811,10 @@ class SingleCellTrajectory:
         # Check if mother and daughter trajectories exist in metadata. If not, add them
         if "mother_trajectory_ids" not in self.meta or "daughter_trajectory_ids" not in self.meta:
             self.update_meta_trajectories()
+
+        # Convert the metadata to JSON string using LiveCellEncoder
+        json_meta = json.dumps(self.meta, cls=LiveCellEncoder)
+
         res = {
             "track_id": int(self.track_id),
             "timeframe_to_single_cell": {
@@ -820,7 +822,7 @@ class SingleCellTrajectory:
                 for timeframe, sc in self.timeframe_to_single_cell.items()
             },
             # Store mother and daughter trajectories, and other information in metadata
-            "meta": self.meta,
+            "meta": json_meta,
             # Store json directory for img and mask datasets
             "img_dataset_json_dir": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
             if self.img_dataset is not None
@@ -860,8 +862,12 @@ class SingleCellTrajectory:
             else:
                 self.img_dataset = None
 
+        shared_img_dataset = None
+        if share_img_dataset:
+            shared_img_dataset = self.img_dataset
+
         # Load json from mask_dataset_json_dir
-        if "mask_dataset_json_path" in json_dict and json_dict["mask_dataset_json_path"] is not None:
+        if "mask_dataset_json_dir" in json_dict and json_dict["mask_dataset_json_dir"] is not None:
             with open(json_dict["mask_dataset_json_path"], "r") as f:
                 mask_dataset_json = json.load(f)
             self.mask_dataset = LiveCellImageDataset().load_from_json_dict(mask_dataset_json)
@@ -882,10 +888,8 @@ class SingleCellTrajectory:
         self.timeframe_to_single_cell = {}
         for timeframe, sc in json_dict["timeframe_to_single_cell"].items():
             self.timeframe_to_single_cell[int(timeframe)] = SingleCellStatic(
-                int(timeframe), img_dataset=self.img_dataset
-            ).load_from_json_dict(sc, img_dataset=self.img_dataset)
-            if img_dataset is None and share_img_dataset:
-                img_dataset = self.img_dataset
+                int(timeframe), img_dataset=shared_img_dataset
+            ).load_from_json_dict(sc, img_dataset=shared_img_dataset)
 
         self.timeframe_set = set(self.timeframe_to_single_cell.keys())
         self.times = sorted(self.timeframe_set)
