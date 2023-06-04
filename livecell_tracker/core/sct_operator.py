@@ -1,6 +1,6 @@
 import copy
 from functools import partial
-from typing import Optional, Union
+from typing import List, Optional, Union
 import numpy as np
 from magicgui import magicgui
 from magicgui.widgets import Container, PushButton, Widget, create_widget
@@ -199,6 +199,7 @@ class SctOperator:
         # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
         self.original_scs = self.shape_layer.properties["sc"]
         self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
+        self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
         self.original_properties["sc"] = self.original_scs
 
     def disconnect_sct(self):
@@ -299,6 +300,16 @@ class SctOperator:
         create_sc_seg_napari_ui(sc_operator)
         return sc_operator
 
+    def restore_shapes_data(self):
+        print("<restoring sct shapes>")
+        self.shape_layer.data = self.original_shape_data
+        self.shape_layer.properties = self.original_shape_properties
+        self.shape_layer.face_color = self.original_shape_face_color
+        print("<restoring sct shapes complete>")
+
+    def toggle_shapes_text(self):
+        self.shape_layer.text.visible = not self.shape_layer.text.visible
+
     def save_annotations(
         self,
         sample_out_dir: Union[Path, str],
@@ -325,13 +336,18 @@ class SctOperator:
         return sample_paths
 
     def hide_function_widgets(self):
+        # Always show the first two widgets
         for i in range(2, len(self.magicgui_container)):
             self.magicgui_container[i].hide()
 
     def show_selected_mode_widget(self):
-        # Always show the first two widgets
         # Always show the edit selected sc widget (7th)
         self.magicgui_container[7].show()
+        # Always show restore_sct_shapes (8th)
+        self.magicgui_container[8].show()
+        # Always show toggle_shapes_text (9th)
+        self.magicgui_container[9].show()
+
         if self.mode == self.CONNECT_MODE:
             self.magicgui_container[2].show()
         elif self.mode == self.DISCONNECT_MODE:
@@ -396,6 +412,16 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         # sct_operator.delete_selected_sct()
         sct_operator.edit_selected_sc()
 
+    @magicgui(call_button="restore sct shapes")
+    def restore_sct_shapes():
+        print("restore sct shapes fired!")
+        sct_operator.restore_shapes_data()
+
+    @magicgui(call_button="toggle shapes text")
+    def toggle_shapes_text():
+        print("toggle shapes text fired!")
+        sct_operator.toggle_shapes_text()
+
     @magicgui(
         auto_call=True,
         mode={
@@ -429,6 +455,8 @@ def create_sct_napari_ui(sct_operator: SctOperator):
             delete_trajectory_widget,
             annotate_click_widget,
             edit_selected_sc,
+            restore_sct_shapes,
+            toggle_shapes_text,
         ],
         labels=False,
     )
@@ -437,3 +465,34 @@ def create_sct_napari_ui(sct_operator: SctOperator):
     sct_operator.hide_function_widgets()
     sct_operator.show_selected_mode_widget()
     sct_operator.viewer.window.add_dock_widget(container, name="SCT Operator")
+
+
+def create_scts_operator_viewer(scts: SingleCellTrajectoryCollection, img_dataset=None, viewer=None) -> SctOperator:
+    import napari
+    from livecell_tracker.core.napari_visualizer import NapariVisualizer
+    from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
+
+    if viewer is None:
+        if img_dataset is not None:
+            viewer = napari.view_image(img_dataset.to_dask(), name="img_image", cache=True)
+        else:
+            viewer = napari.Viewer()
+    shape_layer = NapariVisualizer.gen_trajectories_shapes(scts, viewer, contour_sample_num=20)
+    shape_layer.mode = "select"
+
+    sct_operator = SctOperator(scts, shape_layer, viewer)
+    create_sct_napari_ui(sct_operator)
+    return sct_operator
+
+
+def create_scs_edit_viewer(single_cells: List[SingleCellStatic], img_dataset=None, viewer=None) -> SctOperator:
+    import napari
+    from livecell_tracker.core.napari_visualizer import NapariVisualizer
+    from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
+
+    temp_sc_trajs_for_correct = SingleCellTrajectoryCollection()
+    for idx, sc in enumerate(single_cells):
+        sct = SingleCellTrajectory(track_id=idx, timeframe_to_single_cell={sc.timeframe: sc})
+        temp_sc_trajs_for_correct.add_trajectory(sct)
+    sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer)
+    return sct_operator
