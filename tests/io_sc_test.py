@@ -48,7 +48,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
         assert result["feature_dict"] == self.cell.feature_dict
         assert result["contour"] == self.cell.contour.tolist()
         assert result["id"] == str(self.cell.id)
-        assert result["meta"] == self.cell.meta
+        assert result["meta"] == self.cell.meta_copy
 
         if self.include_dataset_json:
             assert "dataset_json" in result
