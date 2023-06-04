@@ -1,11 +1,15 @@
 import copy
 from functools import partial
 from typing import Optional, Union
+import numpy as np
 from magicgui import magicgui
 from magicgui.widgets import Container, PushButton, Widget, create_widget
 from napari.layers import Shapes
-from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic
 from pathlib import Path
+
+from livecell_tracker.core.sc_seg_operator import ScSegOperator, create_sc_seg_napari_ui
+from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic
+from livecell_tracker.livecell_logger import main_warning
 
 
 class SctOperator:
@@ -22,6 +26,7 @@ class SctOperator:
         viewer,
         operator="connect",
         magicgui_container=None,
+        sct_observers=None,
     ):
         self.select_info = []  # [cur_sct, cur_sc, selected_shape_index]
         self.operator = operator
@@ -32,6 +37,10 @@ class SctOperator:
         self.magicgui_container = magicgui_container
         self.mode = SctOperator.CONNECT_MODE
         self.annotate_click_samples = []
+
+    def selected_scs(self):
+        cur_properties = self.shape_layer.current_properties
+        return cur_properties["sc"]
 
     def select_shape(self, event, shape_layer=None):
         if shape_layer is None:
@@ -115,6 +124,28 @@ class SctOperator:
         self.shape_layer.face_color = face_colors
         print("<update track_id properties complete>")
 
+    def update_shape_layer_by_sc(self, sc: SingleCellStatic):
+        print("<update shape layer by sc>")
+        properties = self.shape_layer.properties
+        scs = properties["sc"]
+        update_shape_index = None
+        for shape_index, tmp_sc in enumerate(scs):
+            if tmp_sc.id == sc.id:
+                update_shape_index = shape_index
+            if tmp_sc.id == sc.id and tmp_sc != sc:
+                main_warning("sc with same id but different shape found in shape layer")
+
+        if update_shape_index is None:
+            main_warning("sc not found in shape layer")
+            return
+
+        # update the sc's shape data in self.shape_layer
+        shape_data = list(self.shape_layer.data)
+        shape_data[update_shape_index] = np.array(sc.get_napari_shape_contour_vec())
+        print("<setting shapes...>")
+        self.shape_layer.data = shape_data
+        print("<update shape layer by sc complete>")
+
     def connect_two_scts(self):
         assert len(self.select_info) == 2, "Please select two shapes to connect."
         sct1, sc1, shape_index1 = self.select_info[0]
@@ -165,7 +196,10 @@ class SctOperator:
     def store_shape_layer_info(self):
         # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
         self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
+        # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
+        self.original_scs = self.shape_layer.properties["sc"]
         self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
+        self.original_properties["sc"] = self.original_scs
 
     def disconnect_sct(self):
         assert len(self.select_info) == 1, "Please select one shape to disconnect."
@@ -252,6 +286,19 @@ class SctOperator:
         self.clear_selection()
         print("<annotate click operation complete>")
 
+    def edit_selected_sc(self):
+        # get the selected shape
+        current_properties = self.shape_layer.current_properties
+        if len(current_properties) == 0:
+            main_warning("Please select a shape to edit its properties.")
+            return
+        if len(current_properties) > 1:
+            main_warning("More than one shape is selected. The first selected shape is used for editing.")
+        cur_sc = current_properties["sc"][0]
+        sc_operator = ScSegOperator(cur_sc, viewer=self.viewer, create_sc_layer=True, sct_observers=[self])
+        create_sc_seg_napari_ui(sc_operator)
+        return sc_operator
+
     def save_annotations(
         self,
         sample_out_dir: Union[Path, str],
@@ -282,6 +329,9 @@ class SctOperator:
             self.magicgui_container[i].hide()
 
     def show_selected_mode_widget(self):
+        # Always show the first two widgets
+        # Always show the edit selected sc widget (7th)
+        self.magicgui_container[7].show()
         if self.mode == self.CONNECT_MODE:
             self.magicgui_container[2].show()
         elif self.mode == self.DISCONNECT_MODE:
@@ -340,6 +390,12 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         # sct_operator.delete_selected_sct()
         sct_operator.annotate_click()
 
+    @magicgui(call_button="edit selected sc")
+    def edit_selected_sc():
+        print("edit sc fired!")
+        # sct_operator.delete_selected_sct()
+        sct_operator.edit_selected_sc()
+
     @magicgui(
         auto_call=True,
         mode={
@@ -372,6 +428,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
             add_mother_daughter_relation_widget,
             delete_trajectory_widget,
             annotate_click_widget,
+            edit_selected_sc,
         ],
         labels=False,
     )

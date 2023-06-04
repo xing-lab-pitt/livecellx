@@ -219,7 +219,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         with open(path, "w+") as f:
             json.dump(self.to_json_dict(), f)
 
-    def load_from_json_dict(self, json_dict, update_time2url_from_dir_path=False):
+    def load_from_json_dict(self, json_dict, update_time2url_from_dir_path=False, is_integer_time=True):
         """Load from a json dict. If update_img_paths is True, then we will update the img_path_list based on the data_dir_path.
 
         Parameters
@@ -241,8 +241,17 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             self.update_time2url_from_dir_path()
         else:
             self.time2url = json_dict["time2url"]
+        if is_integer_time:
+            self.time2url = {int(time): url for time, url in self.time2url.items()}
         self.max_cache_size = json_dict["max_cache_size"]
         return self
+
+    @staticmethod
+    def load_from_json_file(path, **kwargs):
+        path = Path(path)
+        with open(path, "r") as f:
+            json_dict = json.load(f)
+        return LiveCellImageDataset().load_from_json_dict(json_dict, **kwargs)
 
     def to_dask(self, times=None, ram=False):
         """convert to a dask array for napari visualization"""
