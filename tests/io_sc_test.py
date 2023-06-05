@@ -49,7 +49,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
         assert result["id"] == str(self.cell.id)
 
         json_meta = json.loads(result["meta"])
-        assert json_meta == self.cell.meta_copy
+        assert json_meta == self.cell.meta
 
         if self.include_dataset_json:
             assert "dataset_json" in result
