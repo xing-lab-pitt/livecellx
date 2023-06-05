@@ -714,6 +714,9 @@ class SingleCellTrajectory:
     Single cell trajectory containing trajectory information for one single cell at all timeframes.
     """
 
+    META_MOTHER_IDS = "mother_trajectory_ids"
+    META_DAUGHTER_IDS = "daughter_trajectory_ids"
+
     def __init__(
         self,
         track_id: int = None,
@@ -751,9 +754,11 @@ class SingleCellTrajectory:
         if meta is not None:
             self.meta = meta
         else:
-            self.meta = {}
-            self.meta["mother_trajectory_ids"] = [mother.track_id for mother in self.mother_trajectories]
-            self.meta["daughter_trajectory_ids"] = [daughter.track_id for daughter in self.daughter_trajectories]
+            self.meta = {SingleCellTrajectory.META_MOTHER_IDS: [], SingleCellTrajectory.META_DAUGHTER_IDS: []}
+            self.meta[SingleCellTrajectory.META_MOTHER_IDS] = [mother.track_id for mother in self.mother_trajectories]
+            self.meta[SingleCellTrajectory.META_DAUGHTER_IDS] = [
+                daughter.track_id for daughter in self.daughter_trajectories
+            ]
 
     def __repr__(self) -> str:
         return f"SingleCellTrajectory(track_id={self.track_id}, #timeframe set={len(self)})"
@@ -770,8 +775,10 @@ class SingleCellTrajectory:
         return iter(self.timeframe_to_single_cell.items())
 
     def update_meta_trajectories(self):
-        self.meta["mother_trajectory_ids"] = [mother.track_id for mother in self.mother_trajectories]
-        self.meta["daughter_trajectory_ids"] = [daughter.track_id for daughter in self.daughter_trajectories]
+        self.meta[SingleCellTrajectory.META_MOTHER_IDS] = [mother.track_id for mother in self.mother_trajectories]
+        self.meta[SingleCellTrajectory.META_DAUGHTER_IDS] = [
+            daughter.track_id for daughter in self.daughter_trajectories
+        ]
 
     def compute_features(self, feature_key: str, func: Callable):
         """_summary_
@@ -855,39 +862,39 @@ class SingleCellTrajectory:
         if "meta" in json_dict:
             self.meta = json_dict["meta"]
 
+        # Helper function for loading datasets
+        def load_dataset(json_dir_key):
+            if json_dir_key in json_dict and json_dict[json_dir_key] is not None:
+                if isinstance(json_dict[json_dir_key], str):  # Single dataset
+                    with open(json_dict[json_dir_key], "r") as f:
+                        dataset_json = json.load(f)
+                    return LiveCellImageDataset().load_from_json_dict(dataset_json)
+                elif isinstance(json_dict[json_dir_key], dict):  # Multiple datasets
+                    extra_datasets = {}
+                    for k, v in json_dict[json_dir_key].items():
+                        with open(v, "r") as f:
+                            extra_dataset_json = json.load(f)
+                        extra_datasets[k] = LiveCellImageDataset().load_from_json_dict(extra_dataset_json)
+                    return extra_datasets
+            else:
+                return None
+
         # Load img dataset
         if img_dataset:
             self.img_dataset = img_dataset
         else:
             # Load json from img_dataset_json_dir
-            if "img_dataset_json_dir" in json_dict and json_dict["img_dataset_json_dir"] is not None:
-                with open(json_dict["img_dataset_json_dir"], "r") as f:
-                    img_dataset_json = json.load(f)
-                self.img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict=img_dataset_json)
-            else:
-                self.img_dataset = None
+            load_dataset("img_dataset_json_dir")
 
         shared_img_dataset = None
         if share_img_dataset:
             shared_img_dataset = self.img_dataset
 
         # Load json from mask_dataset_json_dir
-        if "mask_dataset_json_dir" in json_dict and json_dict["mask_dataset_json_dir"] is not None:
-            with open(json_dict["mask_dataset_json_path"], "r") as f:
-                mask_dataset_json = json.load(f)
-            self.mask_dataset = LiveCellImageDataset().load_from_json_dict(mask_dataset_json)
-        else:
-            self.mask_dataset = None
+        load_dataset("mask_dataset_json_dir")
 
         # Load json from extra_datasets_json_dir
-        if "extra_datasets_json_dir" in json_dict and json_dict["extra_datasets_json_dir"] is not None:
-            self.extra_datasets = {}
-            for k, v in json_dict["extra_datasets_json_dir"].items():
-                with open(v, "r") as f:
-                    extra_dataset_json = json.load(f)
-                self.extra_datasets[k] = LiveCellImageDataset().load_from_json_dict(extra_dataset_json)
-        else:
-            self.extra_datasets = None
+        load_dataset("extra_datasets_json_dir")
 
         self.img_total_timeframe = len(self.img_dataset)
         self.timeframe_to_single_cell = {}
@@ -903,8 +910,12 @@ class SingleCellTrajectory:
 
     def inflate_other_trajectories(self, track_id_to_trajectory: Dict[int, "SingleCellTrajectory"]):
         """inflate the other trajectories in this trajectory's mother and daughter trajectories"""
-        self.mother_trajectories = {self.track_id_to_trajectory[id] for id in self.meta["mother_trajectory_ids"]}
-        self.daughter_trajectories = {self.track_id_to_trajectory[id] for id in self.meta["daughter_trajectory_ids"]}
+        self.mother_trajectories = {
+            track_id_to_trajectory[id] for id in self.meta[SingleCellTrajectory.META_MOTHER_IDS]
+        }
+        self.daughter_trajectories = {
+            track_id_to_trajectory[id] for id in self.meta[SingleCellTrajectory.META_DAUGHTER_IDS]
+        }
 
     @staticmethod
     def load_from_json_file(path):
