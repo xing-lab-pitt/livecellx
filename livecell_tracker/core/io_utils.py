@@ -1,15 +1,6 @@
 from PIL import Image, ImageSequence
 import glob
 import numpy as np
-import json
-from json import JSONEncoder
-
-
-class LiveCellEncoder(JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return JSONEncoder.default(self, obj)
 
 
 def save_png(path: str, img: np.array, mode="L"):
