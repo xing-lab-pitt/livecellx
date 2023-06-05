@@ -243,6 +243,8 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             self.time2url = json_dict["time2url"]
         if is_integer_time:
             self.time2url = {int(time): url for time, url in self.time2url.items()}
+        self.times = list(self.time2url.keys())
+
         self.max_cache_size = json_dict["max_cache_size"]
         return self
 
