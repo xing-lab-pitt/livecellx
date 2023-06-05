@@ -4,7 +4,6 @@ from pathlib import Path
 import numpy as np
 from livecell_tracker import sample_data
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
-from livecell_tracker.livecell_logger import main_warning
 from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
 from livecell_tracker.core.datasets import LiveCellImageDataset
 from livecell_tracker.core import (
