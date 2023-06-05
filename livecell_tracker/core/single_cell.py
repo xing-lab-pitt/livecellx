@@ -360,7 +360,7 @@ class SingleCellStatic:
             self.meta[SCKM.JSON_MASK_DATASET_JSON_PATH] = json_dict[SCKM.JSON_MASK_DATASET_JSON_PATH]
 
         if "meta" in json_dict:
-            self.meta = json_dict["meta"]
+            self.meta = json.loads(json_dict["meta"])
 
         self.img_dataset = img_dataset
         self.mask_dataset = mask_dataset
