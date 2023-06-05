@@ -1,6 +1,8 @@
 import copy
+import cv2
 from functools import partial
-from typing import Optional, Union
+from typing import Optional, Union, Annotated
+import magicgui as mgui
 from magicgui import magicgui
 from magicgui.widgets import Container, PushButton, Widget, create_widget
 from napari.layers import Shapes
@@ -188,13 +190,24 @@ class ScSegOperator:
             self.shape_layer.events.data.connect(_shape_data_changed)
 
     def show_selected_mode_widget(self):
+
+        # sc id
         self.magicgui_container[0].show()
+        # switch mode
         self.magicgui_container[1].show()
+        # focus on sc
+        self.magicgui_container[7].show()
         if self.mode == self.MANUAL_CORRECT_SEG_MODE:
+            # save_seg_to_sc
             self.magicgui_container[2].show()
+            # csn_correct_seg
             self.magicgui_container[3].show()
+            # clear_sc_layer
             self.magicgui_container[4].show()
+            # restore_sc_contour
             self.magicgui_container[5].show()
+            # filter_cells_by_size
+            self.magicgui_container[6].show()
 
     def hide_function_widgets(self):
         for i in range(2, len(self.magicgui_container)):
@@ -204,20 +217,23 @@ class ScSegOperator:
         for observer in self.sct_observers:
             observer.update_shape_layer_by_sc(self.sc)
 
+    @staticmethod
+    def _get_contours_from_shape_layer(layer: Shapes):
+        res_contours = []
+        for shape in layer.data:
+            vertices = np.array(shape)
+            # ignore the first vertex, which is the slice index
+            vertices = vertices[:, 1:3]
+            res_contours.append(vertices)
+        return res_contours
+
     def save_seg_callback(self):
         """Save the segmentation to the single cell object."""
         print("<save_seg_callback fired>")
-
-        def _get_contour_from_shape_layer(layer: Shapes):
-            """Get contour coordinates from a shape layer in napari."""
-            vertices = np.array(layer.data[0])
-
-            # ignore the first vertex, which is the slice index
-            vertices = vertices[:, 1:3]
-            return vertices
-
         # Get the contour coordinates from the shape layer
-        contour = _get_contour_from_shape_layer(self.shape_layer)
+        contours = self._get_contours_from_shape_layer(self.shape_layer)
+        assert len(contours) > 0, "No contour is found in the shape layer."
+        contour = contours[0]
         # Store the contour in the single cell object
         self.sc.update_contour(contour)
         print("<save_seg_callback finished>")
@@ -265,6 +281,33 @@ class ScSegOperator:
         self.update_shape_layer_by_sc()
         print("restore_sc_contour_callback done!")
 
+    def filter_cells_by_size_callback(self, min_size, max_size):
+        print("filter_cells_by_size_callback fired!")
+        contours = self._get_contours_from_shape_layer(self.shape_layer)
+
+        required_contours = []
+        for contour in contours:
+            contour = contour.astype(np.float32)
+            area = cv2.contourArea(contour)
+            print("area:", area)
+            if area >= min_size and area <= max_size:
+                required_contours.append(contour)
+
+        time = self.sc.timeframe
+        new_shape_data = []
+        for contour in required_contours:
+            napari_vertices = [[time] + list(point) for point in contour]
+            napari_vertices = np.array(napari_vertices)
+            new_shape_data.append((napari_vertices, "polygon"))
+        self.shape_layer.data = []
+        self.shape_layer.add(new_shape_data, shape_type=["polygon"])
+        print("filter_cells_by_size_callback done!")
+
+    def focus_on_sc_callback(self):
+        print("focus_on_sc_callback fired!")
+        self.viewer.dims.set_point(0, self.sc.timeframe)
+        print("focus_on_sc_callback done!")
+
 
 def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
     """Usage
@@ -310,6 +353,19 @@ def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
         print("[button] restore sc contour callback fired!")
         sc_operator.restore_sc_contour_callback()
 
+    @magicgui(call_button="filter cells by size")
+    def filter_cells_by_size(
+        lower: Annotated[int, {"widget_type": "SpinBox", "max": int(1e6)}] = 100,
+        upper: Annotated[int, {"widget_type": "SpinBox", "max": int(1e6)}] = 100000,
+    ):
+        print("[button] filter cells by size callback fired!")
+        sc_operator.filter_cells_by_size_callback(lower, upper)
+
+    @magicgui(call_button="focus on sc")
+    def focus_on_sc():
+        print("[button] focus on sc callback fired!")
+        sc_operator.focus_on_sc_callback()
+
     @magicgui(call_button=None)
     def show_sc_id(sc_id="No SC"):
         return
@@ -322,6 +378,8 @@ def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
             csn_correct_seg,
             clear_sc_layer,
             restore_sc_contour,
+            filter_cells_by_size,
+            focus_on_sc,
         ],
         labels=False,
     )
