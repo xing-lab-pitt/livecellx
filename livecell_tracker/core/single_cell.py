@@ -389,7 +389,7 @@ class SingleCellStatic:
 
     @staticmethod
     # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
-    def load_single_cells_json(path: str, dataset_json_dir=None, json=None) -> List["SingleCellStatic"]:
+    def load_single_cells_json(path: str, json=None) -> List["SingleCellStatic"]:
         """load a json file containing a list of single cells
 
         Parameters

@@ -47,6 +47,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
         assert result["feature_dict"] == self.cell.feature_dict
         assert result["contour"] == self.cell.contour.tolist()
         assert result["id"] == str(self.cell.id)
+        assert result["meta"] == self.cell.meta_copy
 
         json_meta = json.loads(result["meta"])
         assert json_meta == self.cell.meta
@@ -92,6 +93,14 @@ class SingleCellStaticIOTest(unittest.TestCase):
         self.assertEqual(str(self.cell.id), new_cell.id, "id does not match")
         # Validate meta
         self.assertEqual(self.cell.meta, new_cell.meta, "meta does not match")
+
+        # Validate img_dataset and mask_dataset
+        for prop in ["data_dir_path", "ext", "time2url", "name"]:
+            if self.cell.img_dataset is not None and new_cell.img_dataset is not None:
+                self.assertEqual(getattr(self.cell.img_dataset, prop), getattr(new_cell.img_dataset, prop))
+
+            if self.cell.mask_dataset is not None and new_cell.mask_dataset is not None:
+                self.assertEqual(getattr(self.cell.mask_dataset, prop), getattr(new_cell.mask_dataset, prop))
 
     def test_write_single_cells_json(self):
         json_path = self.io_out_dir / "test_single_cells.json"
