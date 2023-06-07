@@ -863,7 +863,7 @@ class SingleCellTrajectory:
             self.meta = json_dict["meta"]
 
         # Helper function for loading datasets
-        def load_dataset(json_dir_key):
+        def _load_dataset(json_dir_key):
             if json_dir_key in json_dict and json_dict[json_dir_key] is not None:
                 if isinstance(json_dict[json_dir_key], str):  # Single dataset
                     with open(json_dict[json_dir_key], "r") as f:
