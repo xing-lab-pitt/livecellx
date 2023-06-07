@@ -306,7 +306,7 @@ class SingleCellStatic:
     def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
         """returns a dict that can be converted to json"""
         # Convert the metadata to JSON string using LiveCellEncoder
-        json_meta = json.dumps(self.meta, cls=LiveCellEncoder)
+        json_meta = self.meta
 
         res = {
             "timeframe": int(self.timeframe),
@@ -360,7 +360,7 @@ class SingleCellStatic:
             self.meta[SCKM.JSON_MASK_DATASET_JSON_PATH] = json_dict[SCKM.JSON_MASK_DATASET_JSON_PATH]
 
         if "meta" in json_dict:
-            self.meta = json.loads(json_dict["meta"])
+            self.meta = json_dict["meta"]
 
         self.img_dataset = img_dataset
         self.mask_dataset = mask_dataset
@@ -456,10 +456,10 @@ class SingleCellStatic:
 
     def write_json(self, path=None):
         if path is None:
-            return json.dumps(self.to_json_dict())
+            return json.dumps(self.to_json_dict(), cls=LiveCellEncoder)
         else:
             with open(path, "w+") as f:
-                json.dump(self.to_json_dict(), f)
+                json.dump(self.to_json_dict(), f, cls=LiveCellEncoder)
 
     def get_contour_coords_on_crop(self, bbox=None, padding=0):
         if bbox is None:
@@ -825,7 +825,7 @@ class SingleCellTrajectory:
             self.update_meta_trajectories()
 
         # Convert the metadata to JSON string using LiveCellEncoder
-        json_meta = json.dumps(self.meta, cls=LiveCellEncoder)
+        json_meta = self.meta
 
         res = {
             "track_id": int(self.track_id),
@@ -852,10 +852,10 @@ class SingleCellTrajectory:
 
     def write_json(self, path=None):
         if path is None:
-            return json.dumps(self.to_json_dict())
+            return json.dumps(self.to_json_dict(), cls=LiveCellEncoder)
         else:
             with open(path, "w+") as f:
-                json.dump(self.to_json_dict(), f)
+                json.dump(self.to_json_dict(), f, cls=LiveCellEncoder)
 
     def load_from_json_dict(self, json_dict, img_dataset=None, share_img_dataset=True):
         self.track_id = json_dict["track_id"]
@@ -1088,7 +1088,7 @@ class SingleCellTrajectoryCollection:
 
     def write_json(self, path):
         with open(path, "w+") as f:
-            json.dump(self.to_json_dict(), f)
+            json.dump(self.to_json_dict(), f, cls=LiveCellEncoder)
 
     def load_from_json_dict(self, json_dict):
         self.track_id_to_trajectory = {}
