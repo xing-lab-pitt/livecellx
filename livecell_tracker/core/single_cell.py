@@ -865,17 +865,9 @@ class SingleCellTrajectory:
         # Helper function for loading datasets
         def _load_dataset(json_dir_key):
             if json_dir_key in json_dict and json_dict[json_dir_key] is not None:
-                if isinstance(json_dict[json_dir_key], str):  # Single dataset
-                    with open(json_dict[json_dir_key], "r") as f:
-                        dataset_json = json.load(f)
-                    return LiveCellImageDataset().load_from_json_dict(dataset_json)
-                elif isinstance(json_dict[json_dir_key], dict):  # Multiple datasets
-                    extra_datasets = {}
-                    for k, v in json_dict[json_dir_key].items():
-                        with open(v, "r") as f:
-                            extra_dataset_json = json.load(f)
-                        extra_datasets[k] = LiveCellImageDataset().load_from_json_dict(extra_dataset_json)
-                    return extra_datasets
+                with open(json_dict[json_dir_key], "r") as f:
+                    dataset_json = json.load(f)
+                return LiveCellImageDataset().load_from_json_dict(dataset_json)
             else:
                 return None
 
@@ -884,17 +876,23 @@ class SingleCellTrajectory:
             self.img_dataset = img_dataset
         else:
             # Load json from img_dataset_json_dir
-            load_dataset("img_dataset_json_dir")
+            _load_dataset("img_dataset_json_dir")
 
         shared_img_dataset = None
         if share_img_dataset:
             shared_img_dataset = self.img_dataset
 
         # Load json from mask_dataset_json_dir
-        load_dataset("mask_dataset_json_dir")
+        _load_dataset("mask_dataset_json_dir")
 
         # Load json from extra_datasets_json_dir
-        load_dataset("extra_datasets_json_dir")
+        extra_datasets = {}
+        for k, v in json_dict["extra_datasets_json_dir"].items():
+            with open(v, "r") as f:
+                extra_dataset_json = json.load(f)
+            extra_datasets[k] = LiveCellImageDataset().load_from_json_dict(extra_dataset_json)
+        else:
+            self.mask_dataset = None
 
         self.img_total_timeframe = len(self.img_dataset)
         self.timeframe_to_single_cell = {}
