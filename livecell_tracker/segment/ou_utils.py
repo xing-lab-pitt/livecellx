@@ -45,7 +45,7 @@ def create_ou_input_from_sc(
     return img_crop
 
 
-def create_ou_input_from_img_mask(img: npt.NDArray, mask, normalize=True, dtype=float):
+def create_ou_input_from_img_mask(img: npt.ArrayLike, mask, normalize=True, dtype=float):
     img = img.astype(dtype).copy()
     if normalize:
         img = normalize_img_to_uint8(img).astype(dtype)
