@@ -830,8 +830,7 @@ class SingleCellTrajectory:
         res = {
             "track_id": int(self.track_id),
             "timeframe_to_single_cell": {
-                int(float(timeframe)): sc.to_json_dict(dataset_json=False)
-                for timeframe, sc in self.timeframe_to_single_cell.items()
+                int(float(timeframe)): sc.to_json_dict() for timeframe, sc in self.timeframe_to_single_cell.items()
             },
             # Store mother and daughter trajectories, and other information in metadata
             "meta": json_meta,
@@ -1082,7 +1081,7 @@ class SingleCellTrajectoryCollection:
     def to_json_dict(self):
         return {
             "track_id_to_trajectory": {
-                int(track_id): trajectory.to_dict() for track_id, trajectory in self.track_id_to_trajectory.items()
+                int(track_id): trajectory.to_json_dict() for track_id, trajectory in self.track_id_to_trajectory.items()
             }
         }
 
