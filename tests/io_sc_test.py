@@ -48,7 +48,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
         assert result["contour"] == self.cell.contour.tolist()
         assert result["id"] == str(self.cell.id)
 
-        json_meta = json.loads(result["meta"])
+        json_meta = result["meta"]
         assert json_meta == self.cell.meta
 
         if self.include_dataset_json:
@@ -120,7 +120,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
                 cell.contour, np.array(sc_json_dict_list[i]["contour"]), "contour does not match"
             )
             # Load the meta from JSON string to dict before comparing
-            sc_meta = json.loads(sc_json_dict_list[i]["meta"])
+            sc_meta = sc_json_dict_list[i]["meta"]
             self.assertEqual(self.cell.meta, sc_meta, "meta does not match")
 
     def test_load_single_cells_json(self):
@@ -161,7 +161,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
         np.testing.assert_array_equal(self.cell.contour, np.array(sc_json_dict["contour"]), "contour does not match")
 
         # Load the meta from JSON string to dict before comparing
-        sc_meta = json.loads(sc_json_dict["meta"])
+        sc_meta = sc_json_dict["meta"]
         self.assertEqual(self.cell.meta, sc_meta, "meta does not match")
 
         # Test write to string
@@ -174,7 +174,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
         self.assertEqual(self.cell.feature_dict, sc_json_dict["feature_dict"], "feature_dict does not match")
         np.testing.assert_array_equal(self.cell.contour, np.array(sc_json_dict["contour"]), "contour does not match")
 
-        sc_meta = json.loads(sc_json_dict["meta"])
+        sc_meta = sc_json_dict["meta"]
         self.assertEqual(self.cell.meta, sc_meta, "meta does not match")
 
     def tearDown(self):
