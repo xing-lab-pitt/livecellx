@@ -798,6 +798,8 @@ class SingleCellTrajectory:
         self.timeframe_set.add(timeframe)
         self.times = sorted(self.timeframe_set)
 
+    add_sc = add_single_cell
+
     def get_img(self, timeframe):
         return self.timeframe_to_single_cell[timeframe].get_img()
 
@@ -808,9 +810,13 @@ class SingleCellTrajectory:
         assert len(self.timeframe_set) > 0, "sct: timeframe set is empty."
         return (min(self.timeframe_set), max(self.timeframe_set))
 
+    get_time_span = get_timeframe_span
+
     def get_timeframe_span_length(self):
         min_t, max_t = self.get_timeframe_span()
         return max_t - min_t + 1
+
+    get_time_span_length = get_timeframe_span_length
 
     def get_single_cell(self, timeframe: int) -> SingleCellStatic:
         return self.timeframe_to_single_cell[timeframe]
@@ -1129,6 +1135,13 @@ class SingleCellTrajectoryCollection:
 
     def get_track_ids(self):
         return sorted(list(self.track_id_to_trajectory.keys()))
+
+    def get_time_span(self):
+        res_time_span = (0, np.inf)
+        for track_id, trajectory in self:
+            _tmp_time_span = trajectory.get_time_span()
+            res_time_span = (min(res_time_span[0], _tmp_time_span[0]), max(res_time_span[1], _tmp_time_span[1]))
+        return res_time_span
 
     def subset(self, track_ids):
         new_sc_traj_collection = SingleCellTrajectoryCollection()
