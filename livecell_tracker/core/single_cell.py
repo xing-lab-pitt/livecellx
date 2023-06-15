@@ -864,12 +864,34 @@ class SingleCellTrajectory:
         }
         return res
 
-    def write_json(self, path=None):
+    def write_json(self, path=None, dataset_json_dir=None):
+        json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
+
+        # Helper function to write dataset to JSON file
+        def _write_dataset_json(dataset, json_dir_key):
+            dataset_json_dir = json_dict.get(json_dir_key)
+            if dataset is not None and dataset_json_dir is not None:
+                if not os.path.isfile(dataset_json_dir):
+                    with open(dataset_json_dir, "w+") as f:
+                        json.dump(dataset.to_json_dict(), f, cls=LiveCellEncoder)
+
+        # img_dataset
+        _write_dataset_json(self.img_dataset, "img_dataset_json_dir")
+
+        # mask_dataset
+        _write_dataset_json(self.mask_dataset, "mask_dataset_json_dir")
+
+        # extra_datasets
+        extra_datasets_json_dir = json_dict.get("extra_datasets_json_dir")
+        if self.extra_datasets is not None and extra_datasets_json_dir is not None:
+            for k, extra_dataset_json_path in extra_datasets_json_dir.items():
+                _write_dataset_json(self.extra_datasets[k], extra_dataset_json_path)
+
         if path is None:
-            return json.dumps(self.to_json_dict(), cls=LiveCellEncoder)
+            return json.dumps(json_dict, cls=LiveCellEncoder)
         else:
             with open(path, "w+") as f:
-                json.dump(self.to_json_dict(), f, cls=LiveCellEncoder)
+                json.dump(json_dict, f, cls=LiveCellEncoder)
 
     def load_from_json_dict(self, json_dict, img_dataset=None, share_img_dataset=True):
         self.track_id = json_dict["track_id"]
