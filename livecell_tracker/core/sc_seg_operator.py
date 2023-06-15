@@ -65,7 +65,7 @@ class ScSegOperator:
         ----------
         viewer : napari.Viewer
             The napari viewer.
-        single_cell_static : SingleCellStatic
+        sc : SingleCellStatic
             The single cell static object.
         """
 
