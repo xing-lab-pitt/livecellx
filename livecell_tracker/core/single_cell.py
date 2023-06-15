@@ -1,6 +1,7 @@
 import itertools
 import json
 import copy
+import os
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from collections import deque
 import matplotlib.patches as patches
@@ -305,15 +306,12 @@ class SingleCellStatic:
 
     def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
         """returns a dict that can be converted to json"""
-        # Convert the metadata to JSON string using LiveCellEncoder
-        json_meta = self.meta
-
         res = {
             "timeframe": int(self.timeframe),
             "bbox": list(np.array(self.bbox, dtype=float)),
             "feature_dict": self.feature_dict,
             "contour": self.contour.tolist(),
-            "meta": json_meta,
+            "meta": self.meta,
             "id": str(self.id),
         }
         if include_dataset_json:
@@ -454,12 +452,29 @@ class SingleCellStatic:
             # json.dump([sc.to_json_dict() for sc in single_cells], f)
             json.dump(all_sc_jsons, f)
 
-    def write_json(self, path=None):
+    def write_json(self, path=None, dataset_json_dir=None):
+        json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
+
+        img_dataset_json_path = None
+        mask_dataset_json_path = None
+
+        if self.img_dataset is not None and SCKM.JSON_IMG_DATASET_JSON_PATH in json_dict:
+            img_dataset_json_path = json_dict[SCKM.JSON_IMG_DATASET_JSON_PATH]
+            if not os.path.isfile(img_dataset_json_path):
+                with open(img_dataset_json_path, "w+") as f:
+                    json.dump(self.img_dataset.to_json_dict(), f)
+
+        if self.mask_dataset is not None and SCKM.JSON_MASK_DATASET_JSON_PATH in json_dict:
+            mask_dataset_json_path = json_dict[SCKM.JSON_MASK_DATASET_JSON_PATH]
+            if not os.path.isfile(mask_dataset_json_path):
+                with open(mask_dataset_json_path, "w+") as f:
+                    json.dump(self.mask_dataset.to_json_dict(), f)
+
         if path is None:
-            return json.dumps(self.to_json_dict(), cls=LiveCellEncoder)
+            return json.dumps(json_dict, cls=LiveCellEncoder)
         else:
             with open(path, "w+") as f:
-                json.dump(self.to_json_dict(), f, cls=LiveCellEncoder)
+                json.dump(json_dict, f, cls=LiveCellEncoder)
 
     def get_contour_coords_on_crop(self, bbox=None, padding=0):
         if bbox is None:
@@ -1107,7 +1122,7 @@ class SingleCellTrajectoryCollection:
             ax = sns.countplot(x=all_traj_lengths)
         for container in ax.containers:
             ax.bar_label(container)
-        ax.set(xlabel='Trajectory Length')
+        ax.set(xlabel="Trajectory Length")
         return ax
 
     def get_feature_table(self) -> pd.DataFrame:
