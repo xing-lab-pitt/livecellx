@@ -128,22 +128,44 @@ class SctOperator:
         print("<update shape layer by sc>")
         properties = self.shape_layer.properties
         scs = properties["sc"]
-        update_shape_index = None
-        for shape_index, tmp_sc in enumerate(scs):
-            if tmp_sc.id == sc.id:
-                update_shape_index = shape_index
-            if tmp_sc.id == sc.id and tmp_sc != sc:
-                main_warning("sc with same id but different shape found in shape layer")
 
+        def lookup_sc_index(sc):
+            update_shape_index = None
+            for shape_index, tmp_sc in enumerate(scs):
+                if tmp_sc.id == sc.id:
+                    update_shape_index = shape_index
+                if tmp_sc.id == sc.id and tmp_sc != sc:
+                    main_warning("sc with same id but different shape found in shape layer")
+            return update_shape_index
+
+        update_shape_index = lookup_sc_index(sc)
         if update_shape_index is None:
             main_warning("sc not found in shape layer")
             return
 
         # update the sc's shape data in self.shape_layer
-        shape_data = list(self.shape_layer.data)
-        shape_data[update_shape_index] = np.array(sc.get_napari_shape_contour_vec())
-        print("<setting shapes...>")
-        self.shape_layer.data = shape_data
+        self.shape_layer.selected_data = {update_shape_index}
+        self.shape_layer.remove_selected()
+        sc_napari_data = np.array(sc.get_napari_shape_contour_vec())
+        update_shape_properties = self.shape_layer.current_properties
+        update_shape_properties["sc"] = [sc]
+
+        # TODO: optimize the code below and figure out why the code below is slow in Napari UI
+        # TODO: double check shape_layer.add does not support "properties=?" arg?
+        self.shape_layer.add([sc_napari_data], shape_type="polygon")  # , properties=update_shape_properties)
+        new_shape_index = lookup_sc_index(sc)
+        properties = self.shape_layer.properties
+        for key in properties.keys():
+            properties[key][new_shape_index] = update_shape_properties[key][0]
+        self.shape_layer.properties = properties
+
+        # # Deprecated code below; rollback if required
+        # # simply update all the data
+        # shape_data = list(self.shape_layer.data)
+        # shape_data[update_shape_index] = np.array(sc.get_napari_shape_contour_vec())
+        # print("<setting shapes...>")
+        # self.shape_layer.data = shape_data
+        self.store_shape_layer_info()
         print("<update shape layer by sc complete>")
 
     def connect_two_scts(self):

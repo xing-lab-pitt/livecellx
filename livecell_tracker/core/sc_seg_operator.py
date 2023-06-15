@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from napari.layers import Shapes
 
+from livecell_tracker.livecell_logger import main_info
 from livecell_tracker.core import SingleCellTrajectory, SingleCellStatic
 from livecell_tracker.segment.ou_utils import create_ou_input_from_sc
 from livecell_tracker.segment.utils import find_contours_opencv
@@ -208,12 +209,14 @@ class ScSegOperator:
             self.magicgui_container[5].show()
             # filter_cells_by_size
             self.magicgui_container[6].show()
+            # resample contour points
+            self.magicgui_container[8].show()
 
     def hide_function_widgets(self):
         for i in range(2, len(self.magicgui_container)):
             self.magicgui_container[i].hide()
 
-    def notify_sct_observers(self):
+    def notify_sct_to_update(self):
         for observer in self.sct_observers:
             observer.update_shape_layer_by_sc(self.sc)
 
@@ -239,7 +242,7 @@ class ScSegOperator:
         print("<save_seg_callback finished>")
 
         # Notify the observers
-        self.notify_sct_observers()
+        self.notify_sct_to_update()
 
     def csn_correct_seg_callback(self, padding_pixels=50):
         print("csn_correct_seg_callback fired")
@@ -308,6 +311,45 @@ class ScSegOperator:
         self.viewer.dims.set_point(0, self.sc.timeframe)
         print("focus_on_sc_callback done!")
 
+    @staticmethod
+    def resample_contour(contour, sample_num=50, start_idx=None):
+        if start_idx is None:
+            start_idx = np.random.randint(0, len(contour))
+        if len(contour) == 0 or start_idx > len(contour):
+            main_info("The contour is empty or the start_idx is out of range.")
+            return contour
+
+        # rotate contour so that the start_idx is at the beginning
+        contour = np.roll(contour, -start_idx, axis=0)
+
+        slice_step = int(len(contour) / sample_num)
+        slice_step = max(slice_step, 1)  # make sure slice_step is at least 1
+        if sample_num is not None:
+            contour = contour[::slice_step]
+        return contour
+
+    def resample_contours_callback(self, sample_num):
+        print("resample_contours_callback fired!")
+        contours = self._get_contours_from_shape_layer(self.shape_layer)
+        resampled_contours = []
+        for contour in contours:
+            resampled_contours.append(self.resample_contour(contour, sample_num=sample_num))
+        time = self.sc.timeframe
+        new_shape_data = []
+        for contour in resampled_contours:
+            napari_vertices = [[time] + list(point) for point in contour]
+            napari_vertices = np.array(napari_vertices)
+            new_shape_data.append((napari_vertices, "polygon"))
+        self.shape_layer.data = []
+        self.shape_layer.add(new_shape_data, shape_type=["polygon"])
+
+        # select the newly added last contour
+
+        # The contours may all be empty? (double check) so we need to check the length first
+        if len(self.shape_layer.data) > 0:
+            self.shape_layer.selected_data = [len(self.shape_layer.data) - 1]
+        print("resample_contours_callback done!")
+
 
 def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
     """Usage
@@ -370,6 +412,14 @@ def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
     def show_sc_id(sc_id="No SC"):
         return
 
+    @magicgui(call_button="resample contours")
+    def resample_contours(sample_num: Annotated[int, {"widget_type": "SpinBox", "max": int(1e6)}] = 100):
+        print("[button] resample contours callback fired!")
+        sc_operator.resample_contours_callback(sample_num)
+
+    def on_close_callback():
+        print("on_close_callback fired!")
+
     container = Container(
         widgets=[
             show_sc_id,
@@ -380,6 +430,7 @@ def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
             restore_sc_contour,
             filter_cells_by_size,
             focus_on_sc,
+            resample_contours,
         ],
         labels=False,
     )
