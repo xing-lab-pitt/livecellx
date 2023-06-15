@@ -2,6 +2,8 @@ import copy
 from functools import partial
 from typing import List, Optional, Union
 import numpy as np
+
+import magicgui as mgui
 from magicgui import magicgui
 from magicgui.widgets import Container, PushButton, Widget, create_widget
 from napari.layers import Shapes
@@ -45,7 +47,6 @@ class SctOperator:
         self.sc_operators.remove(sc_operator)
 
     def clear_sc_opeartors(self):
-
         # the close method changes the length of the list, so we need to make a copy
         cur_sc_operators = list(self.sc_operators)
         for sc_operator in cur_sc_operators:
@@ -392,12 +393,15 @@ class SctOperator:
             self.magicgui_container[i].hide()
 
     def show_selected_mode_widget(self):
+
         # Always show the edit selected sc widget (7th)
         self.magicgui_container[7].show()
         # Always show restore_sct_shapes (8th)
         self.magicgui_container[8].show()
         # Always show toggle_shapes_text (9th)
         self.magicgui_container[9].show()
+        # Always show clear sc operators (10th)
+        self.magicgui_container[10].show()
 
         if self.mode == self.CONNECT_MODE:
             self.magicgui_container[2].show()
@@ -473,6 +477,11 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         print("toggle shapes text fired!")
         sct_operator.toggle_shapes_text()
 
+    @magicgui(call_button="clear sc operators")
+    def clear_sc_operators():
+        print("clear sc operators fired!")
+        sct_operator.clear_sc_opeartors()
+
     @magicgui(
         auto_call=True,
         mode={
@@ -508,6 +517,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
             edit_selected_sc,
             restore_sct_shapes,
             toggle_shapes_text,
+            clear_sc_operators,
         ],
         labels=False,
     )
