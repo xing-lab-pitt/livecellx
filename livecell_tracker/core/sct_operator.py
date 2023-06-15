@@ -427,6 +427,7 @@ class SctOperator:
         # self.shape_layer.data = list(self.shape_layer.data) + sc_napari_data
         self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon")
         self.shape_layer.properties = new_sc_layer_properties
+        self.store_shape_layer_info()
         print("<adding new sc complete>")
         return sc_operator
 
