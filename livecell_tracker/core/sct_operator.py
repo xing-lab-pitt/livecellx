@@ -423,7 +423,7 @@ class SctOperator:
             "track_id": new_sc_layer_track_properties,
             "status": new_sc_layer_status_properties,
         }
-        sc_dummy_napari_data = [np.array([[new_sc.timeframe, 0, 0], [new_sc.timeframe, 0, 10]])]
+        sc_dummy_napari_data = [np.array([[new_sc.timeframe, -50, -50], [new_sc.timeframe, -10, -10]])]
         # self.shape_layer.data = list(self.shape_layer.data) + sc_napari_data
         self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon")
         self.shape_layer.properties = new_sc_layer_properties
@@ -446,6 +446,8 @@ class SctOperator:
         self.magicgui_container[9].show()
         # Always show clear sc operators (10th)
         self.magicgui_container[10].show()
+        # Always show add new sc (11th)
+        self.magicgui_container[11].show()
 
         if self.mode == self.CONNECT_MODE:
             self.magicgui_container[2].show()
@@ -526,6 +528,11 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         print("clear sc operators fired!")
         sct_operator.clear_sc_opeartors()
 
+    @magicgui(call_button="add new sc")
+    def add_new_sc():
+        print("add new sc fired!")
+        sct_operator.add_new_sc()
+
     @magicgui(
         auto_call=True,
         mode={
@@ -562,6 +569,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
             restore_sct_shapes,
             toggle_shapes_text,
             clear_sc_operators,
+            add_new_sc,
         ],
         labels=False,
     )
