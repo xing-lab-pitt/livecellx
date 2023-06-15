@@ -45,7 +45,11 @@ class SctOperator:
         self.sc_operators.remove(sc_operator)
 
     def clear_sc_opeartors(self):
-        for sc_operator in self.sc_operators:
+
+        # the close method changes the length of the list, so we need to make a copy
+        cur_sc_operators = list(self.sc_operators)
+        for sc_operator in cur_sc_operators:
+            print("clearing sc operator: ", sc_operator)
             sc_operator.close()
 
         # # explicitly clear the list is not necessary

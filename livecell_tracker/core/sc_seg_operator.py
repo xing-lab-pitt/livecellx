@@ -56,7 +56,7 @@ class ScSegOperator:
         viewer,
         shape_layer: Optional[Shapes] = None,
         face_color=(0, 0, 1, 1),
-        magicgui_container=None,
+        magicgui_container: Optional[Container] = None,
         csn_model=None,
         create_sc_layer=True,
         sct_observers: Optional[list] = None,
@@ -358,8 +358,10 @@ class ScSegOperator:
         # remove the shaper layer
         self.viewer.layers.remove(self.shape_layer)
         self.notify_sct_to_remove_sc_operator()
-        self.magicgui_container.hide()
-        self.magicgui_container.close()
+        # self.magicgui_container.hide()
+        # self.magicgui_container.close()
+        if self.magicgui_container is not None:
+            self.viewer.window.remove_dock_widget(self.magicgui_container.native)
 
 
 def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
