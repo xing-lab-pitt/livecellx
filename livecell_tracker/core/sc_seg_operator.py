@@ -27,7 +27,7 @@ class ScSegOperator:
     ----------
     viewer : napari.Viewer
         The napari viewer.
-    single_cell_static : SingleCellStatic
+    sc : SingleCellStatic
         The single cell static object.
     shape_layer : napari.layers.Shapes
         The napari shape layer for displaying the segmentation.
