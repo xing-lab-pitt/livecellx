@@ -26,7 +26,7 @@ class SctOperator:
         viewer,
         operator="connect",
         magicgui_container=None,
-        sct_observers=None,
+        sc_operators=None,
     ):
         self.select_info = []  # [cur_sct, cur_sc, selected_shape_index]
         self.operator = operator
@@ -37,6 +37,30 @@ class SctOperator:
         self.magicgui_container = magicgui_container
         self.mode = SctOperator.CONNECT_MODE
         self.annotate_click_samples = []
+        if sc_operators is None:
+            sc_operators = []
+        self.sc_operators = sc_operators
+
+    def remove_sc_operator(self, sc_operator):
+        self.sc_operators.remove(sc_operator)
+
+    def clear_sc_opeartors(self):
+        for sc_operator in self.sc_operators:
+            sc_operator.close()
+
+        # # explicitly clear the list is not necessary
+        # # sc_opeartor close should remove itself from the list
+        # self.sc_operators = []
+        if len(self.sc_operators) != 0:
+            main_warning("sc_operators not empty after clear_sc_operators (should be done via sc opeartor close)")
+
+    def get_all_scs(self):
+        """Return all single cell objects in the current trajec_collection"""
+        all_scts = self.traj_collection.get_all_trajectories()
+        all_scs = []
+        for sct in all_scts:
+            all_scs.extend(sct.get_all_scs())
+        return all_scs
 
     def selected_scs(self):
         cur_properties = self.shape_layer.current_properties
@@ -320,6 +344,7 @@ class SctOperator:
         cur_sc = current_properties["sc"][0]
         sc_operator = ScSegOperator(cur_sc, viewer=self.viewer, create_sc_layer=True, sct_observers=[self])
         create_sc_seg_napari_ui(sc_operator)
+        self.sc_operators.append(sc_operator)
         return sc_operator
 
     def restore_shapes_data(self):

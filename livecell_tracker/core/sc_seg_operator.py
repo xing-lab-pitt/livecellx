@@ -220,6 +220,10 @@ class ScSegOperator:
         for observer in self.sct_observers:
             observer.update_shape_layer_by_sc(self.sc)
 
+    def notify_sct_to_remove_sc_operator(self):
+        for observer in self.sct_observers:
+            observer.remove_sc_operator(self)
+
     @staticmethod
     def _get_contours_from_shape_layer(layer: Shapes):
         res_contours = []
@@ -350,6 +354,13 @@ class ScSegOperator:
             self.shape_layer.selected_data = [len(self.shape_layer.data) - 1]
         print("resample_contours_callback done!")
 
+    def close(self):
+        # remove the shaper layer
+        self.viewer.layers.remove(self.shape_layer)
+        self.notify_sct_to_remove_sc_operator()
+        self.magicgui_container.hide()
+        self.magicgui_container.close()
+
 
 def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
     """Usage
@@ -434,6 +445,8 @@ def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
         ],
         labels=False,
     )
+    container.native.setParent(None)
+    container.native.deleteLater = lambda: on_close_callback()
     show_sc_id.sc_id.value = str(sc_operator.sc.id)[:12] + "-..."
     # hide call button
     show_sc_id.call_button.hide()

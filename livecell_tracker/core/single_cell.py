@@ -815,6 +815,9 @@ class SingleCellTrajectory:
     def get_single_cell(self, timeframe: int) -> SingleCellStatic:
         return self.timeframe_to_single_cell[timeframe]
 
+    def get_all_scs(self) -> List[SingleCellStatic]:
+        return list(self.timeframe_to_single_cell.values())
+
     def pop_single_cell(self, timeframe: int):
         self.timeframe_set.remove(timeframe)
         return self.timeframe_to_single_cell.pop(timeframe)
@@ -1075,6 +1078,9 @@ class SingleCellTrajectoryCollection:
     def get_trajectory(self, track_id) -> SingleCellTrajectory:
         return self.track_id_to_trajectory[track_id]
 
+    def get_all_trajectories(self) -> List[SingleCellTrajectory]:
+        return list(self.track_id_to_trajectory.values())
+
     def pop_trajectory(self, track_id):
         return self.track_id_to_trajectory.pop(track_id)
 
@@ -1107,7 +1113,7 @@ class SingleCellTrajectoryCollection:
             ax = sns.countplot(x=all_traj_lengths)
         for container in ax.containers:
             ax.bar_label(container)
-        ax.set(xlabel='Trajectory Length')
+        ax.set(xlabel="Trajectory Length")
         return ax
 
     def get_feature_table(self) -> pd.DataFrame:
@@ -1120,9 +1126,6 @@ class SingleCellTrajectoryCollection:
             else:
                 feature_table = pd.concat([feature_table, sc_feature_table])
         return feature_table
-
-    def pop_trajectory(self, track_id):
-        return self.track_id_to_trajectory.pop(track_id)
 
     def get_track_ids(self):
         return sorted(list(self.track_id_to_trajectory.keys()))
