@@ -2,6 +2,8 @@ import copy
 from functools import partial
 from typing import List, Optional, Union
 import numpy as np
+
+import magicgui as mgui
 from magicgui import magicgui
 from magicgui.widgets import Container, PushButton, Widget, create_widget
 from napari.layers import Shapes
@@ -26,7 +28,7 @@ class SctOperator:
         viewer,
         operator="connect",
         magicgui_container=None,
-        sct_observers=None,
+        sc_operators=None,
     ):
         self.select_info = []  # [cur_sct, cur_sc, selected_shape_index]
         self.operator = operator
@@ -37,6 +39,33 @@ class SctOperator:
         self.magicgui_container = magicgui_container
         self.mode = SctOperator.CONNECT_MODE
         self.annotate_click_samples = []
+        if sc_operators is None:
+            sc_operators = []
+        self.sc_operators = sc_operators
+
+    def remove_sc_operator(self, sc_operator):
+        self.sc_operators.remove(sc_operator)
+
+    def clear_sc_opeartors(self):
+        # the close method changes the length of the list, so we need to make a copy
+        cur_sc_operators = list(self.sc_operators)
+        for sc_operator in cur_sc_operators:
+            print("clearing sc operator: ", sc_operator)
+            sc_operator.close()
+
+        # # explicitly clear the list is not necessary
+        # # sc_opeartor close should remove itself from the list
+        # self.sc_operators = []
+        if len(self.sc_operators) != 0:
+            main_warning("sc_operators not empty after clear_sc_operators (should be done via sc opeartor close)")
+
+    def get_all_scs(self):
+        """Return all single cell objects in the current trajec_collection"""
+        all_scts = self.traj_collection.get_all_trajectories()
+        all_scs = []
+        for sct in all_scts:
+            all_scs.extend(sct.get_all_scs())
+        return all_scs
 
     def selected_scs(self):
         cur_properties = self.shape_layer.current_properties
@@ -128,22 +157,44 @@ class SctOperator:
         print("<update shape layer by sc>")
         properties = self.shape_layer.properties
         scs = properties["sc"]
-        update_shape_index = None
-        for shape_index, tmp_sc in enumerate(scs):
-            if tmp_sc.id == sc.id:
-                update_shape_index = shape_index
-            if tmp_sc.id == sc.id and tmp_sc != sc:
-                main_warning("sc with same id but different shape found in shape layer")
 
+        def lookup_sc_index(sc):
+            update_shape_index = None
+            for shape_index, tmp_sc in enumerate(scs):
+                if tmp_sc.id == sc.id:
+                    update_shape_index = shape_index
+                if tmp_sc.id == sc.id and tmp_sc != sc:
+                    main_warning("sc with same id but different shape found in shape layer")
+            return update_shape_index
+
+        update_shape_index = lookup_sc_index(sc)
         if update_shape_index is None:
             main_warning("sc not found in shape layer")
             return
 
         # update the sc's shape data in self.shape_layer
-        shape_data = list(self.shape_layer.data)
-        shape_data[update_shape_index] = np.array(sc.get_napari_shape_contour_vec())
-        print("<setting shapes...>")
-        self.shape_layer.data = shape_data
+        self.shape_layer.selected_data = {update_shape_index}
+        self.shape_layer.remove_selected()
+        sc_napari_data = np.array(sc.get_napari_shape_contour_vec())
+        update_shape_properties = self.shape_layer.current_properties
+        update_shape_properties["sc"] = [sc]
+
+        # TODO: optimize the code below and figure out why the code below is slow in Napari UI
+        # TODO: double check shape_layer.add does not support "properties=?" arg?
+        self.shape_layer.add([sc_napari_data], shape_type="polygon")  # , properties=update_shape_properties)
+        new_shape_index = lookup_sc_index(sc)
+        properties = self.shape_layer.properties
+        for key in properties.keys():
+            properties[key][new_shape_index] = update_shape_properties[key][0]
+        self.shape_layer.properties = properties
+
+        # # Deprecated code below; rollback if required
+        # # simply update all the data
+        # shape_data = list(self.shape_layer.data)
+        # shape_data[update_shape_index] = np.array(sc.get_napari_shape_contour_vec())
+        # print("<setting shapes...>")
+        # self.shape_layer.data = shape_data
+        self.store_shape_layer_info()
         print("<update shape layer by sc complete>")
 
     def connect_two_scts(self):
@@ -298,6 +349,7 @@ class SctOperator:
         cur_sc = current_properties["sc"][0]
         sc_operator = ScSegOperator(cur_sc, viewer=self.viewer, create_sc_layer=True, sct_observers=[self])
         create_sc_seg_napari_ui(sc_operator)
+        self.sc_operators.append(sc_operator)
         return sc_operator
 
     def restore_shapes_data(self):
@@ -341,12 +393,15 @@ class SctOperator:
             self.magicgui_container[i].hide()
 
     def show_selected_mode_widget(self):
+
         # Always show the edit selected sc widget (7th)
         self.magicgui_container[7].show()
         # Always show restore_sct_shapes (8th)
         self.magicgui_container[8].show()
         # Always show toggle_shapes_text (9th)
         self.magicgui_container[9].show()
+        # Always show clear sc operators (10th)
+        self.magicgui_container[10].show()
 
         if self.mode == self.CONNECT_MODE:
             self.magicgui_container[2].show()
@@ -422,6 +477,11 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         print("toggle shapes text fired!")
         sct_operator.toggle_shapes_text()
 
+    @magicgui(call_button="clear sc operators")
+    def clear_sc_operators():
+        print("clear sc operators fired!")
+        sct_operator.clear_sc_opeartors()
+
     @magicgui(
         auto_call=True,
         mode={
@@ -457,6 +517,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
             edit_selected_sc,
             restore_sct_shapes,
             toggle_shapes_text,
+            clear_sc_operators,
         ],
         labels=False,
     )
