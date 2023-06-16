@@ -28,7 +28,18 @@ def viz_contours(cell_contours: List[Contour], **kwargs):
         plt.plot(contour.points[:, 0], contour.points[:, 1], **kwargs)
     plt.show()
     
-def get_morphology_PCA(trajectory_collection, contour_num_points, trajectory_threshold=1):
+def get_morphology_PCA(trajectory_collection, contour_num_points, trajectory_threshold=1, num_components=0.98):
+    """Obtain PCA for the morphology contour features obtained through active shape model for an entire trajectory data for an image dataset. 
+
+    Args:
+        trajectory_collection (obj): trajectory collection of a dataset
+        contour_num_points (int): number of landmark contour points
+        trajectory_threshold (int, optional): _description_. Defaults to 1.
+        num_components (float, optional): the amount of variance that needs to be explained is greater than the percentage specified by num_components.
+
+    Returns:
+        List: PCA values for contours
+    """
     flat_contour_entire_dataset = []
 
     for track_id_num in trajectory_collection.get_track_ids():
@@ -46,7 +57,7 @@ def get_morphology_PCA(trajectory_collection, contour_num_points, trajectory_thr
     countour_entire_dataset = np.concatenate(flat_contour_entire_dataset, axis=0).reshape(-1, 2 * contour_num_points)
 
     # getting PCA
-    pca = PCA(n_components=0.98, svd_solver="full")
+    pca = PCA(n_components=num_components, svd_solver="full")
 
     pca_entire = pca.fit_transform(countour_entire_dataset)
     print("Variance ratios and their sum = ", pca.explained_variance_ratio_, sum(pca.explained_variance_ratio_))
