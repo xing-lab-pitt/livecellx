@@ -301,10 +301,8 @@ class ScSegOperator:
         self.update_shape_layer_by_sc()
         print("restore_sc_contour_callback done!")
 
-    def filter_cells_by_size_callback(self, min_size, max_size):
-        print("filter_cells_by_size_callback fired!")
-        contours = self._get_contours_from_shape_layer(self.shape_layer)
-
+    @staticmethod
+    def filter_contours_by_size(contours: list, min_size, max_size):
         required_contours = []
         for contour in contours:
             contour = contour.astype(np.float32)
@@ -312,7 +310,12 @@ class ScSegOperator:
             print("area:", area)
             if area >= min_size and area <= max_size:
                 required_contours.append(contour)
+        return required_contours
 
+    def filter_cells_by_size_callback(self, min_size, max_size):
+        print("filter_cells_by_size_callback fired!")
+        contours = self._get_contours_from_shape_layer(self.shape_layer)
+        required_contours = ScSegOperator.filter_contours_by_size(contours, min_size, max_size)
         time = self.sc.timeframe
         new_shape_data = []
         for contour in required_contours:
