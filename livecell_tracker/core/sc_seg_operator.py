@@ -92,16 +92,29 @@ class ScSegOperator:
         if name is None:
             name = f"sc_{self.sc.id}"
         shape_vec = self.sc.get_napari_shape_contour_vec(contour_sample_num=contour_sample_num)
+        shapes_data = [shape_vec]
+        is_dummy_shape = False
+        if len(shape_vec) == 0:
+            main_warning(f"sc {self.sc.id} has no contour (or contour list length is 0)")
+
+            # add a square shape with area = 16
+            tmp_contour = [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]
+            tmp_shape_data = [[self.sc.timeframe] + coord for coord in tmp_contour]
+            shapes_data = [tmp_shape_data]
+            is_dummy_shape = True
+
         properties = {"sc": [self.sc]}
-        print("shape vec", shape_vec)
         shape_layer = self.viewer.add_shapes(
-            [shape_vec],
+            shapes_data,
             properties=properties,
             face_color=[self.face_color],
             shape_type="polygon",
             name=name,
         )
         self.shape_layer = shape_layer
+        if is_dummy_shape:
+            # delete the dummy shape
+            self.shape_layer.data = []
         self.setup_edit_contour_shape_layer()
         print(">>> create sc layer done")
 

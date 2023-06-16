@@ -10,7 +10,7 @@ from napari.layers import Shapes
 from pathlib import Path
 
 from livecell_tracker.core.sc_seg_operator import ScSegOperator, create_sc_seg_napari_ui
-from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic
+from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic, SingleCellTrajectory
 from livecell_tracker.livecell_logger import main_warning
 
 
@@ -29,6 +29,8 @@ class SctOperator:
         operator="connect",
         magicgui_container=None,
         sc_operators=None,
+        img_dataset=None,
+        time_span=None,
     ):
         self.select_info = []  # [cur_sct, cur_sc, selected_shape_index]
         self.operator = operator
@@ -42,6 +44,8 @@ class SctOperator:
         if sc_operators is None:
             sc_operators = []
         self.sc_operators = sc_operators
+        self.img_dataset = img_dataset
+        self.time_span = time_span
 
     def remove_sc_operator(self, sc_operator):
         self.sc_operators.remove(sc_operator)
@@ -348,6 +352,10 @@ class SctOperator:
         if len(current_properties) > 1:
             main_warning("More than one shape is selected. The first selected shape is used for editing.")
         cur_sc = current_properties["sc"][0]
+        sc_operator = self.edit_sc(cur_sc)
+        return sc_operator
+
+    def edit_sc(self, cur_sc):
         sc_operator = ScSegOperator(cur_sc, viewer=self.viewer, create_sc_layer=True, sct_observers=[self])
         create_sc_seg_napari_ui(sc_operator)
         self.sc_operators.append(sc_operator)
@@ -388,6 +396,42 @@ class SctOperator:
         print("<saving annotations complete>")
         return sample_paths
 
+    def add_new_sc(self):
+        """Adds a new single cell to a single cell trajectory."""
+        print("<adding new sc>")
+        assert self.time_span is not None, "Please set the time span first."
+        min_time = self.time_span[0]
+        cur_time = self.viewer.dims.current_step[0] + min_time
+        new_sc = SingleCellStatic(timeframe=cur_time, contour=[], img_dataset=self.img_dataset)
+        sc_operator = self.edit_sc(new_sc)
+
+        # add a new sct to sctc
+        new_sct = SingleCellTrajectory(
+            track_id=self.traj_collection._next_track_id(),
+            img_dataset=self.img_dataset,
+        )
+        new_sct.add_sc(new_sc.timeframe, new_sc)
+        self.traj_collection.add_trajectory(new_sct)
+        new_sct.add_sc(new_sc.timeframe, new_sc)
+
+        # create a dummy shape for the new sc in the shape layer
+        old_layer_properties = self.shape_layer.properties
+        new_sc_layer_sc_properties = list(old_layer_properties["sc"]) + [new_sc]
+        new_sc_layer_track_properties = list(old_layer_properties["track_id"]) + [new_sct.track_id]
+        new_sc_layer_status_properties = list(old_layer_properties["status"]) + [""]
+        new_sc_layer_properties = {
+            "sc": new_sc_layer_sc_properties,
+            "track_id": new_sc_layer_track_properties,
+            "status": new_sc_layer_status_properties,
+        }
+        sc_dummy_napari_data = [np.array([[new_sc.timeframe, -50, -50], [new_sc.timeframe, -10, -10]])]
+        # self.shape_layer.data = list(self.shape_layer.data) + sc_napari_data
+        self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon")
+        self.shape_layer.properties = new_sc_layer_properties
+        self.store_shape_layer_info()
+        print("<adding new sc complete>")
+        return sc_operator
+
     def hide_function_widgets(self):
         # Always show the first two widgets
         for i in range(2, len(self.magicgui_container)):
@@ -403,6 +447,8 @@ class SctOperator:
         self.magicgui_container[9].show()
         # Always show clear sc operators (10th)
         self.magicgui_container[10].show()
+        # Always show add new sc (11th)
+        self.magicgui_container[11].show()
 
         if self.mode == self.CONNECT_MODE:
             self.magicgui_container[2].show()
@@ -483,6 +529,11 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         print("clear sc operators fired!")
         sct_operator.clear_sc_opeartors()
 
+    @magicgui(call_button="add new sc")
+    def add_new_sc():
+        print("add new sc fired!")
+        sct_operator.add_new_sc()
+
     @magicgui(
         auto_call=True,
         mode={
@@ -519,6 +570,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
             restore_sct_shapes,
             toggle_shapes_text,
             clear_sc_operators,
+            add_new_sc,
         ],
         labels=False,
     )
@@ -529,20 +581,30 @@ def create_sct_napari_ui(sct_operator: SctOperator):
     sct_operator.viewer.window.add_dock_widget(container, name="SCT Operator")
 
 
-def create_scts_operator_viewer(scts: SingleCellTrajectoryCollection, img_dataset=None, viewer=None) -> SctOperator:
+def create_scts_operator_viewer(
+    scts: SingleCellTrajectoryCollection, img_dataset=None, viewer=None, time_span=None
+) -> SctOperator:
     import napari
     from livecell_tracker.core.napari_visualizer import NapariVisualizer
     from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
 
+    if time_span is None:
+        if img_dataset is not None:
+            sorted_times = img_dataset.get_sorted_times()
+            time_span = (sorted_times[0], sorted_times[-1])
+        else:
+            # TODO: use scts' time span
+            time_span = (0, np.inf)
+
     if viewer is None:
         if img_dataset is not None:
             viewer = napari.view_image(img_dataset.to_dask(), name="img_image", cache=True)
-        else:
-            viewer = napari.Viewer()
+    else:
+        viewer = napari.Viewer()
     shape_layer = NapariVisualizer.gen_trajectories_shapes(scts, viewer, contour_sample_num=20)
     shape_layer.mode = "select"
 
-    sct_operator = SctOperator(scts, shape_layer, viewer)
+    sct_operator = SctOperator(scts, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
     create_sct_napari_ui(sct_operator)
     return sct_operator
 
