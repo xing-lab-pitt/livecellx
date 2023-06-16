@@ -140,12 +140,13 @@ class ScVaeDataset(LightningDataModule):
             ]
         )
 
+        img_shape = (self.patch_size, self.patch_size)
         self.train_dataset = SingleCellVaeDataset(
             self.train_scs,
             split="train",
             transforms=train_transforms,
             download=False,
-            img_shape=self.patch_size,
+            img_shape=img_shape,
             img_only=self.img_only,
         )
 
@@ -155,7 +156,7 @@ class ScVaeDataset(LightningDataModule):
             split="test",
             transforms=val_transforms,
             download=False,
-            img_shape=self.patch_size,
+            img_shape=img_shape,
             img_only=self.img_only,
         )
 
