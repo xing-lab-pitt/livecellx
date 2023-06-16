@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from napari.layers import Shapes
 
-from livecell_tracker.livecell_logger import main_info
+from livecell_tracker.livecell_logger import main_info, main_warning, main_debug
 from livecell_tracker.core import SingleCellTrajectory, SingleCellStatic
 from livecell_tracker.segment.ou_utils import create_ou_input_from_sc
 from livecell_tracker.segment.utils import find_contours_opencv
@@ -361,7 +361,10 @@ class ScSegOperator:
         # self.magicgui_container.hide()
         # self.magicgui_container.close()
         if self.magicgui_container is not None:
-            self.viewer.window.remove_dock_widget(self.magicgui_container.native)
+            try:
+                self.viewer.window.remove_dock_widget(self.magicgui_container.native)
+            except Exception as e:
+                main_warning("Exception when removing dock widget:", e)
 
 
 def create_sc_seg_napari_ui(sc_operator: ScSegOperator):

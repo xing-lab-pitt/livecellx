@@ -194,6 +194,7 @@ class SctOperator:
         # shape_data[update_shape_index] = np.array(sc.get_napari_shape_contour_vec())
         # print("<setting shapes...>")
         # self.shape_layer.data = shape_data
+        self.clear_selection()
         self.store_shape_layer_info()
         print("<update shape layer by sc complete>")
 
