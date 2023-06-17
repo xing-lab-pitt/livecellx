@@ -159,16 +159,22 @@ class SctOperator:
 
     def update_shape_layer_by_sc(self, sc: SingleCellStatic):
         print("<update shape layer by sc>")
-        properties = self.shape_layer.properties
-        scs = properties["sc"]
+
+        # clear selected data first because adding/deleting shapes will change the shape index
+        self.clear_selection()
 
         def lookup_sc_index(sc):
+            properties = self.shape_layer.properties
+            scs = properties["sc"]
             update_shape_index = None
             for shape_index, tmp_sc in enumerate(scs):
+                if tmp_sc == sc and update_shape_index is not None:
+                    main_warning("multiple sc with the same sc object found in shape layer")
                 if tmp_sc.id == sc.id:
                     update_shape_index = shape_index
                 if tmp_sc.id == sc.id and tmp_sc != sc:
                     main_warning("sc with same id but different shape found in shape layer")
+
             return update_shape_index
 
         update_shape_index = lookup_sc_index(sc)
@@ -178,18 +184,23 @@ class SctOperator:
 
         # update the sc's shape data in self.shape_layer
         self.shape_layer.selected_data = {update_shape_index}
+        # update_shape_properties = dict(self.shape_layer.current_properties)
+        cur_sc_properties = dict(self.shape_layer.properties)
+        cur_sc_properties = {key: [value[update_shape_index]] for key, value in cur_sc_properties.items()}
+
         self.shape_layer.remove_selected()
         sc_napari_data = np.array(sc.get_napari_shape_contour_vec())
-        update_shape_properties = self.shape_layer.current_properties
-        update_shape_properties["sc"] = [sc]
 
         # TODO: optimize the code below and figure out why the code below is slow in Napari UI
         # TODO: double check shape_layer.add does not support "properties=?" arg?
         self.shape_layer.add([sc_napari_data], shape_type="polygon")  # , properties=update_shape_properties)
-        new_shape_index = lookup_sc_index(sc)
-        properties = self.shape_layer.properties
+
+        # TODO: double check if new shape index is always the last one
+        new_shape_index = len(self.shape_layer.data) - 1
+        assert new_shape_index is not None, "new shape index is None"
+        properties = dict(self.shape_layer.properties)
         for key in properties.keys():
-            properties[key][new_shape_index] = update_shape_properties[key][0]
+            properties[key][new_shape_index] = cur_sc_properties[key][0]
         self.shape_layer.properties = properties
 
         # # Deprecated code below; rollback if required
@@ -198,7 +209,7 @@ class SctOperator:
         # shape_data[update_shape_index] = np.array(sc.get_napari_shape_contour_vec())
         # print("<setting shapes...>")
         # self.shape_layer.data = shape_data
-        self.clear_selection()
+
         self.store_shape_layer_info()
         print("<update shape layer by sc complete>")
 

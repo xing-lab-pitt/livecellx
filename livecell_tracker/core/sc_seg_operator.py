@@ -88,6 +88,9 @@ class ScSegOperator:
         if create_sc_layer:
             self.create_sc_layer()
 
+    def __repr__(self) -> str:
+        return f"ScSegOperator(sc={self.sc}, mode={self.mode})"
+
     def create_sc_layer(self, name=None, contour_sample_num=100):
         if name is None:
             name = f"sc_{self.sc.id}"
@@ -261,7 +264,7 @@ class ScSegOperator:
         # Notify the observers
         self.notify_sct_to_update()
 
-    def csn_correct_seg_callback(self, padding_pixels=50):
+    def csn_correct_seg_callback(self, padding_pixels=50, threshold=0.5):
         print("csn_correct_seg_callback fired")
         if self.csn_model is None and ScSegOperator.DEFAULT_CSN_MODEL is None:
             print("No CSN model is loaded. Please load a CSN model first.")
@@ -278,7 +281,7 @@ class ScSegOperator:
             "scale": 0,
         }
         output, res_bbox = self.correct_segment(self.csn_model, create_ou_input_kwargs=create_ou_input_kwargs)
-        bin_mask = output[0].cpu().detach().numpy()[0] > 0.5
+        bin_mask = output[0].cpu().detach().numpy()[0] > threshold
         contours = find_contours_opencv(bin_mask.astype(bool))
         # contour = [0]
         new_shape_data = []
@@ -402,9 +405,11 @@ def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
         sc_operator.save_seg_callback()
 
     @magicgui(call_button="auto correct seg")
-    def csn_correct_seg():
+    def csn_correct_seg(
+        threshold: Annotated[float, {"widget_type": "FloatSpinBox", "max": int(1e4)}] = 1,
+    ):
         print("[button] csn callback fired!")
-        sc_operator.csn_correct_seg_callback()
+        sc_operator.csn_correct_seg_callback(threshold=threshold)
 
     @magicgui(
         auto_call=True,
