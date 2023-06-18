@@ -120,6 +120,9 @@ class SingleCellStatic:
     def __repr__(self) -> str:
         return f"SingleCellStatic(id={self.id}, timeframe={self.timeframe}, bbox={self.bbox})"
 
+    # ToDo: implement this
+    # def equals(self, other_cell: "SingleCellStatic", bbox=None, padding=0, iou_threshold=0.5):
+
     def compute_regionprops(self, crop=True):
         props = regionprops(
             label_image=self.get_contour_mask(crop=crop).astype(int), intensity_image=self.get_contour_img(crop=crop)
@@ -443,8 +446,8 @@ class SingleCellStatic:
             #     sc_json["dataset_path"] = str(dataset_dir)
             img_dataset = sc.img_dataset
             mask_dataset = sc.mask_dataset
-            img_dataset.write_json(out_dir=dataset_dir)
-            mask_dataset.write_json(out_dir=dataset_dir)
+            img_dataset.write_json(out_dir=dataset_dir, overwrite=False)
+            mask_dataset.write_json(out_dir=dataset_dir, overwrite=False)
             all_sc_jsons.append(sc_json)
         if return_list:
             return all_sc_jsons
@@ -873,8 +876,13 @@ class SingleCellTrajectory:
             if dataset is not None and dataset_json_dir is not None:
                 if not os.path.isfile(dataset_json_dir):
                     with open(dataset_json_dir, "w+") as f:
-                        json.dump(dataset.to_json_dict(), f, cls=LiveCellEncoder)
+                        json.dump(dataset.to_json_dict(), f)
 
+        # Write img and mask datasets to JSON file
+        # if self.img_dataset is not None and json_dict.get("img_dataset_json_dir") is not None:
+        #     self.img_dataset.write_json(out_dir=json_dict.get("img_dataset_json_dir"), overwrite=False)
+        # if self.mask_dataset is not None and json_dict.get("mask_dataset_json_dir") is not None:
+        #     self.mask_dataset.write_json(out_dir=json_dict.get("mask_dataset_json_dir"), overwrite=False)
         # img_dataset
         _write_dataset_json(self.img_dataset, "img_dataset_json_dir")
 
@@ -885,6 +893,7 @@ class SingleCellTrajectory:
         extra_datasets_json_dir = json_dict.get("extra_datasets_json_dir")
         if self.extra_datasets is not None and extra_datasets_json_dir is not None:
             for k, extra_dataset_json_path in extra_datasets_json_dir.items():
+                # self.extra_datasets[k].write_json(out_dir=extra_dataset_json_path, overwrite=False)
                 _write_dataset_json(self.extra_datasets[k], extra_dataset_json_path)
 
         if path is None:
@@ -912,23 +921,23 @@ class SingleCellTrajectory:
             self.img_dataset = img_dataset
         else:
             # Load json from img_dataset_json_dir
-            _load_dataset("img_dataset_json_dir")
+            self.img_dataset = _load_dataset("img_dataset_json_dir")
 
         shared_img_dataset = None
         if share_img_dataset:
             shared_img_dataset = self.img_dataset
 
         # Load json from mask_dataset_json_dir
-        _load_dataset("mask_dataset_json_dir")
+        self.mask_dataset = _load_dataset("mask_dataset_json_dir")
 
         # Load json from extra_datasets_json_dir
         extra_datasets = {}
-        for k, v in json_dict["extra_datasets_json_dir"].items():
-            with open(v, "r") as f:
-                extra_dataset_json = json.load(f)
-            extra_datasets[k] = LiveCellImageDataset().load_from_json_dict(extra_dataset_json)
-        else:
-            self.mask_dataset = None
+        if json_dict.get("extra_datasets_json_dir") is not None:
+            for k, v in json_dict["extra_datasets_json_dir"].items():
+                with open(v, "r") as f:
+                    extra_dataset_json = json.load(f)
+                extra_datasets[k] = LiveCellImageDataset().load_from_json_dict(extra_dataset_json)
+        self.extra_datasets = extra_datasets if extra_datasets else None
 
         self.img_total_timeframe = len(self.img_dataset)
         self.timeframe_to_single_cell = {}
