@@ -264,10 +264,17 @@ class SctOperator:
         # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
         self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
         # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
-        self.original_scs = self.shape_layer.properties["sc"]
+        self.original_scs = list(self.shape_layer.properties["sc"])
         self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
         self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
         self.original_properties["sc"] = self.original_scs
+
+    def restore_shapes_data(self):
+        print("<restoring sct shapes>")
+        self.shape_layer.data = self.original_shape_data
+        self.shape_layer.properties = self.original_properties
+        self.shape_layer.face_color = self.original_face_colors
+        print("<restoring sct shapes complete>")
 
     def disconnect_sct(self):
         assert len(self.select_info) == 1, "Please select one shape to disconnect."
@@ -371,13 +378,6 @@ class SctOperator:
         create_sc_seg_napari_ui(sc_operator)
         self.sc_operators.append(sc_operator)
         return sc_operator
-
-    def restore_shapes_data(self):
-        print("<restoring sct shapes>")
-        self.shape_layer.data = self.original_shape_data
-        self.shape_layer.properties = self.original_shape_properties
-        self.shape_layer.face_color = self.original_shape_face_color
-        print("<restoring sct shapes complete>")
 
     def toggle_shapes_text(self):
         self.shape_layer.text.visible = not self.shape_layer.text.visible
