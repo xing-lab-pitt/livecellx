@@ -37,6 +37,8 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     For the case where your images are stored in a single file, #TODO: you can use the MultiChannelImageDataset class.
     """
 
+    DEFAULT_OUT_DIR = "/livecell-datasets"
+
     def __init__(
         self,
         dir_path=None,
@@ -196,7 +198,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         """Return the default json path for this dataset"""
         filename = Path("livecell-dataset-%s.json" % (self.name))
         if out_dir is None:
-            return filename
+            out_dir = self.DEFAULT_OUT_DIR
         return Path(out_dir) / filename
 
     # TODO: refactor
