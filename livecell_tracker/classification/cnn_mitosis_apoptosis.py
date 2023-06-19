@@ -46,12 +46,12 @@ class MitApopImageDataset(Dataset):
 
 
 class MitApopImageClassifier(pl.LightningModule):
-    def __init__(self, dir_path, n_classes=3):
+    def __init__(self, dir_path, n_classes=3, in_channels=3):
         super().__init__()
         self.dir_path = dir_path
 
         self.model = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            torch.nn.Conv2d(in_channels, 32, kernel_size=3, padding=1),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(kernel_size=2, stride=2),
             torch.nn.Conv2d(32, 64, kernel_size=3, padding=1),

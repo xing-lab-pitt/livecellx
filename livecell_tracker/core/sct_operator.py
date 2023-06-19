@@ -10,7 +10,7 @@ from napari.layers import Shapes
 from pathlib import Path
 
 from livecell_tracker.core.sc_seg_operator import ScSegOperator, create_sc_seg_napari_ui
-from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic
+from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic, SingleCellTrajectory
 from livecell_tracker.livecell_logger import main_warning
 
 
@@ -29,6 +29,8 @@ class SctOperator:
         operator="connect",
         magicgui_container=None,
         sc_operators=None,
+        img_dataset=None,
+        time_span=None,
     ):
         self.select_info = []  # [cur_sct, cur_sc, selected_shape_index]
         self.operator = operator
@@ -42,6 +44,8 @@ class SctOperator:
         if sc_operators is None:
             sc_operators = []
         self.sc_operators = sc_operators
+        self.img_dataset = img_dataset
+        self.time_span = time_span
 
     def remove_sc_operator(self, sc_operator):
         self.sc_operators.remove(sc_operator)
@@ -155,16 +159,22 @@ class SctOperator:
 
     def update_shape_layer_by_sc(self, sc: SingleCellStatic):
         print("<update shape layer by sc>")
-        properties = self.shape_layer.properties
-        scs = properties["sc"]
+
+        # clear selected data first because adding/deleting shapes will change the shape index
+        self.clear_selection()
 
         def lookup_sc_index(sc):
+            properties = self.shape_layer.properties
+            scs = properties["sc"]
             update_shape_index = None
             for shape_index, tmp_sc in enumerate(scs):
+                if tmp_sc == sc and update_shape_index is not None:
+                    main_warning("multiple sc with the same sc object found in shape layer")
                 if tmp_sc.id == sc.id:
                     update_shape_index = shape_index
                 if tmp_sc.id == sc.id and tmp_sc != sc:
                     main_warning("sc with same id but different shape found in shape layer")
+
             return update_shape_index
 
         update_shape_index = lookup_sc_index(sc)
@@ -174,18 +184,23 @@ class SctOperator:
 
         # update the sc's shape data in self.shape_layer
         self.shape_layer.selected_data = {update_shape_index}
+        # update_shape_properties = dict(self.shape_layer.current_properties)
+        cur_sc_properties = dict(self.shape_layer.properties)
+        cur_sc_properties = {key: [value[update_shape_index]] for key, value in cur_sc_properties.items()}
+
         self.shape_layer.remove_selected()
         sc_napari_data = np.array(sc.get_napari_shape_contour_vec())
-        update_shape_properties = self.shape_layer.current_properties
-        update_shape_properties["sc"] = [sc]
 
         # TODO: optimize the code below and figure out why the code below is slow in Napari UI
         # TODO: double check shape_layer.add does not support "properties=?" arg?
         self.shape_layer.add([sc_napari_data], shape_type="polygon")  # , properties=update_shape_properties)
-        new_shape_index = lookup_sc_index(sc)
-        properties = self.shape_layer.properties
+
+        # TODO: double check if new shape index is always the last one
+        new_shape_index = len(self.shape_layer.data) - 1
+        assert new_shape_index is not None, "new shape index is None"
+        properties = dict(self.shape_layer.properties)
         for key in properties.keys():
-            properties[key][new_shape_index] = update_shape_properties[key][0]
+            properties[key][new_shape_index] = cur_sc_properties[key][0]
         self.shape_layer.properties = properties
 
         # # Deprecated code below; rollback if required
@@ -194,6 +209,7 @@ class SctOperator:
         # shape_data[update_shape_index] = np.array(sc.get_napari_shape_contour_vec())
         # print("<setting shapes...>")
         # self.shape_layer.data = shape_data
+
         self.store_shape_layer_info()
         print("<update shape layer by sc complete>")
 
@@ -248,10 +264,17 @@ class SctOperator:
         # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
         self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
         # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
-        self.original_scs = self.shape_layer.properties["sc"]
+        self.original_scs = list(self.shape_layer.properties["sc"])
         self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
         self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
         self.original_properties["sc"] = self.original_scs
+
+    def restore_shapes_data(self):
+        print("<restoring sct shapes>")
+        self.shape_layer.data = self.original_shape_data
+        self.shape_layer.properties = self.original_properties
+        self.shape_layer.face_color = self.original_face_colors
+        print("<restoring sct shapes complete>")
 
     def disconnect_sct(self):
         assert len(self.select_info) == 1, "Please select one shape to disconnect."
@@ -347,17 +370,14 @@ class SctOperator:
         if len(current_properties) > 1:
             main_warning("More than one shape is selected. The first selected shape is used for editing.")
         cur_sc = current_properties["sc"][0]
+        sc_operator = self.edit_sc(cur_sc)
+        return sc_operator
+
+    def edit_sc(self, cur_sc):
         sc_operator = ScSegOperator(cur_sc, viewer=self.viewer, create_sc_layer=True, sct_observers=[self])
         create_sc_seg_napari_ui(sc_operator)
         self.sc_operators.append(sc_operator)
         return sc_operator
-
-    def restore_shapes_data(self):
-        print("<restoring sct shapes>")
-        self.shape_layer.data = self.original_shape_data
-        self.shape_layer.properties = self.original_shape_properties
-        self.shape_layer.face_color = self.original_shape_face_color
-        print("<restoring sct shapes complete>")
 
     def toggle_shapes_text(self):
         self.shape_layer.text.visible = not self.shape_layer.text.visible
@@ -387,6 +407,42 @@ class SctOperator:
         print("<saving annotations complete>")
         return sample_paths
 
+    def add_new_sc(self):
+        """Adds a new single cell to a single cell trajectory."""
+        print("<adding new sc>")
+        assert self.time_span is not None, "Please set the time span first."
+        min_time = self.time_span[0]
+        cur_time = self.viewer.dims.current_step[0] + min_time
+        new_sc = SingleCellStatic(timeframe=cur_time, contour=[], img_dataset=self.img_dataset)
+        sc_operator = self.edit_sc(new_sc)
+
+        # add a new sct to sctc
+        new_sct = SingleCellTrajectory(
+            track_id=self.traj_collection._next_track_id(),
+            img_dataset=self.img_dataset,
+        )
+        new_sct.add_sc(new_sc.timeframe, new_sc)
+        self.traj_collection.add_trajectory(new_sct)
+        new_sct.add_sc(new_sc.timeframe, new_sc)
+
+        # create a dummy shape for the new sc in the shape layer
+        old_layer_properties = self.shape_layer.properties
+        new_sc_layer_sc_properties = list(old_layer_properties["sc"]) + [new_sc]
+        new_sc_layer_track_properties = list(old_layer_properties["track_id"]) + [new_sct.track_id]
+        new_sc_layer_status_properties = list(old_layer_properties["status"]) + [""]
+        new_sc_layer_properties = {
+            "sc": new_sc_layer_sc_properties,
+            "track_id": new_sc_layer_track_properties,
+            "status": new_sc_layer_status_properties,
+        }
+        sc_dummy_napari_data = [np.array([[new_sc.timeframe, -50, -50], [new_sc.timeframe, -10, -10]])]
+        # self.shape_layer.data = list(self.shape_layer.data) + sc_napari_data
+        self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon")
+        self.shape_layer.properties = new_sc_layer_properties
+        self.store_shape_layer_info()
+        print("<adding new sc complete>")
+        return sc_operator
+
     def hide_function_widgets(self):
         # Always show the first two widgets
         for i in range(2, len(self.magicgui_container)):
@@ -402,6 +458,8 @@ class SctOperator:
         self.magicgui_container[9].show()
         # Always show clear sc operators (10th)
         self.magicgui_container[10].show()
+        # Always show add new sc (11th)
+        self.magicgui_container[11].show()
 
         if self.mode == self.CONNECT_MODE:
             self.magicgui_container[2].show()
@@ -482,6 +540,11 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         print("clear sc operators fired!")
         sct_operator.clear_sc_opeartors()
 
+    @magicgui(call_button="add new sc")
+    def add_new_sc():
+        print("add new sc fired!")
+        sct_operator.add_new_sc()
+
     @magicgui(
         auto_call=True,
         mode={
@@ -518,6 +581,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
             restore_sct_shapes,
             toggle_shapes_text,
             clear_sc_operators,
+            add_new_sc,
         ],
         labels=False,
     )
@@ -528,20 +592,30 @@ def create_sct_napari_ui(sct_operator: SctOperator):
     sct_operator.viewer.window.add_dock_widget(container, name="SCT Operator")
 
 
-def create_scts_operator_viewer(scts: SingleCellTrajectoryCollection, img_dataset=None, viewer=None) -> SctOperator:
+def create_scts_operator_viewer(
+    scts: SingleCellTrajectoryCollection, img_dataset=None, viewer=None, time_span=None
+) -> SctOperator:
     import napari
     from livecell_tracker.core.napari_visualizer import NapariVisualizer
     from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
 
+    if time_span is None:
+        if img_dataset is not None:
+            sorted_times = img_dataset.get_sorted_times()
+            time_span = (sorted_times[0], sorted_times[-1])
+        else:
+            # TODO: use scts' time span
+            time_span = (0, np.inf)
+
     if viewer is None:
         if img_dataset is not None:
             viewer = napari.view_image(img_dataset.to_dask(), name="img_image", cache=True)
-        else:
-            viewer = napari.Viewer()
+    else:
+        viewer = napari.Viewer()
     shape_layer = NapariVisualizer.gen_trajectories_shapes(scts, viewer, contour_sample_num=20)
     shape_layer.mode = "select"
 
-    sct_operator = SctOperator(scts, shape_layer, viewer)
+    sct_operator = SctOperator(scts, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
     create_sct_napari_ui(sct_operator)
     return sct_operator
 

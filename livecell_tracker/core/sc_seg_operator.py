@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from napari.layers import Shapes
 
-from livecell_tracker.livecell_logger import main_info
+from livecell_tracker.livecell_logger import main_info, main_warning, main_debug
 from livecell_tracker.core import SingleCellTrajectory, SingleCellStatic
 from livecell_tracker.segment.ou_utils import create_ou_input_from_sc
 from livecell_tracker.segment.utils import find_contours_opencv
@@ -27,7 +27,7 @@ class ScSegOperator:
     ----------
     viewer : napari.Viewer
         The napari viewer.
-    single_cell_static : SingleCellStatic
+    sc : SingleCellStatic
         The single cell static object.
     shape_layer : napari.layers.Shapes
         The napari shape layer for displaying the segmentation.
@@ -66,7 +66,7 @@ class ScSegOperator:
         ----------
         viewer : napari.Viewer
             The napari viewer.
-        single_cell_static : SingleCellStatic
+        sc : SingleCellStatic
             The single cell static object.
         """
 
@@ -88,20 +88,36 @@ class ScSegOperator:
         if create_sc_layer:
             self.create_sc_layer()
 
+    def __repr__(self) -> str:
+        return f"ScSegOperator(sc={self.sc}, mode={self.mode})"
+
     def create_sc_layer(self, name=None, contour_sample_num=100):
         if name is None:
             name = f"sc_{self.sc.id}"
         shape_vec = self.sc.get_napari_shape_contour_vec(contour_sample_num=contour_sample_num)
+        shapes_data = [shape_vec]
+        is_dummy_shape = False
+        if len(shape_vec) == 0:
+            main_warning(f"sc {self.sc.id} has no contour (or contour list length is 0)")
+
+            # add a square shape with area = 16
+            tmp_contour = [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]
+            tmp_shape_data = [[self.sc.timeframe] + coord for coord in tmp_contour]
+            shapes_data = [tmp_shape_data]
+            is_dummy_shape = True
+
         properties = {"sc": [self.sc]}
-        print("shape vec", shape_vec)
         shape_layer = self.viewer.add_shapes(
-            [shape_vec],
+            shapes_data,
             properties=properties,
             face_color=[self.face_color],
             shape_type="polygon",
             name=name,
         )
         self.shape_layer = shape_layer
+        if is_dummy_shape:
+            # delete the dummy shape
+            self.shape_layer.data = []
         self.setup_edit_contour_shape_layer()
         print(">>> create sc layer done")
 
@@ -248,7 +264,7 @@ class ScSegOperator:
         # Notify the observers
         self.notify_sct_to_update()
 
-    def csn_correct_seg_callback(self, padding_pixels=50):
+    def csn_correct_seg_callback(self, padding_pixels=50, threshold=0.5):
         print("csn_correct_seg_callback fired")
         if self.csn_model is None and ScSegOperator.DEFAULT_CSN_MODEL is None:
             print("No CSN model is loaded. Please load a CSN model first.")
@@ -265,7 +281,7 @@ class ScSegOperator:
             "scale": 0,
         }
         output, res_bbox = self.correct_segment(self.csn_model, create_ou_input_kwargs=create_ou_input_kwargs)
-        bin_mask = output[0].cpu().detach().numpy()[0] > 0.5
+        bin_mask = output[0].cpu().detach().numpy()[0] > threshold
         contours = find_contours_opencv(bin_mask.astype(bool))
         # contour = [0]
         new_shape_data = []
@@ -288,10 +304,8 @@ class ScSegOperator:
         self.update_shape_layer_by_sc()
         print("restore_sc_contour_callback done!")
 
-    def filter_cells_by_size_callback(self, min_size, max_size):
-        print("filter_cells_by_size_callback fired!")
-        contours = self._get_contours_from_shape_layer(self.shape_layer)
-
+    @staticmethod
+    def filter_contours_by_size(contours: list, min_size, max_size):
         required_contours = []
         for contour in contours:
             contour = contour.astype(np.float32)
@@ -299,7 +313,12 @@ class ScSegOperator:
             print("area:", area)
             if area >= min_size and area <= max_size:
                 required_contours.append(contour)
+        return required_contours
 
+    def filter_cells_by_size_callback(self, min_size, max_size):
+        print("filter_cells_by_size_callback fired!")
+        contours = self._get_contours_from_shape_layer(self.shape_layer)
+        required_contours = ScSegOperator.filter_contours_by_size(contours, min_size, max_size)
         time = self.sc.timeframe
         new_shape_data = []
         for contour in required_contours:
@@ -361,7 +380,10 @@ class ScSegOperator:
         # self.magicgui_container.hide()
         # self.magicgui_container.close()
         if self.magicgui_container is not None:
-            self.viewer.window.remove_dock_widget(self.magicgui_container.native)
+            try:
+                self.viewer.window.remove_dock_widget(self.magicgui_container.native)
+            except Exception as e:
+                main_warning("Exception when removing dock widget:", e)
 
 
 def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
@@ -383,9 +405,11 @@ def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
         sc_operator.save_seg_callback()
 
     @magicgui(call_button="auto correct seg")
-    def csn_correct_seg():
+    def csn_correct_seg(
+        threshold: Annotated[float, {"widget_type": "FloatSpinBox", "max": int(1e4)}] = 1,
+    ):
         print("[button] csn callback fired!")
-        sc_operator.csn_correct_seg_callback()
+        sc_operator.csn_correct_seg_callback(threshold=threshold)
 
     @magicgui(
         auto_call=True,
