@@ -112,24 +112,45 @@ class SingleCellTrajectoryIOTest(unittest.TestCase):
         def _assertTimeframeToSC(new, origin):
             self.assertEqual(new.keys(), origin.keys())
             for key in new.keys():
-                newsc = new[key]
-                originsc = origin[key]
+                new_sc = new[key]
+                origin_sc = origin[key]
 
-                self.assertIsInstance(newsc, SingleCellStatic)
-                self.assertIsInstance(originsc, SingleCellStatic)
+                self.assertIsInstance(new_sc, SingleCellStatic)
+                self.assertIsInstance(origin_sc, SingleCellStatic)
 
                 # Compare the 'bbox' attributes of the SingleCellStatic instances
-                np.testing.assert_array_equal(newsc.bbox, originsc.bbox)
+                np.testing.assert_array_equal(new_sc.bbox, origin_sc.bbox)
                 # Compare 'id' attributes
-                self.assertEqual(newsc.id, str(originsc.id))
+                self.assertEqual(new_sc.id, str(origin_sc.id))
                 # Compare 'timeframe' attributes
-                self.assertEqual(newsc.timeframe, originsc.timeframe)
+                self.assertEqual(new_sc.timeframe, origin_sc.timeframe)
                 # Compare 'feature_dict' attributes
-                self.assertDictEqual(newsc.feature_dict, originsc.feature_dict)
+                self.assertDictEqual(new_sc.feature_dict, origin_sc.feature_dict)
                 # Compare 'contour' attributes
-                np.testing.assert_array_equal(newsc.contour, originsc.contour)
+                np.testing.assert_array_equal(new_sc.contour, origin_sc.contour)
                 # Compare 'meta' attributes
-                self.assertDictEqual(newsc.meta, originsc.meta)
+                self.assertDictEqual(new_sc.meta, origin_sc.meta)
+                # List of datasets and properties to validate
+                datasets = ["img_dataset", "mask_dataset"]
+                properties = ["data_dir_path", "ext", "time2url", "name"]
+
+                for dataset in datasets:
+                    origin_dataset = getattr(origin_sc, dataset)
+                    new_dataset = getattr(new_sc, dataset)
+
+                    if origin_dataset is not None and new_dataset is not None:
+                        for prop in properties:
+                            origin_prop = getattr(origin_dataset, prop)
+                            new_prop = getattr(new_dataset, prop)
+
+                            # Compare as string if property is 'data_dir_path', otherwise compare as is
+                            if prop == "data_dir_path":
+                                self.assertEqual(str(origin_prop), new_prop)
+                            else:
+                                self.assertEqual(origin_prop, new_prop)
+                # TODO: [smz] to validate dataset_dict
+                # Compare 'dataset_dict' attributes
+                # self.assertDictEqual(newsc.dataset_dict, originsc.dataset_dict)
 
         _assertTimeframeToSC(new_sct.timeframe_to_single_cell, self.sct.timeframe_to_single_cell)
 
