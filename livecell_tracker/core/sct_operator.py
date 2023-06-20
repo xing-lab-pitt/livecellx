@@ -11,7 +11,7 @@ from pathlib import Path
 
 from livecell_tracker.core.sc_seg_operator import ScSegOperator, create_sc_seg_napari_ui
 from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic, SingleCellTrajectory
-from livecell_tracker.livecell_logger import main_warning
+from livecell_tracker.livecell_logger import main_warning, main_info
 
 
 class SctOperator:
@@ -275,12 +275,23 @@ class SctOperator:
         self.shape_layer.properties = self.original_properties
         print("<clear complete>")
 
+    def remove_empty_contour_sct(self):
+        remove_ids = []
+        for tid, sct in self.traj_collection:
+            assert len(sct.get_all_scs()) == 1, "sct should only have one sc when you call this function"
+            sc = sct.get_all_scs()[0]
+            if len(sc.contour) == 0:
+                remove_ids.append(tid)
+        for id in remove_ids:
+            main_info(f"removing empty contour sct with id {id}")
+            self.traj_collection.pop_trajectory(id)
+
     def setup_shape_layer(self, shape_layer: Shapes):
         self.shape_layer = shape_layer
         shape_layer.events.current_properties.connect(self.select_shape)
         self.store_shape_layer_info()
 
-    def store_shape_layer_info(self, _slice=slice(0, None, 1)):
+    def store_shape_layer_info(self, update_slice=slice(0, None, 1)):
         # check if original_face_colors is initialized
         if not hasattr(self, "original_face_colors"):
             self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
@@ -292,13 +303,15 @@ class SctOperator:
             self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
 
         # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
-        self.original_face_colors[_slice] = copy.deepcopy(list(self.shape_layer.face_color))[_slice]
+        self.original_face_colors[update_slice] = copy.deepcopy(list(self.shape_layer.face_color))[update_slice]
         # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
-        self.original_scs[_slice] = list(self.shape_layer.properties["sc"])[_slice]
+        self.original_scs[update_slice] = list(self.shape_layer.properties["sc"])[update_slice]
         for key in self.original_properties.keys():
-            self.original_properties[key][_slice] = copy.deepcopy(self.shape_layer.properties.copy())[key][_slice]
-        self.original_shape_data[_slice] = copy.deepcopy(self.shape_layer.data.copy())[_slice]
-        self.original_properties["sc"][_slice] = self.original_scs[_slice]
+            self.original_properties[key][update_slice] = copy.deepcopy(self.shape_layer.properties.copy())[key][
+                update_slice
+            ]
+        self.original_shape_data[update_slice] = copy.deepcopy(self.shape_layer.data.copy())[update_slice]
+        self.original_properties["sc"][update_slice] = self.original_scs[update_slice]
 
     def restore_shapes_data(self):
         print("<restoring sct shapes>")
@@ -479,8 +492,16 @@ class SctOperator:
         self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon")
         self.shape_layer.properties = new_sc_layer_properties
 
-        # WARNING: do not use self.store_shape_layer_info() here to store all the shape layer info
-        # because it will cause problems related to other functions' status staying forever
+        # WARNING: only update the newly added sc's shape layer info
+        # because it will cause problems e.g. other function status staying forever on the shape layer
+        self.original_face_colors.append(self.original_face_colors[0])  # TODO: randomly generate a color?
+
+        self.original_properties["sc"] = np.append(self.original_properties["sc"], new_sc)
+        self.original_properties["track_id"] = np.append(self.original_properties["track_id"], new_sct.track_id)
+        self.original_properties["status"] = np.append(self.original_properties["status"], "")
+
+        self.original_scs.append(new_sc)
+        self.original_shape_data.append(sc_dummy_napari_data[0])
         self.store_shape_layer_info(update_slice=slice(-1, None, None))
         print("<adding new sc complete>")
         return sc_operator
