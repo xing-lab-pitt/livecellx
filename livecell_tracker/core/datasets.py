@@ -37,7 +37,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     For the case where your images are stored in a single file, #TODO: you can use the MultiChannelImageDataset class.
     """
 
-    DEFAULT_OUT_DIR = "/livecell-datasets"
+    DEFAULT_OUT_DIR = "./livecell-datasets"
 
     def __init__(
         self,
