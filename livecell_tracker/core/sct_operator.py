@@ -76,6 +76,8 @@ class SctOperator:
         return cur_properties["sc"]
 
     def select_shape(self, event, shape_layer=None):
+        """Select a shape in the shape layer, and update the shape color and status.
+        self.select_info consists of [cur_sct, cur_sc, selected_shape_index]"""
         if shape_layer is None:
             shape_layer = self.shape_layer
         print("current shape layer shape properties: ", event)
@@ -89,10 +91,27 @@ class SctOperator:
             return
         selected_shape_index = list(shape_layer.selected_data)[0]
 
-        shape_indices_in_select_info = set([info[2] for info in self.select_info])
+        shape_indices_in_select_info = list([info[2] for info in self.select_info])
+
         if selected_shape_index in shape_indices_in_select_info:
+            # Skip if the shape is already selected
             print("shape already selected, please select another shape")
             return
+
+            # Deselect the shape if it is already selected
+            # TODO: deselect selected_shape_index. The following code works but with a small issue that when clicking on a shape for the first time, the selection will blink (select and then deselect instead of select)
+            # print("deselecting shape...")
+            # tmp_idx = shape_indices_in_select_info.index(selected_shape_index)
+            # sct, sc, _ = self.select_info.pop(tmp_idx)
+            # tmp_face_color = list(self.shape_layer.face_color)
+            # tmp_face_color[selected_shape_index] = self.original_face_colors[selected_shape_index]
+            # self.shape_layer.face_color = tmp_face_color
+            # # self.shape_layer.properties["status"][selected_shape_index] = "unselected"
+            # tmp_properties = dict(self.shape_layer.properties)
+            # tmp_properties["status"][selected_shape_index] = ""
+            # self.shape_layer.properties = tmp_properties
+            # print("<select_info> complete deselecting track:", sct.track_id)
+            # return
 
         cur_sc = current_properties["sc"][0]
         cur_track_id = current_properties["track_id"][0]
