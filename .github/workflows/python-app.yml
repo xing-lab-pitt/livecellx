@@ -29,6 +29,7 @@ jobs:
         pip install flake8 pytest numpy
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         if [ -f ./tests/test_requirements.txt ]; then pip install -r ./tests/test_requirements.txt; fi
+        ls ./tests
         pip install lap[alldeps]
         pip install .
     - name: Lint with flake8
