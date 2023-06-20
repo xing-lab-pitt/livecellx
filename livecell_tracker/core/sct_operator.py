@@ -40,7 +40,7 @@ class SctOperator:
         self.viewer = viewer
         self.magicgui_container = magicgui_container
         self.mode = SctOperator.CONNECT_MODE
-        self.annotate_click_samples = []
+        self.annotate_click_samples = {}
         if sc_operators is None:
             sc_operators = []
         self.sc_operators = sc_operators
@@ -183,7 +183,9 @@ class SctOperator:
             return
 
         # update the sc's shape data in self.shape_layer
+        # Note: the following line triggers self.select_shape
         self.shape_layer.selected_data = {update_shape_index}
+        self.clear_selection()
         # update_shape_properties = dict(self.shape_layer.current_properties)
         cur_sc_properties = dict(self.shape_layer.properties)
         cur_sc_properties = {key: [value[update_shape_index]] for key, value in cur_sc_properties.items()}
@@ -209,7 +211,6 @@ class SctOperator:
         # shape_data[update_shape_index] = np.array(sc.get_napari_shape_contour_vec())
         # print("<setting shapes...>")
         # self.shape_layer.data = shape_data
-
         self.store_shape_layer_info()
         print("<update shape layer by sc complete>")
 
@@ -260,14 +261,25 @@ class SctOperator:
         shape_layer.events.current_properties.connect(self.select_shape)
         self.store_shape_layer_info()
 
-    def store_shape_layer_info(self):
+    def store_shape_layer_info(self, _slice=slice(0, None, 1)):
+        # check if original_face_colors is initialized
+        if not hasattr(self, "original_face_colors"):
+            self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
+        if not hasattr(self, "original_scs"):
+            self.original_scs = list(self.shape_layer.properties["sc"])
+        if not hasattr(self, "original_properties"):
+            self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
+        if not hasattr(self, "original_shape_data"):
+            self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
+
         # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
-        self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
+        self.original_face_colors[_slice] = copy.deepcopy(list(self.shape_layer.face_color))[_slice]
         # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
-        self.original_scs = list(self.shape_layer.properties["sc"])
-        self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
-        self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
-        self.original_properties["sc"] = self.original_scs
+        self.original_scs[_slice] = list(self.shape_layer.properties["sc"])[_slice]
+        for key in self.original_properties.keys():
+            self.original_properties[key][_slice] = copy.deepcopy(self.shape_layer.properties.copy())[key][_slice]
+        self.original_shape_data[_slice] = copy.deepcopy(self.shape_layer.data.copy())[_slice]
+        self.original_properties["sc"][_slice] = self.original_scs[_slice]
 
     def restore_shapes_data(self):
         print("<restoring sct shapes>")
@@ -351,13 +363,18 @@ class SctOperator:
         self.clear_selection()
         print("<delete operation complete>")
 
-    def annotate_click(self):
+    def annotate_click(self, label):
         print("<annotating click>: adding a sample")
         sample = []
         for selected_shape in self.select_info:
             sct, sc, shape_index = selected_shape
             sample.append(sc)
-        self.annotate_click_samples.append(sample)
+            if "_labels" not in sc.meta:
+                sc.meta["_labels"] = []
+            sc.meta["_labels"].append(label)
+        if label not in self.annotate_click_samples:
+            self.annotate_click_samples[label] = []
+        self.annotate_click_samples[label].append(sample)
         self.clear_selection()
         print("<annotate click operation complete>")
 
@@ -371,6 +388,9 @@ class SctOperator:
             main_warning("More than one shape is selected. The first selected shape is used for editing.")
         cur_sc = current_properties["sc"][0]
         sc_operator = self.edit_sc(cur_sc)
+
+        # hide the shape layer
+        self.shape_layer.visible = False
         return sc_operator
 
     def edit_sc(self, cur_sc):
@@ -396,14 +416,14 @@ class SctOperator:
             sample_dataset_dir = sample_out_dir / "datasets"
         elif isinstance(sample_dataset_dir, str):
             sample_dataset_dir = Path(sample_dataset_dir)
-
-        samples = self.annotate_click_samples
         sample_paths = []
 
-        for i, sample in enumerate(samples):
-            sample_json_path = sample_out_dir / (filename_pattern.format(sample_index=i))
-            SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
-            sample_paths.append(sample_json_path)
+        for label in self.annotate_click_samples:
+            samples = self.annotate_click_samples[label]
+            for i, sample in enumerate(samples):
+                sample_json_path = sample_out_dir / label / (filename_pattern.format(sample_index=i))
+                SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
+                sample_paths.append(sample_json_path)
         print("<saving annotations complete>")
         return sample_paths
 
@@ -439,7 +459,10 @@ class SctOperator:
         # self.shape_layer.data = list(self.shape_layer.data) + sc_napari_data
         self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon")
         self.shape_layer.properties = new_sc_layer_properties
-        self.store_shape_layer_info()
+
+        # WARNING: do not use self.store_shape_layer_info() here to store all the shape layer info
+        # because it will cause problems related to other functions' status staying forever
+        self.store_shape_layer_info(update_slice=slice(-1, None, None))
         print("<adding new sc complete>")
         return sc_operator
 
@@ -514,10 +537,10 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         sct_operator.delete_selected_sct()
 
     @magicgui(call_button="click&annotate")
-    def annotate_click_widget():
+    def annotate_click_widget(label="mitosis"):
         print("annotate callback fired!")
         # sct_operator.delete_selected_sct()
-        sct_operator.annotate_click()
+        sct_operator.annotate_click(label=label)
 
     @magicgui(call_button="edit selected sc")
     def edit_selected_sc():
