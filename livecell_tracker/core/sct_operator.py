@@ -176,27 +176,26 @@ class SctOperator:
         self.shape_layer.face_color = face_colors
         print("<update track_id properties complete>")
 
+    def lookup_sc_shape_index(self, sc) -> Optional[int]:
+        properties = self.shape_layer.properties
+        scs = properties["sc"]
+        update_shape_index = None
+        for shape_index, tmp_sc in enumerate(scs):
+            if tmp_sc == sc and update_shape_index is not None:
+                main_warning("multiple sc with the same sc object found in shape layer")
+            if tmp_sc.id == sc.id:
+                update_shape_index = shape_index
+            if tmp_sc.id == sc.id and tmp_sc != sc:
+                main_warning("sc with same id but different shape found in shape layer")
+        return update_shape_index
+
     def update_shape_layer_by_sc(self, sc: SingleCellStatic):
         print("<update shape layer by sc>")
 
         # clear selected data first because adding/deleting shapes will change the shape index
         self.clear_selection()
 
-        def lookup_sc_index(sc):
-            properties = self.shape_layer.properties
-            scs = properties["sc"]
-            update_shape_index = None
-            for shape_index, tmp_sc in enumerate(scs):
-                if tmp_sc == sc and update_shape_index is not None:
-                    main_warning("multiple sc with the same sc object found in shape layer")
-                if tmp_sc.id == sc.id:
-                    update_shape_index = shape_index
-                if tmp_sc.id == sc.id and tmp_sc != sc:
-                    main_warning("sc with same id but different shape found in shape layer")
-
-            return update_shape_index
-
-        update_shape_index = lookup_sc_index(sc)
+        update_shape_index = self.lookup_sc_shape_index(sc)
         if update_shape_index is None:
             main_warning("sc not found in shape layer")
             return
@@ -275,14 +274,36 @@ class SctOperator:
         self.shape_layer.properties = self.original_properties
         print("<clear complete>")
 
+    # TODO: remove_scs not fully tested in notebook
+    def remove_scs(self, scs: List[SingleCellStatic]):
+        remove_shape_indices = []
+        for sc in scs:
+            shape_index = self.lookup_sc_shape_index(sc)
+            if shape_index is None:
+                continue
+            remove_shape_indices.append(shape_index)
+        remove_shape_indices = list(set(remove_shape_indices))
+        remove_shape_indices = sorted(remove_shape_indices, reverse=True)
+        self.shape_layer.selected_data = remove_shape_indices
+        self.shape_layer.remove_selected()
+        self.clear_selection()
+
+        for shape_index in remove_shape_indices:
+            self.original_face_colors.pop(shape_index)
+            for key in self.original_properties.keys():
+                self.original_properties[key].pop(shape_index)
+
+    # TODO: remove_empty_contour_sct not fully tested
     def remove_empty_contour_sct(self):
-        remove_ids = []
+        remove_tids = []
+        remove_scs = []
         for tid, sct in self.traj_collection:
             assert len(sct.get_all_scs()) == 1, "sct should only have one sc when you call this function"
             sc = sct.get_all_scs()[0]
             if len(sc.contour) == 0:
-                remove_ids.append(tid)
-        for id in remove_ids:
+                remove_tids.append(tid)
+                remove_scs.append(sc)
+        for id in remove_tids:
             main_info(f"removing empty contour sct with id {id}")
             self.traj_collection.pop_trajectory(id)
 
