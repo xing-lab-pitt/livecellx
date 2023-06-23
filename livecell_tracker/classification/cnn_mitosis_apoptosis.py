@@ -61,7 +61,7 @@ class MitApopImageClassifier(pl.LightningModule):
         self.n_classes = n_classes
         self.class_names = class_names
         self.model = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            torch.nn.Conv2d(in_channels, 32, kernel_size=3, padding=1),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(kernel_size=2, stride=2),
             torch.nn.Conv2d(32, 64, kernel_size=3, padding=1),

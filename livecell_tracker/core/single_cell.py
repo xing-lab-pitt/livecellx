@@ -1,6 +1,7 @@
 import itertools
 import json
 import copy
+import os
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from collections import deque
 import matplotlib.patches as patches
@@ -118,6 +119,9 @@ class SingleCellStatic:
 
     def __repr__(self) -> str:
         return f"SingleCellStatic(id={self.id}, timeframe={self.timeframe}, bbox={self.bbox})"
+
+    # ToDo: implement this
+    # def equals(self, other_cell: "SingleCellStatic", bbox=None, padding=0, iou_threshold=0.5):
 
     def compute_regionprops(self, crop=True):
         props = regionprops(
@@ -305,15 +309,12 @@ class SingleCellStatic:
 
     def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
         """returns a dict that can be converted to json"""
-        # Convert the metadata to JSON string using LiveCellEncoder
-        json_meta = self.meta
-
         res = {
             "timeframe": int(self.timeframe),
             "bbox": list(np.array(self.bbox, dtype=float)),
             "feature_dict": self.feature_dict,
             "contour": self.contour.tolist(),
-            "meta": json_meta,
+            "meta": self.meta,
             "id": str(self.id),
         }
         if include_dataset_json:
@@ -445,8 +446,8 @@ class SingleCellStatic:
             #     sc_json["dataset_path"] = str(dataset_dir)
             img_dataset = sc.img_dataset
             mask_dataset = sc.mask_dataset
-            img_dataset.write_json(out_dir=dataset_dir)
-            mask_dataset.write_json(out_dir=dataset_dir)
+            img_dataset.write_json(out_dir=dataset_dir, overwrite=False)
+            mask_dataset.write_json(out_dir=dataset_dir, overwrite=False)
             all_sc_jsons.append(sc_json)
         if return_list:
             return all_sc_jsons
@@ -454,12 +455,29 @@ class SingleCellStatic:
             # json.dump([sc.to_json_dict() for sc in single_cells], f)
             json.dump(all_sc_jsons, f)
 
-    def write_json(self, path=None):
+    def write_json(self, path=None, dataset_json_dir=None):
+        json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
+
+        img_dataset_json_path = None
+        mask_dataset_json_path = None
+
+        if self.img_dataset is not None and SCKM.JSON_IMG_DATASET_JSON_PATH in json_dict:
+            img_dataset_json_path = json_dict[SCKM.JSON_IMG_DATASET_JSON_PATH]
+            if not os.path.isfile(img_dataset_json_path):
+                with open(img_dataset_json_path, "w+") as f:
+                    json.dump(self.img_dataset.to_json_dict(), f)
+
+        if self.mask_dataset is not None and SCKM.JSON_MASK_DATASET_JSON_PATH in json_dict:
+            mask_dataset_json_path = json_dict[SCKM.JSON_MASK_DATASET_JSON_PATH]
+            if not os.path.isfile(mask_dataset_json_path):
+                with open(mask_dataset_json_path, "w+") as f:
+                    json.dump(self.mask_dataset.to_json_dict(), f)
+
         if path is None:
-            return json.dumps(self.to_json_dict(), cls=LiveCellEncoder)
+            return json.dumps(json_dict, cls=LiveCellEncoder)
         else:
             with open(path, "w+") as f:
-                json.dump(self.to_json_dict(), f, cls=LiveCellEncoder)
+                json.dump(json_dict, f, cls=LiveCellEncoder)
 
     def get_contour_coords_on_crop(self, bbox=None, padding=0):
         if bbox is None:
@@ -798,6 +816,8 @@ class SingleCellTrajectory:
         self.timeframe_set.add(timeframe)
         self.times = sorted(self.timeframe_set)
 
+    add_sc = add_single_cell
+
     def get_img(self, timeframe):
         return self.timeframe_to_single_cell[timeframe].get_img()
 
@@ -808,12 +828,19 @@ class SingleCellTrajectory:
         assert len(self.timeframe_set) > 0, "sct: timeframe set is empty."
         return (min(self.timeframe_set), max(self.timeframe_set))
 
+    get_time_span = get_timeframe_span
+
     def get_timeframe_span_length(self):
         min_t, max_t = self.get_timeframe_span()
         return max_t - min_t + 1
 
+    get_time_span_length = get_timeframe_span_length
+
     def get_single_cell(self, timeframe: int) -> SingleCellStatic:
         return self.timeframe_to_single_cell[timeframe]
+
+    def get_all_scs(self) -> List[SingleCellStatic]:
+        return list(self.timeframe_to_single_cell.values())
 
     def pop_single_cell(self, timeframe: int):
         self.timeframe_set.remove(timeframe)
@@ -849,12 +876,40 @@ class SingleCellTrajectory:
         }
         return res
 
-    def write_json(self, path=None):
+    def write_json(self, path=None, dataset_json_dir=None):
+        json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
+
+        # Helper function to write dataset to JSON file
+        def _write_dataset_json(dataset, json_dir_key):
+            dataset_json_dir = json_dict.get(json_dir_key)
+            if dataset is not None and dataset_json_dir is not None:
+                if not os.path.isfile(dataset_json_dir):
+                    with open(dataset_json_dir, "w+") as f:
+                        json.dump(dataset.to_json_dict(), f)
+
+        # Write img and mask datasets to JSON file
+        # if self.img_dataset is not None and json_dict.get("img_dataset_json_dir") is not None:
+        #     self.img_dataset.write_json(out_dir=json_dict.get("img_dataset_json_dir"), overwrite=False)
+        # if self.mask_dataset is not None and json_dict.get("mask_dataset_json_dir") is not None:
+        #     self.mask_dataset.write_json(out_dir=json_dict.get("mask_dataset_json_dir"), overwrite=False)
+        # img_dataset
+        _write_dataset_json(self.img_dataset, "img_dataset_json_dir")
+
+        # mask_dataset
+        _write_dataset_json(self.mask_dataset, "mask_dataset_json_dir")
+
+        # extra_datasets
+        extra_datasets_json_dir = json_dict.get("extra_datasets_json_dir")
+        if self.extra_datasets is not None and extra_datasets_json_dir is not None:
+            for k, extra_dataset_json_path in extra_datasets_json_dir.items():
+                # self.extra_datasets[k].write_json(out_dir=extra_dataset_json_path, overwrite=False)
+                _write_dataset_json(self.extra_datasets[k], extra_dataset_json_path)
+
         if path is None:
-            return json.dumps(self.to_json_dict(), cls=LiveCellEncoder)
+            return json.dumps(json_dict, cls=LiveCellEncoder)
         else:
             with open(path, "w+") as f:
-                json.dump(self.to_json_dict(), f, cls=LiveCellEncoder)
+                json.dump(json_dict, f, cls=LiveCellEncoder)
 
     def load_from_json_dict(self, json_dict, img_dataset=None, share_img_dataset=True):
         self.track_id = json_dict["track_id"]
@@ -875,23 +930,23 @@ class SingleCellTrajectory:
             self.img_dataset = img_dataset
         else:
             # Load json from img_dataset_json_dir
-            _load_dataset("img_dataset_json_dir")
+            self.img_dataset = _load_dataset("img_dataset_json_dir")
 
         shared_img_dataset = None
         if share_img_dataset:
             shared_img_dataset = self.img_dataset
 
         # Load json from mask_dataset_json_dir
-        _load_dataset("mask_dataset_json_dir")
+        self.mask_dataset = _load_dataset("mask_dataset_json_dir")
 
         # Load json from extra_datasets_json_dir
         extra_datasets = {}
-        for k, v in json_dict["extra_datasets_json_dir"].items():
-            with open(v, "r") as f:
-                extra_dataset_json = json.load(f)
-            extra_datasets[k] = LiveCellImageDataset().load_from_json_dict(extra_dataset_json)
-        else:
-            self.mask_dataset = None
+        if json_dict.get("extra_datasets_json_dir") is not None:
+            for k, v in json_dict["extra_datasets_json_dir"].items():
+                with open(v, "r") as f:
+                    extra_dataset_json = json.load(f)
+                extra_datasets[k] = LiveCellImageDataset().load_from_json_dict(extra_dataset_json)
+        self.extra_datasets = extra_datasets if extra_datasets else None
 
         self.img_total_timeframe = len(self.img_dataset)
         self.timeframe_to_single_cell = {}
@@ -1075,6 +1130,9 @@ class SingleCellTrajectoryCollection:
     def get_trajectory(self, track_id) -> SingleCellTrajectory:
         return self.track_id_to_trajectory[track_id]
 
+    def get_all_trajectories(self) -> List[SingleCellTrajectory]:
+        return list(self.track_id_to_trajectory.values())
+
     def pop_trajectory(self, track_id):
         return self.track_id_to_trajectory.pop(track_id)
 
@@ -1107,7 +1165,7 @@ class SingleCellTrajectoryCollection:
             ax = sns.countplot(x=all_traj_lengths)
         for container in ax.containers:
             ax.bar_label(container)
-        ax.set(xlabel='Trajectory Length')
+        ax.set(xlabel="Trajectory Length")
         return ax
 
     def get_feature_table(self) -> pd.DataFrame:
@@ -1121,11 +1179,15 @@ class SingleCellTrajectoryCollection:
                 feature_table = pd.concat([feature_table, sc_feature_table])
         return feature_table
 
-    def pop_trajectory(self, track_id):
-        return self.track_id_to_trajectory.pop(track_id)
-
     def get_track_ids(self):
         return sorted(list(self.track_id_to_trajectory.keys()))
+
+    def get_time_span(self):
+        res_time_span = (0, np.inf)
+        for track_id, trajectory in self:
+            _tmp_time_span = trajectory.get_time_span()
+            res_time_span = (min(res_time_span[0], _tmp_time_span[0]), max(res_time_span[1], _tmp_time_span[1]))
+        return res_time_span
 
     def subset(self, track_ids):
         new_sc_traj_collection = SingleCellTrajectoryCollection()
