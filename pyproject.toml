@@ -9,13 +9,10 @@ version = "0.0.2"
 description = "live-cell analysis package including instance segmentation and tracker"
 authors = [{ name = "Ke Ni", email = "ken67@pitt.edu" }]
 readme = "readme.md"
+classifiers = ["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"]
 requires-python = ">=3.7"
 # dynamic = ["dependencies", "version", "description"]
 # dynamic = ["dependencies"]
-
-[project.classifiers]
-# Change the license classifier from MIT to GPL
-license = ["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"]
 
 [tool.flit.module]
 name = "livecell_tracker"
@@ -38,6 +35,7 @@ dependencies = [
     "filterpy",
 
 ]
+
 
 [project.urls]
 homepage = "https://github.com/xing-lab-pitt/LiveCellTracker-dev"
