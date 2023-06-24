@@ -3,9 +3,9 @@
 #     '../../_base_/default_runtime.py'
 # ]
 _base_ = [
-    "../../../external_libs/mmaction2/configs/_base_/models/tsn_r50.py",
-    "../../../external_libs/mmaction2/configs/_base_/schedules/sgd_100e.py",
-    "../../../external_libs/mmaction2/configs/_base_/default_runtime.py",
+    "./tsn_r50.py",
+    "./sgd_10000e.py",
+    "./default_runtime.py",
 ]
 
 
