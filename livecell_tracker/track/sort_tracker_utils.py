@@ -143,8 +143,6 @@ def track_SORT_bbox_from_contours(
     all_track_bbs = []
     sorted_times = sorted(raw_imgs.time2url.keys())
     for time in sorted_times:
-        print("matching image path:", raw_imgs.get_img_path(time))
-        img_path = raw_imgs.get_img_path(time)
         # TODO: fix in the future only for windows... somehow json lib saved double slashes
         contours = path2contours[raw_imgs.get_img_path(time)]["contours"]
 
