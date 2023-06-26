@@ -98,6 +98,7 @@ class SingleCellStatic:
         if self.uns is None:
             self.uns = dict()
 
+        # TODO: [smz] add i/o method written and test comparison for dataset_dict
         if dataset_dict:
             self.dataset_dict = dataset_dict
         else:
@@ -120,7 +121,7 @@ class SingleCellStatic:
     def __repr__(self) -> str:
         return f"SingleCellStatic(id={self.id}, timeframe={self.timeframe}, bbox={self.bbox})"
 
-    # ToDo: implement this
+    # TODO: [smz] implement this
     # def equals(self, other_cell: "SingleCellStatic", bbox=None, padding=0, iou_threshold=0.5):
 
     def compute_regionprops(self, crop=True):
@@ -325,13 +326,14 @@ class SingleCellStatic:
 
             # TODO: add arg to let users define their own json dataset paths
             if self.img_dataset is not None:
-                res[SCKM.JSON_IMG_DATASET_JSON_PATH] = str(
-                    self.img_dataset.get_default_json_path(out_dir=dataset_json_dir)
-                )
+                res[SCKM.JSON_IMG_DATASET_PATH] = str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
+                self.img_dataset.write_json(out_dir=dataset_json_dir, overwrite=False)
             if self.mask_dataset is not None:
-                res[SCKM.JSON_MASK_DATASET_JSON_PATH] = str(
+                res[SCKM.JSON_MASK_DATASET_PATH] = str(
                     self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir)
                 )
+                self.mask_dataset.write_json(out_dir=dataset_json_dir, overwrite=False)
+
         return res
 
     def load_from_json_dict(self, json_dict, img_dataset=None, mask_dataset=None):
@@ -355,10 +357,10 @@ class SingleCellStatic:
         self.contour = np.array(json_dict["contour"], dtype=float)
         self.id = json_dict["id"]
 
-        if SCKM.JSON_IMG_DATASET_JSON_PATH in json_dict:
-            self.meta[SCKM.JSON_IMG_DATASET_JSON_PATH] = json_dict[SCKM.JSON_IMG_DATASET_JSON_PATH]
-        if SCKM.JSON_MASK_DATASET_JSON_PATH in json_dict:
-            self.meta[SCKM.JSON_MASK_DATASET_JSON_PATH] = json_dict[SCKM.JSON_MASK_DATASET_JSON_PATH]
+        if SCKM.JSON_IMG_DATASET_PATH in json_dict:
+            self.meta[SCKM.JSON_IMG_DATASET_PATH] = json_dict[SCKM.JSON_IMG_DATASET_PATH]
+        if SCKM.JSON_MASK_DATASET_PATH in json_dict:
+            self.meta[SCKM.JSON_MASK_DATASET_PATH] = json_dict[SCKM.JSON_MASK_DATASET_PATH]
 
         if "meta" in json_dict:
             self.meta = json_dict["meta"]
@@ -366,19 +368,17 @@ class SingleCellStatic:
         self.img_dataset = img_dataset
         self.mask_dataset = mask_dataset
 
-        if self.img_dataset is None and SCKM.JSON_IMG_DATASET_JSON_PATH in self.meta:
+        if self.img_dataset is None and SCKM.JSON_IMG_DATASET_PATH in self.meta:
             main_warning(
                 f"the current single cell:{self}'s img dataset is None, you may want to load it from json in meta"
             )
-            self.img_dataset = LiveCellImageDataset.load_from_json_file(path=self.meta[SCKM.JSON_IMG_DATASET_JSON_PATH])
+            self.img_dataset = LiveCellImageDataset.load_from_json_file(path=self.meta[SCKM.JSON_IMG_DATASET_PATH])
 
-        if self.mask_dataset is None and SCKM.JSON_MASK_DATASET_JSON_PATH in self.meta:
+        if self.mask_dataset is None and SCKM.JSON_MASK_DATASET_PATH in self.meta:
             main_warning(
                 f"the current single cell:{self}'s mask dataset is None, you may want to load it from json in meta"
             )
-            self.mask_dataset = LiveCellImageDataset.load_from_json_file(
-                path=self.meta[SCKM.JSON_MASK_DATASET_JSON_PATH]
-            )
+            self.mask_dataset = LiveCellImageDataset.load_from_json_file(path=self.meta[SCKM.JSON_MASK_DATASET_PATH])
 
         # TODO: discuss and decide whether to keep mask dataset
         # self.mask_dataset = LiveCellImageDataset(
@@ -410,19 +410,19 @@ class SingleCellStatic:
 
         # contour = [] here to suppress warning
         single_cells = []
-        for data in sc_json_dict_list:
-            if SCKM.JSON_IMG_DATASET_JSON_PATH in data:
+        for sc_json_dict in sc_json_dict_list:
+            if SCKM.JSON_IMG_DATASET_PATH in sc_json_dict:
                 # load json from img_dataset_json_path
-                img_dataset_json_path = data[SCKM.JSON_IMG_DATASET_JSON_PATH]
+                img_dataset_json_path = sc_json_dict[SCKM.JSON_IMG_DATASET_PATH]
                 img_dataset_json = json.load(open(img_dataset_json_path, "r"))
                 img_dataset = LiveCellImageDataset().load_from_json_dict(json_dict=img_dataset_json)
-            if SCKM.JSON_MASK_DATASET_JSON_PATH in data:
+            if SCKM.JSON_MASK_DATASET_PATH in sc_json_dict:
                 # load json from mask_dataset_json_path
-                mask_dataset_json_path = data[SCKM.JSON_MASK_DATASET_JSON_PATH]
+                mask_dataset_json_path = sc_json_dict[SCKM.JSON_MASK_DATASET_PATH]
                 mask_dataset_json = json.load(open(mask_dataset_json_path, "r"))
                 mask_dataset = LiveCellImageDataset().load_from_json_dict(json_dict=mask_dataset_json)
             sc = SingleCellStatic(contour=[]).load_from_json_dict(
-                data, img_dataset=img_dataset, mask_dataset=mask_dataset
+                sc_json_dict, img_dataset=img_dataset, mask_dataset=mask_dataset
             )
             single_cells.append(sc)
         return single_cells
@@ -458,20 +458,15 @@ class SingleCellStatic:
     def write_json(self, path=None, dataset_json_dir=None):
         json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
 
-        img_dataset_json_path = None
-        mask_dataset_json_path = None
-
-        if self.img_dataset is not None and SCKM.JSON_IMG_DATASET_JSON_PATH in json_dict:
-            img_dataset_json_path = json_dict[SCKM.JSON_IMG_DATASET_JSON_PATH]
-            if not os.path.isfile(img_dataset_json_path):
-                with open(img_dataset_json_path, "w+") as f:
-                    json.dump(self.img_dataset.to_json_dict(), f)
-
-        if self.mask_dataset is not None and SCKM.JSON_MASK_DATASET_JSON_PATH in json_dict:
-            mask_dataset_json_path = json_dict[SCKM.JSON_MASK_DATASET_JSON_PATH]
-            if not os.path.isfile(mask_dataset_json_path):
-                with open(mask_dataset_json_path, "w+") as f:
-                    json.dump(self.mask_dataset.to_json_dict(), f)
+        if dataset_json_dir is not None:
+            self.img_dataset.write_json(out_dir=dataset_json_dir, overwrite=False)
+            self.mask_dataset.write_json(out_dir=dataset_json_dir, overwrite=False)
+        if self.img_dataset is not None and SCKM.JSON_IMG_DATASET_PATH in json_dict:
+            img_dataset_dir = os.path.dirname(json_dict[SCKM.JSON_IMG_DATASET_PATH])
+            self.img_dataset.write_json(out_dir=img_dataset_dir, overwrite=False)
+        if self.mask_dataset is not None and SCKM.JSON_MASK_DATASET_PATH in json_dict:
+            mask_dataset_dir = os.path.dirname(json_dict[SCKM.JSON_MASK_DATASET_PATH])
+            self.mask_dataset.write_json(out_dir=mask_dataset_dir, overwrite=False)
 
         if path is None:
             return json.dumps(json_dict, cls=LiveCellEncoder)
@@ -851,59 +846,50 @@ class SingleCellTrajectory:
         if "mother_trajectory_ids" not in self.meta or "daughter_trajectory_ids" not in self.meta:
             self.update_meta_trajectories()
 
-        # Convert the metadata to JSON string using LiveCellEncoder
-        json_meta = self.meta
-
         res = {
             "track_id": int(self.track_id),
             "timeframe_to_single_cell": {
-                int(float(timeframe)): sc.to_json_dict() for timeframe, sc in self.timeframe_to_single_cell.items()
+                int(float(timeframe)): sc.to_json_dict(dataset_json_dir=dataset_json_dir)
+                for timeframe, sc in self.timeframe_to_single_cell.items()
             },
             # Store mother and daughter trajectories, and other information in metadata
-            "meta": json_meta,
-            # Store json directory for img and mask datasets
-            "img_dataset_json_dir": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
+            "meta": self.meta,
+            # Store json path for img and mask datasets
+            "img_dataset_json_path": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
             if self.img_dataset is not None
             else None,
-            "mask_dataset_json_dir": str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
+            "mask_dataset_json_path": str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
             if self.mask_dataset is not None
             else None,
-            "extra_datasets_json_dir": {
-                k: str(v.get_default_json_path(out_dir=dataset_json_dir)) for k, v in self.extra_datasets.items()
-            }
-            if self.extra_datasets is not None
-            else None,
         }
+
+        if self.img_dataset is not None and res.get("img_dataset_json_path") is not None:
+            img_dataset_dir = os.path.dirname(res.get("img_dataset_json_path"))
+            self.img_dataset.write_json(out_dir=img_dataset_dir, overwrite=False)
+        if self.mask_dataset is not None and res.get("mask_dataset_json_path") is not None:
+            mask_dataset_dir = os.path.dirname(res.get("mask_dataset_json_path"))
+            self.mask_dataset.write_json(out_dir=mask_dataset_dir, overwrite=False)
+
         return res
 
+    # TODO: [smz] add log to input and output functions
     def write_json(self, path=None, dataset_json_dir=None):
         json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
 
-        # Helper function to write dataset to JSON file
-        def _write_dataset_json(dataset, json_dir_key):
-            dataset_json_dir = json_dict.get(json_dir_key)
-            if dataset is not None and dataset_json_dir is not None:
-                if not os.path.isfile(dataset_json_dir):
-                    with open(dataset_json_dir, "w+") as f:
-                        json.dump(dataset.to_json_dict(), f)
-
         # Write img and mask datasets to JSON file
-        # if self.img_dataset is not None and json_dict.get("img_dataset_json_dir") is not None:
-        #     self.img_dataset.write_json(out_dir=json_dict.get("img_dataset_json_dir"), overwrite=False)
-        # if self.mask_dataset is not None and json_dict.get("mask_dataset_json_dir") is not None:
-        #     self.mask_dataset.write_json(out_dir=json_dict.get("mask_dataset_json_dir"), overwrite=False)
-        # img_dataset
-        _write_dataset_json(self.img_dataset, "img_dataset_json_dir")
-
-        # mask_dataset
-        _write_dataset_json(self.mask_dataset, "mask_dataset_json_dir")
+        if self.img_dataset is not None and json_dict.get("img_dataset_json_path") is not None:
+            img_dataset_dir = os.path.dirname(json_dict.get("img_dataset_json_path"))
+            self.img_dataset.write_json(out_dir=img_dataset_dir, overwrite=False)
+        if self.mask_dataset is not None and json_dict.get("mask_dataset_json_path") is not None:
+            mask_dataset_dir = os.path.dirname(json_dict.get("mask_dataset_json_path"))
+            self.mask_dataset.write_json(out_dir=mask_dataset_dir, overwrite=False)
 
         # extra_datasets
         extra_datasets_json_dir = json_dict.get("extra_datasets_json_dir")
         if self.extra_datasets is not None and extra_datasets_json_dir is not None:
             for k, extra_dataset_json_path in extra_datasets_json_dir.items():
-                # self.extra_datasets[k].write_json(out_dir=extra_dataset_json_path, overwrite=False)
-                _write_dataset_json(self.extra_datasets[k], extra_dataset_json_path)
+                extra_dataset_json_dir = os.path.dirname(extra_dataset_json_path)
+                self.extra_datasets[k].write_json(out_dir=extra_dataset_json_dir, overwrite=False)
 
         if path is None:
             return json.dumps(json_dict, cls=LiveCellEncoder)
@@ -916,37 +902,22 @@ class SingleCellTrajectory:
         if "meta" in json_dict:
             self.meta = json_dict["meta"]
 
-        # Helper function for loading datasets
-        def _load_dataset(json_dir_key):
-            if json_dir_key in json_dict and json_dict[json_dir_key] is not None:
-                with open(json_dict[json_dir_key], "r") as f:
-                    dataset_json = json.load(f)
-                return LiveCellImageDataset().load_from_json_dict(dataset_json)
-            else:
-                return None
-
-        # Load img dataset
+        # Load img dataset from input
         if img_dataset:
             self.img_dataset = img_dataset
-        else:
-            # Load json from img_dataset_json_dir
-            self.img_dataset = _load_dataset("img_dataset_json_dir")
 
         shared_img_dataset = None
         if share_img_dataset:
             shared_img_dataset = self.img_dataset
 
-        # Load json from mask_dataset_json_dir
-        self.mask_dataset = _load_dataset("mask_dataset_json_dir")
+        # Load img dataset and mask dataset from json
+        img_dataset_json_path = json_dict.get("img_dataset_json_path")
+        if self.img_dataset is None and img_dataset_json_path is not None and os.path.exists(img_dataset_json_path):
+            self.img_dataset = LiveCellImageDataset.load_from_json_file(path=img_dataset_json_path)
 
-        # Load json from extra_datasets_json_dir
-        extra_datasets = {}
-        if json_dict.get("extra_datasets_json_dir") is not None:
-            for k, v in json_dict["extra_datasets_json_dir"].items():
-                with open(v, "r") as f:
-                    extra_dataset_json = json.load(f)
-                extra_datasets[k] = LiveCellImageDataset().load_from_json_dict(extra_dataset_json)
-        self.extra_datasets = extra_datasets if extra_datasets else None
+        mask_dataset_json_path = json_dict.get("mask_dataset_json_path")
+        if self.mask_dataset is None and mask_dataset_json_path is not None and os.path.exists(mask_dataset_json_path):
+            self.mask_dataset = LiveCellImageDataset.load_from_json_file(path=mask_dataset_json_path)
 
         self.img_total_timeframe = len(self.img_dataset)
         self.timeframe_to_single_cell = {}
@@ -1136,16 +1107,13 @@ class SingleCellTrajectoryCollection:
     def pop_trajectory(self, track_id):
         return self.track_id_to_trajectory.pop(track_id)
 
-    def to_json_dict(self):
+    def to_json_dict(self, dataset_json_dir=None):
         return {
             "track_id_to_trajectory": {
-                int(track_id): trajectory.to_json_dict() for track_id, trajectory in self.track_id_to_trajectory.items()
+                int(track_id): trajectory.to_json_dict(dataset_json_dir=dataset_json_dir)
+                for track_id, trajectory in self.track_id_to_trajectory.items()
             }
         }
-
-    def write_json(self, path):
-        with open(path, "w+") as f:
-            json.dump(self.to_json_dict(), f, cls=LiveCellEncoder)
 
     def load_from_json_dict(self, json_dict):
         self.track_id_to_trajectory = {}
@@ -1155,6 +1123,16 @@ class SingleCellTrajectoryCollection:
                 trajectory_dict
             )
         return self
+
+    def write_json(self, path, dataset_json_dir=None):
+        with open(path, "w+") as f:
+            json.dump(self.to_json_dict(dataset_json_dir=dataset_json_dir), f, cls=LiveCellEncoder)
+
+    @staticmethod
+    def load_from_json_file(path):
+        with open(path, "r") as f:
+            json_dict = json.load(f)
+        return SingleCellTrajectoryCollection().load_from_json_dict(json_dict)
 
     def histogram_traj_length(self, ax=None, **kwargs):
         import seaborn as sns
