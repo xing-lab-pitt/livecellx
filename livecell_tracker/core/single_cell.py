@@ -327,13 +327,12 @@ class SingleCellStatic:
             # TODO: add arg to let users define their own json dataset paths
             if self.img_dataset is not None:
                 res[SCKM.JSON_IMG_DATASET_PATH] = str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
+                self.img_dataset.write_json(out_dir=dataset_json_dir, overwrite=False)
             if self.mask_dataset is not None:
                 res[SCKM.JSON_MASK_DATASET_PATH] = str(
                     self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir)
                 )
-
-            self.img_dataset.write_json(out_dir=dataset_json_dir, overwrite=False)
-            self.mask_dataset.write_json(out_dir=dataset_json_dir, overwrite=False)
+                self.mask_dataset.write_json(out_dir=dataset_json_dir, overwrite=False)
 
         return res
 
