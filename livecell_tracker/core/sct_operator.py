@@ -485,6 +485,7 @@ class SctOperator:
         print("<adding new sc>")
         assert self.time_span is not None, "Please set the time span first."
         min_time = self.time_span[0]
+        # min_time = 0 # TODO: if we regulate that img_dataset is always used, then we can use this line
         cur_time = self.viewer.dims.current_step[0] + min_time
         new_sc = SingleCellStatic(timeframe=cur_time, contour=[], img_dataset=self.img_dataset)
         sc_operator = self.edit_sc(new_sc)
@@ -683,12 +684,6 @@ def create_scts_operator_viewer(
     from livecell_tracker.core.napari_visualizer import NapariVisualizer
     from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
 
-    if viewer is None:
-        if img_dataset is not None:
-            viewer = napari.view_image(img_dataset.to_dask(), name="img_image", cache=True)
-        else:
-            viewer = napari.Viewer()
-
     if not (time_span is None):
         if img_dataset is None:
             # TODO: confirm and report the following issue to Napari
@@ -699,6 +694,16 @@ def create_scts_operator_viewer(
         for _, sct in scts:
             new_scts.add_trajectory(sct.subsct(time_span[0], time_span[1]))
         scts = new_scts
+
+    # if the img_dataset is not None, then we can use it to determine the time span
+    if img_dataset is not None:
+        time_span = img_dataset.time_span()
+    if viewer is None:
+        if img_dataset is not None:
+            viewer = napari.view_image(img_dataset.to_dask(), name="img_image", cache=True)
+        else:
+            viewer = napari.Viewer()
+
     shape_layer = NapariVisualizer.gen_trajectories_shapes(scts, viewer, contour_sample_num=20)
     shape_layer.mode = "select"
     sct_operator = SctOperator(scts, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
@@ -706,7 +711,9 @@ def create_scts_operator_viewer(
     return sct_operator
 
 
-def create_scs_edit_viewer(single_cells: List[SingleCellStatic], img_dataset=None, viewer=None) -> SctOperator:
+def create_scs_edit_viewer(
+    single_cells: List[SingleCellStatic], img_dataset=None, viewer=None, time_span=None
+) -> SctOperator:
     import napari
     from livecell_tracker.core.napari_visualizer import NapariVisualizer
     from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
@@ -715,5 +722,5 @@ def create_scs_edit_viewer(single_cells: List[SingleCellStatic], img_dataset=Non
     for idx, sc in enumerate(single_cells):
         sct = SingleCellTrajectory(track_id=idx, timeframe_to_single_cell={sc.timeframe: sc})
         temp_sc_trajs_for_correct.add_trajectory(sct)
-    sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer)
+    sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer, time_span)
     return sct_operator
