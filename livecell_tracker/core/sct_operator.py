@@ -683,22 +683,25 @@ def create_scts_operator_viewer(
     from livecell_tracker.core.napari_visualizer import NapariVisualizer
     from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
 
-    if time_span is None:
-        if img_dataset is not None:
-            sorted_times = img_dataset.get_sorted_times()
-            time_span = (sorted_times[0], sorted_times[-1])
-        else:
-            # TODO: use scts' time span
-            time_span = (0, np.inf)
-
     if viewer is None:
         if img_dataset is not None:
             viewer = napari.view_image(img_dataset.to_dask(), name="img_image", cache=True)
-    else:
-        viewer = napari.Viewer()
+        else:
+            viewer = napari.Viewer()
+
+    if not (time_span is None):
+        if img_dataset is None:
+            # TODO: confirm and report the following issue to Napari
+            main_warning(
+                "img_dataset is None: a known bug may occur if at some point SingleCellTrajectory does not contain any shape. Napari is going to ignore the time point entirely and create one fewer slices in its data structure. This may mess up functionality in sctc operator"
+            )
+        new_scts = SingleCellTrajectoryCollection()
+        for _, sct in scts:
+            print("filtering sct:", sct)
+            new_scts.add_trajectory(sct.subsct(time_span[0], time_span[1]))
+        scts = new_scts
     shape_layer = NapariVisualizer.gen_trajectories_shapes(scts, viewer, contour_sample_num=20)
     shape_layer.mode = "select"
-
     sct_operator = SctOperator(scts, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
     create_sct_napari_ui(sct_operator)
     return sct_operator
