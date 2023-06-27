@@ -2,7 +2,7 @@ import itertools
 import json
 import copy
 import os
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, Union
 from collections import deque
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -1088,7 +1088,7 @@ class SingleCellTrajectoryCollection:
     def __len__(self):
         return len(self.track_id_to_trajectory)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Tuple[float, SingleCellTrajectory]]:
         return iter(self.track_id_to_trajectory.items())
 
     def add_trajectory(self, trajectory: SingleCellTrajectory):
@@ -1181,4 +1181,6 @@ class SingleCellTrajectoryCollection:
         return self.subset(track_ids[:n])
 
     def _next_track_id(self):
+        if len(self.get_track_ids()) == 0:
+            return 0
         return max(self.get_track_ids()) + 1
