@@ -21,6 +21,7 @@ from livecell_tracker.track.sort_tracker_utils import (
     track_SORT_bbox_from_contours,
     track_SORT_bbox_from_scs,
 )
+from tests.test_utils import TestHelper
 
 
 class SingleCellTrajectoryIOTest(unittest.TestCase):
@@ -44,47 +45,43 @@ class SingleCellTrajectoryIOTest(unittest.TestCase):
         self.io_out_dir = Path("test_io_output")
         self.io_out_dir.mkdir(exist_ok=True)  # Make sure the directory exists before each test
         self.json_file_path = self.io_out_dir / "test_sc_trajectory.json"
+        self.helper = TestHelper()
 
     def test_to_json_dict(self):
         # this test checks if the to_json_dict method works correctly
-        result = self.sct.to_json_dict(self.json_file_path)
+        result = self.sct.to_json_dict(dataset_json_dir=self.io_out_dir)
         self.assertIsInstance(result, dict)
 
         # Check if all necessary keys exist and the values are correct
         self.assertEqual(result["track_id"], self.sct.track_id)
         for timeframe, sc in self.sct.timeframe_to_single_cell.items():
-            self.assertEqual(result["timeframe_to_single_cell"][int(float(timeframe))], sc.to_json_dict())
+            self.assertEqual(
+                result["timeframe_to_single_cell"][int(float(timeframe))],
+                sc.to_json_dict(dataset_json_dir=self.io_out_dir),
+            )
 
         self.assertDictEqual(result["meta"], self.sct.meta)
 
         if self.sct.img_dataset is not None:
             self.assertEqual(
-                result["img_dataset_json_dir"],
-                str(self.sct.img_dataset.get_default_json_path(out_dir=self.json_file_path)),
+                result["img_dataset_json_path"],
+                str(self.sct.img_dataset.get_default_json_path(out_dir=self.io_out_dir)),
             )
         else:
-            self.assertIsNone(result["img_dataset_json_dir"])
+            self.assertIsNone(result["img_dataset_json_path"])
 
         if self.sct.mask_dataset is not None:
             self.assertEqual(
-                result["mask_dataset_json_dir"],
-                str(self.sct.mask_dataset.get_default_json_path(out_dir=self.json_file_path)),
+                result["mask_dataset_json_path"],
+                str(self.sct.mask_dataset.get_default_json_path(out_dir=self.io_out_dir)),
             )
         else:
-            self.assertIsNone(result["mask_dataset_json_dir"])
-
-        if self.sct.extra_datasets is not None:
-            for k, v in self.sct.extra_datasets.items():
-                self.assertEqual(
-                    result["extra_datasets_json_dir"][k], str(v.get_default_json_path(out_dir=self.json_file_path))
-                )
-        else:
-            self.assertIsNone(result["extra_datasets_json_dir"])
+            self.assertIsNone(result["mask_dataset_json_path"])
 
     def test_load_from_json_dict(self):
         # this test checks if the load_from_json_dict method works correctly
         # assuming to_json_dict works correctly
-        json_dict = self.sct.to_json_dict()
+        json_dict = self.sct.to_json_dict(dataset_json_dir=self.io_out_dir)
 
         # define a helper function to write datasets to json files
         def _test_write_dataset(dataset, json_dir_key):
@@ -96,12 +93,8 @@ class SingleCellTrajectoryIOTest(unittest.TestCase):
                     json.dump(dataset.to_json_dict(), f)
 
         # manually write datasets to their json directories
-        _test_write_dataset(self.sct.img_dataset, "img_dataset_json_dir")
-        _test_write_dataset(self.sct.mask_dataset, "mask_dataset_json_dir")
-
-        if self.sct.extra_datasets is not None and "extra_datasets_json_dir" in json_dict:
-            for k, extra_dataset_json_dir in json_dict["extra_datasets_json_dir"].items():
-                _test_write_dataset(self.sct.extra_datasets[k], extra_dataset_json_dir)
+        _test_write_dataset(self.sct.img_dataset, "img_dataset_json_path")
+        _test_write_dataset(self.sct.mask_dataset, "mask_dataset_json_path")
 
         new_sct = SingleCellTrajectory().load_from_json_dict(json_dict)
 
@@ -169,27 +162,20 @@ class SingleCellTrajectoryIOTest(unittest.TestCase):
                 self.assertDictEqual(loaded_dataset.time2url, original_dataset.time2url)
                 self.assertEqual(loaded_dataset.name, original_dataset.name)
 
-        # Check equality for img_dataset, mask_dataset, and extra_datasets.
+        # Check equality for img_dataset, mask_dataset.
         # Use the helper function to check the datasets
         _test_load_dataset(new_sct.img_dataset, self.sct.img_dataset)
         _test_load_dataset(new_sct.mask_dataset, self.sct.mask_dataset)
-        if self.sct.extra_datasets is not None:
-            for dataset_name in self.sct.extra_datasets.keys():
-                _test_load_dataset(new_sct.extra_datasets[dataset_name], self.sct.extra_datasets[dataset_name])
 
         # Clean up created JSON files
-        if json_dict["img_dataset_json_dir"] is not None and os.path.exists(json_dict["img_dataset_json_dir"]):
-            os.remove(json_dict["img_dataset_json_dir"])
-        if json_dict["mask_dataset_json_dir"] is not None and os.path.exists(json_dict["mask_dataset_json_dir"]):
-            os.remove(json_dict["mask_dataset_json_dir"])
-        if json_dict["extra_datasets_json_dir"] is not None:
-            for dataset_name, dataset_json_dir in json_dict["extra_datasets_json_dir"].items():
-                if os.path.exists(dataset_json_dir):
-                    os.remove(dataset_json_dir)
+        if json_dict["img_dataset_json_path"] is not None and os.path.exists(json_dict["img_dataset_json_path"]):
+            os.remove(json_dict["img_dataset_json_path"])
+        if json_dict["mask_dataset_json_path"] is not None and os.path.exists(json_dict["mask_dataset_json_path"]):
+            os.remove(json_dict["mask_dataset_json_path"])
 
     def test_write_json(self):
         # this test checks if the write_json method works correctly
-        self.sct.write_json(self.json_file_path)
+        self.sct.write_json(path=self.json_file_path, dataset_json_dir=self.io_out_dir)
 
         with open(self.json_file_path, "r") as f:
             content = json.load(f)
@@ -199,7 +185,7 @@ class SingleCellTrajectoryIOTest(unittest.TestCase):
 
         # Make a deep copy of the SingleCellTrajectory object and call to_json_dict on the copy.
         sct_copy = copy.deepcopy(self.sct)
-        expected_content = sct_copy.to_json_dict()
+        expected_content = sct_copy.to_json_dict(self.io_out_dir)
 
         # Convert the integer keys to string keys in 'expected_content'
         expected_content["timeframe_to_single_cell"] = {
@@ -212,16 +198,16 @@ class SingleCellTrajectoryIOTest(unittest.TestCase):
 
     def test_load_from_json_file(self):
         # Call write_json to write the object to the file
-        self.sct.write_json(self.json_file_path)
+        self.sct.write_json(path=self.json_file_path, dataset_json_dir=self.io_out_dir)
 
         # Load a new SingleCellTrajectory object from the file
-        new_sct = SingleCellTrajectory.load_from_json_file(self.json_file_path)
+        new_sct = SingleCellTrajectory.load_from_json_file(path=self.json_file_path)
 
         # Check that the loaded object is a SingleCellTrajectory
         self.assertIsInstance(new_sct, SingleCellTrajectory)
 
-        # We pass the to_json_dict result of self.sct as the json_dict parameter, and new_sct as the sct parameter
-        self.assertDictEqual(new_sct.to_json_dict(), self.sct.to_json_dict())
+        # Compare the two SingleCellTrajectory objects
+        self.helper.assertEqualSCTs(new_sct, self.sct)
 
     def tearDown(self):
         # Clean up the test file if it exists
