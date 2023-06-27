@@ -130,9 +130,8 @@ def update_traj_collection_by_SORT_tracker_detection(
         _traj.add_single_cell(timeframe, sc)
 
 
-# TODO: path is not required here, consider replace path2contours with time2contours
 def track_SORT_bbox_from_contours(
-    path2contours: Dict[str, np.array],
+    time2contours: Dict[str, np.array],
     raw_imgs: LiveCellImageDataset,
     max_age=5,
     min_hits=3,
@@ -141,10 +140,10 @@ def track_SORT_bbox_from_contours(
     tracker = Sort(max_age=max_age, min_hits=min_hits)
     traj_collection = SingleCellTrajectoryCollection()
     all_track_bbs = []
-    sorted_times = sorted(raw_imgs.time2url.keys())
+    sorted_times = sorted(time2contours.keys())
     for time in sorted_times:
         # TODO: fix in the future only for windows... somehow json lib saved double slashes
-        contours = path2contours[raw_imgs.get_img_path(time)]["contours"]
+        contours = time2contours[time]["contours"]
 
         # TODO: for RPN based models, we may directly get bboxes from the model outputs
         detections, contour_bbs = gen_SORT_detections_input_from_contours(contours)
@@ -170,15 +169,15 @@ def track_SORT_bbox_from_scs(
     max_age=5,
     min_hits=3,
 ):
-    url2contours = {}
+    time2contours = {}
     for sc in single_cells:
         timeframe = sc.timeframe
-        if not (raw_imgs.get_img_path(timeframe) in url2contours):
-            url2contours[raw_imgs.get_img_path(timeframe)] = {
+        if not timeframe in time2contours:
+            time2contours[timeframe] = {
                 "contours": [],
             }
-        url2contours[raw_imgs.get_img_path(timeframe)]["contours"].append(sc.contour)
+        time2contours[timeframe]["contours"].append(sc.contour)
     sc_kwargs = {
         "mask_dataset": mask_dataset,
     }
-    return track_SORT_bbox_from_contours(url2contours, raw_imgs, max_age, min_hits, sc_kwargs=sc_kwargs)
+    return track_SORT_bbox_from_contours(time2contours, raw_imgs, max_age, min_hits, sc_kwargs=sc_kwargs)
