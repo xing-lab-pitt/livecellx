@@ -697,7 +697,6 @@ def create_scts_operator_viewer(
             )
         new_scts = SingleCellTrajectoryCollection()
         for _, sct in scts:
-            print("filtering sct:", sct)
             new_scts.add_trajectory(sct.subsct(time_span[0], time_span[1]))
         scts = new_scts
     shape_layer = NapariVisualizer.gen_trajectories_shapes(scts, viewer, contour_sample_num=20)
