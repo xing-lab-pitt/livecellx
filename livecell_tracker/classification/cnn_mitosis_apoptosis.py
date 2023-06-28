@@ -8,9 +8,16 @@ import numpy as np
 from torch.utils.data import Dataset
 from livecell_tracker.preprocess.utils import normalize_img_to_uint8
 
+DEFAULT_CLASS_NAMES = ["mitosis", "apoptosis", "normal"]
+
 
 class MitApopImageDataset(Dataset):
-    def __init__(self, dir_path=None, subdir_classes=["mitosis", "apoptosis", "normal"], transform=None):
+    def __init__(
+        self,
+        dir_path=None,
+        subdir_classes=DEFAULT_CLASS_NAMES,
+        transform=None,
+    ):
         self.dir_path = dir_path
         self.transform = transform
 
@@ -46,10 +53,13 @@ class MitApopImageDataset(Dataset):
 
 
 class MitApopImageClassifier(pl.LightningModule):
-    def __init__(self, dir_path, n_classes=3, in_channels=3):
+    def __init__(self, dir_path, n_classes=3, train_crop_size=224, val_dir_path=None, class_names=DEFAULT_CLASS_NAMES):
         super().__init__()
         self.dir_path = dir_path
-
+        self.val_dir_path = val_dir_path
+        self.train_crop_size = train_crop_size
+        self.n_classes = n_classes
+        self.class_names = class_names
         self.model = torch.nn.Sequential(
             torch.nn.Conv2d(in_channels, 32, kernel_size=3, padding=1),
             torch.nn.ReLU(),
@@ -93,6 +103,14 @@ class MitApopImageClassifier(pl.LightningModule):
         acc = torch.sum(preds == y) / float(len(y))
         self.log("val_loss", loss, on_epoch=True)
         self.log("val_acc", acc, on_epoch=True)
+
+        # also record validation acc by class
+        for i in range(3):
+            idx = y == i
+            if torch.sum(idx) > 0:
+                acc = torch.sum(preds[idx] == y[idx]) / float(torch.sum(idx))
+                self.log(f"val_acc_{self.class_names[i]}", acc, on_epoch=True)
+
         return {"val_loss": loss, "val_acc": acc}
 
     def configure_optimizers(self):
@@ -110,7 +128,10 @@ class MitApopImageClassifier(pl.LightningModule):
     def train_dataloader(self):
         transform = transforms.Compose(
             [
-                transforms.RandomResizedCrop(224, scale=(0.5, 1.0)),
+                # add zoom
+                transforms.RandomAffine(0, translate=(0.1, 0.1), scale=(0.5, 2)),
+                transforms.RandomCrop(self.train_crop_size, pad_if_needed=True, padding_mode="constant"),
+                # transforms.RandomResizedCrop(224, scale=(0.5, 1.0)),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 # transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
@@ -122,9 +143,11 @@ class MitApopImageClassifier(pl.LightningModule):
     def val_dataloader(self):
         transform = transforms.Compose(
             [
-                transforms.Resize(256),
+                # transforms.RandomCrop(self.train_crop_size, pad_if_needed=True, padding_mode="constant"),
                 transforms.CenterCrop(224),
                 transforms.ToTensor(),
                 # transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
             ]
         )
+        dataset = MitApopImageDataset(self.val_dir_path, transform=transform)
+        return DataLoader(dataset, batch_size=32, shuffle=False, num_workers=4)

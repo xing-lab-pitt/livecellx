@@ -450,7 +450,7 @@ def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
         return
 
     @magicgui(call_button="resample contours")
-    def resample_contours(sample_num: Annotated[int, {"widget_type": "SpinBox", "max": int(1e6)}] = 100):
+    def resample_contours(sample_num: Annotated[int, {"widget_type": "SpinBox", "max": int(1e6)}] = 15):
         print("[button] resample contours callback fired!")
         sc_operator.resample_contours_callback(sample_num)
 

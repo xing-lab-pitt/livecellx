@@ -37,7 +37,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     For the case where your images are stored in a single file, #TODO: you can use the MultiChannelImageDataset class.
     """
 
-    DEFAULT_OUT_DIR = "/livecell-datasets"
+    DEFAULT_OUT_DIR = "./livecell-datasets"
 
     def __init__(
         self,
@@ -359,6 +359,10 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     def get_sorted_times(self):
         """Get the times in the dataset"""
         return sorted(list(self.time2url.keys()))
+
+    def time_span(self):
+        """Get the time span of the dataset"""
+        return self.get_sorted_times()[0], self.get_sorted_times()[-1]
 
 
 class SingleImageDataset(LiveCellImageDataset):

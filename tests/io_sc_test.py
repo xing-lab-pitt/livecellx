@@ -16,12 +16,10 @@ from livecell_tracker.core import (
 class SingleCellStaticIOTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-
         dic_dataset, mask_dataset = sample_data.tutorial_three_image_sys()
         cls.cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
         cls.cell = cls.cells[0]
-        cls.include_dataset_json = False
-        cls.dataset_json_dir = None
+        cls.io_out_dir = None
         cls.img_dataset = None
         cls.mask_dataset = None
 
@@ -29,27 +27,23 @@ class SingleCellStaticIOTest(unittest.TestCase):
         self.io_out_dir = Path("test_io_output")
         self.io_out_dir.mkdir(exist_ok=True)  # Make sure the directory exists before each test
 
-    # TODO
-    def test_read_traj_collection(self):
-        return
-        traj_collection_json_path = "../datasets/test_data/traj_analysis/test_trajs.json"
-        traj_collection_json = json.load(open(traj_collection_json_path, "r"))
-        trajectory_collection = SingleCellTrajectoryCollection().load_from_json_dict(traj_collection_json)
-
-        # TODO: recursively check all the trajectories and all single cell objects
-
     def test_to_json_dict(self):
-        result = self.cell.to_json_dict(include_dataset_json=True, dataset_json_dir=self.dataset_json_dir)
+        for include_dataset_json in [True, False]:
+            for has_dataset_json_dir in [True, False]:
+                dataset_json_dir = self.io_out_dir if has_dataset_json_dir else None
+                result = self.cell.to_json_dict(
+                    include_dataset_json=include_dataset_json, dataset_json_dir=dataset_json_dir
+                )
 
-        assert isinstance(result, dict)
-        assert result["timeframe"] == self.cell.timeframe
-        assert result["bbox"] == self.cell.bbox.tolist()
-        assert result["feature_dict"] == self.cell.feature_dict
-        assert result["contour"] == self.cell.contour.tolist()
-        assert result["id"] == str(self.cell.id)
-        assert result["meta"] == self.cell.meta
+                assert isinstance(result, dict)
+                assert result["timeframe"] == self.cell.timeframe
+                assert result["bbox"] == self.cell.bbox.tolist()
+                assert result["feature_dict"] == self.cell.feature_dict
+                assert result["contour"] == self.cell.contour.tolist()
+                assert result["id"] == str(self.cell.id)
+                assert result["meta"] == self.cell.meta
 
-        if self.include_dataset_json:
+        if include_dataset_json:
             assert "dataset_json" in result
             dataset_json = result["dataset_json"]
             assert isinstance(dataset_json, dict)
@@ -58,21 +52,27 @@ class SingleCellStaticIOTest(unittest.TestCase):
             assert "max_cache_size" in dataset_json
             assert "ext" in dataset_json
             assert "time2url" in dataset_json
+        else:
+            assert "dataset_json" not in result
 
-        if self.dataset_json_dir:
+        if dataset_json_dir:
             assert "dataset_json_dir" in result
-            assert result["dataset_json_dir"] == str(self.dataset_json_dir)
-            assert SCKM.JSON_IMG_DATASET_JSON_PATH in result
-            assert result[SCKM.JSON_IMG_DATASET_JSON_PATH] == str(
-                self.cell.img_dataset.get_default_json_path(out_dir=self.dataset_json_dir)
+            assert result["dataset_json_dir"] == str(self.io_out_dir)
+            assert SCKM.JSON_IMG_DATASET_PATH in result
+            assert result[SCKM.JSON_IMG_DATASET_PATH] == str(
+                self.cell.img_dataset.get_default_json_path(out_dir=self.io_out_dir)
             )
-            assert SCKM.JSON_MASK_DATASET_JSON_PATH in result
-            assert result[SCKM.JSON_MASK_DATASET_JSON_PATH] == str(
-                self.cell.mask_dataset.get_default_json_path(out_dir=self.dataset_json_dir)
+            assert SCKM.JSON_MASK_DATASET_PATH in result
+            assert result[SCKM.JSON_MASK_DATASET_PATH] == str(
+                self.cell.mask_dataset.get_default_json_path(out_dir=self.io_out_dir)
             )
+        else:
+            assert "dataset_json_dir" not in result
+            assert SCKM.JSON_IMG_DATASET_PATH not in result
+            assert SCKM.JSON_MASK_DATASET_PATH not in result
 
     def test_load_from_json_dict(self):
-        json_dict = self.cell.to_json_dict()
+        json_dict = self.cell.to_json_dict(dataset_json_dir=self.io_out_dir)
 
         new_cell = SingleCellStatic()
         new_cell.load_from_json_dict(json_dict)

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from livecell_tracker.core.sc_seg_operator import ScSegOperator, create_sc_seg_napari_ui
 from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic, SingleCellTrajectory
-from livecell_tracker.livecell_logger import main_warning
+from livecell_tracker.livecell_logger import main_warning, main_info
 
 
 class SctOperator:
@@ -40,7 +40,7 @@ class SctOperator:
         self.viewer = viewer
         self.magicgui_container = magicgui_container
         self.mode = SctOperator.CONNECT_MODE
-        self.annotate_click_samples = []
+        self.annotate_click_samples = {}
         if sc_operators is None:
             sc_operators = []
         self.sc_operators = sc_operators
@@ -76,6 +76,8 @@ class SctOperator:
         return cur_properties["sc"]
 
     def select_shape(self, event, shape_layer=None):
+        """Select a shape in the shape layer, and update the shape color and status.
+        self.select_info consists of [cur_sct, cur_sc, selected_shape_index]"""
         if shape_layer is None:
             shape_layer = self.shape_layer
         print("current shape layer shape properties: ", event)
@@ -89,10 +91,27 @@ class SctOperator:
             return
         selected_shape_index = list(shape_layer.selected_data)[0]
 
-        shape_indices_in_select_info = set([info[2] for info in self.select_info])
+        shape_indices_in_select_info = list([info[2] for info in self.select_info])
+
         if selected_shape_index in shape_indices_in_select_info:
+            # Skip if the shape is already selected
             print("shape already selected, please select another shape")
             return
+
+            # Deselect the shape if it is already selected
+            # TODO: deselect selected_shape_index. The following code works but with a small issue that when clicking on a shape for the first time, the selection will blink (select and then deselect instead of select)
+            # print("deselecting shape...")
+            # tmp_idx = shape_indices_in_select_info.index(selected_shape_index)
+            # sct, sc, _ = self.select_info.pop(tmp_idx)
+            # tmp_face_color = list(self.shape_layer.face_color)
+            # tmp_face_color[selected_shape_index] = self.original_face_colors[selected_shape_index]
+            # self.shape_layer.face_color = tmp_face_color
+            # # self.shape_layer.properties["status"][selected_shape_index] = "unselected"
+            # tmp_properties = dict(self.shape_layer.properties)
+            # tmp_properties["status"][selected_shape_index] = ""
+            # self.shape_layer.properties = tmp_properties
+            # print("<select_info> complete deselecting track:", sct.track_id)
+            # return
 
         cur_sc = current_properties["sc"][0]
         cur_track_id = current_properties["track_id"][0]
@@ -157,33 +176,34 @@ class SctOperator:
         self.shape_layer.face_color = face_colors
         print("<update track_id properties complete>")
 
+    def lookup_sc_shape_index(self, sc) -> Optional[int]:
+        properties = self.shape_layer.properties
+        scs = properties["sc"]
+        update_shape_index = None
+        for shape_index, tmp_sc in enumerate(scs):
+            if tmp_sc == sc and update_shape_index is not None:
+                main_warning("multiple sc with the same sc object found in shape layer")
+            if tmp_sc.id == sc.id:
+                update_shape_index = shape_index
+            if tmp_sc.id == sc.id and tmp_sc != sc:
+                main_warning("sc with same id but different shape found in shape layer")
+        return update_shape_index
+
     def update_shape_layer_by_sc(self, sc: SingleCellStatic):
         print("<update shape layer by sc>")
 
         # clear selected data first because adding/deleting shapes will change the shape index
         self.clear_selection()
 
-        def lookup_sc_index(sc):
-            properties = self.shape_layer.properties
-            scs = properties["sc"]
-            update_shape_index = None
-            for shape_index, tmp_sc in enumerate(scs):
-                if tmp_sc == sc and update_shape_index is not None:
-                    main_warning("multiple sc with the same sc object found in shape layer")
-                if tmp_sc.id == sc.id:
-                    update_shape_index = shape_index
-                if tmp_sc.id == sc.id and tmp_sc != sc:
-                    main_warning("sc with same id but different shape found in shape layer")
-
-            return update_shape_index
-
-        update_shape_index = lookup_sc_index(sc)
+        update_shape_index = self.lookup_sc_shape_index(sc)
         if update_shape_index is None:
             main_warning("sc not found in shape layer")
             return
 
         # update the sc's shape data in self.shape_layer
+        # Note: the following line triggers self.select_shape
         self.shape_layer.selected_data = {update_shape_index}
+        self.clear_selection()
         # update_shape_properties = dict(self.shape_layer.current_properties)
         cur_sc_properties = dict(self.shape_layer.properties)
         cur_sc_properties = {key: [value[update_shape_index]] for key, value in cur_sc_properties.items()}
@@ -209,7 +229,6 @@ class SctOperator:
         # shape_data[update_shape_index] = np.array(sc.get_napari_shape_contour_vec())
         # print("<setting shapes...>")
         # self.shape_layer.data = shape_data
-
         self.store_shape_layer_info()
         print("<update shape layer by sc complete>")
 
@@ -255,19 +274,65 @@ class SctOperator:
         self.shape_layer.properties = self.original_properties
         print("<clear complete>")
 
+    # TODO: remove_scs not fully tested in notebook
+    def remove_scs(self, scs: List[SingleCellStatic]):
+        remove_shape_indices = []
+        for sc in scs:
+            shape_index = self.lookup_sc_shape_index(sc)
+            if shape_index is None:
+                continue
+            remove_shape_indices.append(shape_index)
+        remove_shape_indices = list(set(remove_shape_indices))
+        remove_shape_indices = sorted(remove_shape_indices, reverse=True)
+        self.shape_layer.selected_data = remove_shape_indices
+        self.shape_layer.remove_selected()
+        self.clear_selection()
+
+        for shape_index in remove_shape_indices:
+            self.original_face_colors.pop(shape_index)
+            for key in self.original_properties.keys():
+                self.original_properties[key].pop(shape_index)
+
+    # TODO: remove_empty_contour_sct not fully tested
+    def remove_empty_contour_sct(self):
+        remove_tids = []
+        remove_scs = []
+        for tid, sct in self.traj_collection:
+            assert len(sct.get_all_scs()) == 1, "sct should only have one sc when you call this function"
+            sc = sct.get_all_scs()[0]
+            if len(sc.contour) == 0:
+                remove_tids.append(tid)
+                remove_scs.append(sc)
+        for id in remove_tids:
+            main_info(f"removing empty contour sct with id {id}")
+            self.traj_collection.pop_trajectory(id)
+
     def setup_shape_layer(self, shape_layer: Shapes):
         self.shape_layer = shape_layer
         shape_layer.events.current_properties.connect(self.select_shape)
         self.store_shape_layer_info()
 
-    def store_shape_layer_info(self):
+    def store_shape_layer_info(self, update_slice=slice(0, None, 1)):
+        # check if original_face_colors is initialized
+        if not hasattr(self, "original_face_colors"):
+            self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
+        if not hasattr(self, "original_scs"):
+            self.original_scs = list(self.shape_layer.properties["sc"])
+        if not hasattr(self, "original_properties"):
+            self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
+        if not hasattr(self, "original_shape_data"):
+            self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
+
         # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
-        self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
+        self.original_face_colors[update_slice] = copy.deepcopy(list(self.shape_layer.face_color))[update_slice]
         # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
-        self.original_scs = list(self.shape_layer.properties["sc"])
-        self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
-        self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
-        self.original_properties["sc"] = self.original_scs
+        self.original_scs[update_slice] = list(self.shape_layer.properties["sc"])[update_slice]
+        for key in self.original_properties.keys():
+            self.original_properties[key][update_slice] = copy.deepcopy(self.shape_layer.properties.copy())[key][
+                update_slice
+            ]
+        self.original_shape_data[update_slice] = copy.deepcopy(self.shape_layer.data.copy())[update_slice]
+        self.original_properties["sc"][update_slice] = self.original_scs[update_slice]
 
     def restore_shapes_data(self):
         print("<restoring sct shapes>")
@@ -351,13 +416,18 @@ class SctOperator:
         self.clear_selection()
         print("<delete operation complete>")
 
-    def annotate_click(self):
+    def annotate_click(self, label):
         print("<annotating click>: adding a sample")
         sample = []
         for selected_shape in self.select_info:
             sct, sc, shape_index = selected_shape
             sample.append(sc)
-        self.annotate_click_samples.append(sample)
+            if "_labels" not in sc.meta:
+                sc.meta["_labels"] = []
+            sc.meta["_labels"].append(label)
+        if label not in self.annotate_click_samples:
+            self.annotate_click_samples[label] = []
+        self.annotate_click_samples[label].append(sample)
         self.clear_selection()
         print("<annotate click operation complete>")
 
@@ -371,6 +441,9 @@ class SctOperator:
             main_warning("More than one shape is selected. The first selected shape is used for editing.")
         cur_sc = current_properties["sc"][0]
         sc_operator = self.edit_sc(cur_sc)
+
+        # hide the shape layer
+        self.shape_layer.visible = False
         return sc_operator
 
     def edit_sc(self, cur_sc):
@@ -396,14 +469,14 @@ class SctOperator:
             sample_dataset_dir = sample_out_dir / "datasets"
         elif isinstance(sample_dataset_dir, str):
             sample_dataset_dir = Path(sample_dataset_dir)
-
-        samples = self.annotate_click_samples
         sample_paths = []
 
-        for i, sample in enumerate(samples):
-            sample_json_path = sample_out_dir / (filename_pattern.format(sample_index=i))
-            SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
-            sample_paths.append(sample_json_path)
+        for label in self.annotate_click_samples:
+            samples = self.annotate_click_samples[label]
+            for i, sample in enumerate(samples):
+                sample_json_path = sample_out_dir / label / (filename_pattern.format(sample_index=i))
+                SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
+                sample_paths.append(sample_json_path)
         print("<saving annotations complete>")
         return sample_paths
 
@@ -412,6 +485,7 @@ class SctOperator:
         print("<adding new sc>")
         assert self.time_span is not None, "Please set the time span first."
         min_time = self.time_span[0]
+        # min_time = 0 # TODO: if we regulate that img_dataset is always used, then we can use this line
         cur_time = self.viewer.dims.current_step[0] + min_time
         new_sc = SingleCellStatic(timeframe=cur_time, contour=[], img_dataset=self.img_dataset)
         sc_operator = self.edit_sc(new_sc)
@@ -439,7 +513,18 @@ class SctOperator:
         # self.shape_layer.data = list(self.shape_layer.data) + sc_napari_data
         self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon")
         self.shape_layer.properties = new_sc_layer_properties
-        self.store_shape_layer_info()
+
+        # WARNING: only update the newly added sc's shape layer info
+        # because it will cause problems e.g. other function status staying forever on the shape layer
+        self.original_face_colors.append(self.original_face_colors[0])  # TODO: randomly generate a color?
+
+        self.original_properties["sc"] = np.append(self.original_properties["sc"], new_sc)
+        self.original_properties["track_id"] = np.append(self.original_properties["track_id"], new_sct.track_id)
+        self.original_properties["status"] = np.append(self.original_properties["status"], "")
+
+        self.original_scs.append(new_sc)
+        self.original_shape_data.append(sc_dummy_napari_data[0])
+        self.store_shape_layer_info(update_slice=slice(-1, None, None))
         print("<adding new sc complete>")
         return sc_operator
 
@@ -514,10 +599,10 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         sct_operator.delete_selected_sct()
 
     @magicgui(call_button="click&annotate")
-    def annotate_click_widget():
+    def annotate_click_widget(label="mitosis"):
         print("annotate callback fired!")
         # sct_operator.delete_selected_sct()
-        sct_operator.annotate_click()
+        sct_operator.annotate_click(label=label)
 
     @magicgui(call_button="edit selected sc")
     def edit_selected_sc():
@@ -599,28 +684,36 @@ def create_scts_operator_viewer(
     from livecell_tracker.core.napari_visualizer import NapariVisualizer
     from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
 
-    if time_span is None:
-        if img_dataset is not None:
-            sorted_times = img_dataset.get_sorted_times()
-            time_span = (sorted_times[0], sorted_times[-1])
-        else:
-            # TODO: use scts' time span
-            time_span = (0, np.inf)
+    if not (time_span is None):
+        if img_dataset is None:
+            # TODO: confirm and report the following issue to Napari
+            main_warning(
+                "img_dataset is None: a known bug may occur if at some point SingleCellTrajectory does not contain any shape. Napari is going to ignore the time point entirely and create one fewer slices in its data structure. This may mess up functionality in sctc operator"
+            )
+        new_scts = SingleCellTrajectoryCollection()
+        for _, sct in scts:
+            new_scts.add_trajectory(sct.subsct(time_span[0], time_span[1]))
+        scts = new_scts
 
+    # if the img_dataset is not None, then we can use it to determine the time span
+    if img_dataset is not None:
+        time_span = img_dataset.time_span()
     if viewer is None:
         if img_dataset is not None:
             viewer = napari.view_image(img_dataset.to_dask(), name="img_image", cache=True)
-    else:
-        viewer = napari.Viewer()
+        else:
+            viewer = napari.Viewer()
+
     shape_layer = NapariVisualizer.gen_trajectories_shapes(scts, viewer, contour_sample_num=20)
     shape_layer.mode = "select"
-
     sct_operator = SctOperator(scts, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
     create_sct_napari_ui(sct_operator)
     return sct_operator
 
 
-def create_scs_edit_viewer(single_cells: List[SingleCellStatic], img_dataset=None, viewer=None) -> SctOperator:
+def create_scs_edit_viewer(
+    single_cells: List[SingleCellStatic], img_dataset=None, viewer=None, time_span=None
+) -> SctOperator:
     import napari
     from livecell_tracker.core.napari_visualizer import NapariVisualizer
     from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
@@ -629,5 +722,5 @@ def create_scs_edit_viewer(single_cells: List[SingleCellStatic], img_dataset=Non
     for idx, sc in enumerate(single_cells):
         sct = SingleCellTrajectory(track_id=idx, timeframe_to_single_cell={sc.timeframe: sc})
         temp_sc_trajs_for_correct.add_trajectory(sct)
-    sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer)
+    sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer, time_span)
     return sct_operator
