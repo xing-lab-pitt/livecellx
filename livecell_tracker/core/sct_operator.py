@@ -473,8 +473,10 @@ class SctOperator:
 
         for label in self.annotate_click_samples:
             samples = self.annotate_click_samples[label]
+            label_dir: Path = sample_out_dir / label
+            label_dir.mkdir(exist_ok=True)
             for i, sample in enumerate(samples):
-                sample_json_path = sample_out_dir / label / (filename_pattern.format(sample_index=i))
+                sample_json_path = label_dir / (filename_pattern.format(sample_index=i))
                 SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
                 sample_paths.append(sample_json_path)
         print("<saving annotations complete>")
