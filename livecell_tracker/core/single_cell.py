@@ -1068,7 +1068,7 @@ class SingleCellTrajectoryCollection:
     """
 
     def __init__(self) -> None:
-        self.track_id_to_trajectory = dict()
+        self.track_id_to_trajectory: Dict[float, SingleCellTrajectory] = dict()
         self._iter_index = 0
 
     def __contains__(self, track_id):
