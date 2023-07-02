@@ -325,7 +325,7 @@ class SctOperator:
         shape_layer.events.current_properties.connect(self.select_shape)
         self.store_shape_layer_info()
 
-    def store_shape_layer_info(self, update_slice=slice(0, None, 1)):
+    def store_shape_layer_info(self, update_slice=None):
         # check if original_face_colors is initialized
         if not hasattr(self, "original_face_colors"):
             self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
@@ -336,16 +336,22 @@ class SctOperator:
         if not hasattr(self, "original_shape_data"):
             self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
 
-        # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
-        self.original_face_colors[update_slice] = copy.deepcopy(list(self.shape_layer.face_color))[update_slice]
-        # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
-        self.original_scs[update_slice] = list(self.shape_layer.properties["sc"])[update_slice]
-        for key in self.original_properties.keys():
-            self.original_properties[key][update_slice] = copy.deepcopy(self.shape_layer.properties.copy())[key][
-                update_slice
-            ]
-        self.original_shape_data[update_slice] = copy.deepcopy(self.shape_layer.data.copy())[update_slice]
-        self.original_properties["sc"][update_slice] = self.original_scs[update_slice]
+        if update_slice:
+            # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
+            self.original_face_colors[update_slice] = copy.deepcopy(list(self.shape_layer.face_color))[update_slice]
+            # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
+            self.original_scs[update_slice] = list(self.shape_layer.properties["sc"])[update_slice]
+            for key in self.original_properties.keys():
+                self.original_properties[key][update_slice] = copy.deepcopy(self.shape_layer.properties.copy())[key][
+                    update_slice
+                ]
+            self.original_shape_data[update_slice] = copy.deepcopy(self.shape_layer.data.copy())[update_slice]
+            self.original_properties["sc"][update_slice] = self.original_scs[update_slice]
+        else:
+            self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
+            self.original_scs = list(self.shape_layer.properties["sc"])
+            self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
+            self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
 
     def restore_shapes_data(self):
         print("<restoring sct shapes>")
