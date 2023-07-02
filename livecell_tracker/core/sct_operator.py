@@ -31,6 +31,7 @@ class SctOperator:
         sc_operators=None,
         img_dataset=None,
         time_span=None,
+        meta=None,
     ):
         self.select_info = []  # [cur_sct, cur_sc, selected_shape_index]
         self.operator = operator
@@ -46,6 +47,10 @@ class SctOperator:
         self.sc_operators = sc_operators
         self.img_dataset = img_dataset
         self.time_span = time_span
+        if meta is None:
+            self.meta = {}
+        else:
+            self.meta = meta
 
     def remove_sc_operator(self, sc_operator):
         self.sc_operators.remove(sc_operator)
@@ -62,6 +67,14 @@ class SctOperator:
         # self.sc_operators = []
         if len(self.sc_operators) != 0:
             main_warning("sc_operators not empty after clear_sc_operators (should be done via sc opeartor close)")
+
+    def close(self):
+        self.viewer.layers.remove(self.shape_layer)
+        if self.magicgui_container is not None:
+            try:
+                self.viewer.window.remove_dock_widget(self.magicgui_container.native)
+            except Exception as e:
+                main_warning("[SctOperator] Exception when removing dock widget:", e)
 
     def get_all_scs(self):
         """Return all single cell objects in the current trajec_collection"""
@@ -680,7 +693,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
 
 
 def create_scts_operator_viewer(
-    scts: SingleCellTrajectoryCollection, img_dataset=None, viewer=None, time_span=None
+    sctc: SingleCellTrajectoryCollection, img_dataset=None, viewer=None, time_span=None
 ) -> SctOperator:
     import napari
     from livecell_tracker.core.napari_visualizer import NapariVisualizer
@@ -693,9 +706,9 @@ def create_scts_operator_viewer(
                 "img_dataset is None: a known bug may occur if at some point SingleCellTrajectory does not contain any shape. Napari is going to ignore the time point entirely and create one fewer slices in its data structure. This may mess up functionality in sctc operator"
             )
         new_scts = SingleCellTrajectoryCollection()
-        for _, sct in scts:
+        for _, sct in sctc:
             new_scts.add_trajectory(sct.subsct(time_span[0], time_span[1]))
-        scts = new_scts
+        sctc = new_scts
 
     # if the img_dataset is not None, then we can use it to determine the time span
     if img_dataset is not None:
@@ -706,9 +719,9 @@ def create_scts_operator_viewer(
         else:
             viewer = napari.Viewer()
 
-    shape_layer = NapariVisualizer.gen_trajectories_shapes(scts, viewer, contour_sample_num=20)
+    shape_layer = NapariVisualizer.gen_trajectories_shapes(sctc, viewer, contour_sample_num=20)
     shape_layer.mode = "select"
-    sct_operator = SctOperator(scts, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
+    sct_operator = SctOperator(sctc, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
     create_sct_napari_ui(sct_operator)
     return sct_operator
 
@@ -716,13 +729,29 @@ def create_scts_operator_viewer(
 def create_scs_edit_viewer(
     single_cells: List[SingleCellStatic], img_dataset=None, viewer=None, time_span=None
 ) -> SctOperator:
+    """
+    Creates a viewer for editing SingleCellStatic objects.
+    The single cells are stored in sct_operators, meaning when the users change the scs in the viewer, the changes will be reflected in the single cell list input.
+
+    Args:
+        single_cells (List[SingleCellStatic]): A list of SingleCellStatic objects to be edited.
+        img_dataset (Optional): An optional image dataset to be displayed in the viewer.
+        viewer (Optional): An optional napari viewer to be used for displaying the image dataset and shapes.
+        time_span (Optional): An optional tuple of start and end timepoints to be displayed in the viewer.
+
+    Returns:
+        SctOperator: An instance of the SctOperator class for editing SingleCellStatic objects.
+    """
     import napari
     from livecell_tracker.core.napari_visualizer import NapariVisualizer
     from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
 
+    # Create a temporary SingleCellTrajectoryCollection for editing the SingleCellStatic objects
     temp_sc_trajs_for_correct = SingleCellTrajectoryCollection()
     for idx, sc in enumerate(single_cells):
         sct = SingleCellTrajectory(track_id=idx, timeframe_to_single_cell={sc.timeframe: sc})
         temp_sc_trajs_for_correct.add_trajectory(sct)
+
+    # Create an SctOperator instance for editing the SingleCellStatic objects
     sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer, time_span)
     return sct_operator
