@@ -10,7 +10,7 @@ from napari.layers import Shapes
 from pathlib import Path
 
 from livecell_tracker.core.sc_seg_operator import ScSegOperator, create_sc_seg_napari_ui
-from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic, SingleCellTrajectory
+from livecell_tracker.core import SingleCellTrajectoryCollection, SingleCellStatic, SingleCellTrajectory
 from livecell_tracker.livecell_logger import main_warning, main_info
 
 
