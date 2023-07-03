@@ -360,6 +360,10 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         """Get the times in the dataset"""
         return sorted(list(self.time2url.keys()))
 
+    def time_span(self):
+        """Get the time span of the dataset"""
+        return self.get_sorted_times()[0], self.get_sorted_times()[-1]
+
 
 class SingleImageDataset(LiveCellImageDataset):
     DEFAULT_TIME = 0

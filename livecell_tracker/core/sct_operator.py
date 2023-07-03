@@ -31,6 +31,7 @@ class SctOperator:
         sc_operators=None,
         img_dataset=None,
         time_span=None,
+        meta=None,
     ):
         self.select_info = []  # [cur_sct, cur_sc, selected_shape_index]
         self.operator = operator
@@ -46,6 +47,10 @@ class SctOperator:
         self.sc_operators = sc_operators
         self.img_dataset = img_dataset
         self.time_span = time_span
+        if meta is None:
+            self.meta = {}
+        else:
+            self.meta = meta
 
     def remove_sc_operator(self, sc_operator):
         self.sc_operators.remove(sc_operator)
@@ -62,6 +67,14 @@ class SctOperator:
         # self.sc_operators = []
         if len(self.sc_operators) != 0:
             main_warning("sc_operators not empty after clear_sc_operators (should be done via sc opeartor close)")
+
+    def close(self):
+        self.viewer.layers.remove(self.shape_layer)
+        if self.magicgui_container is not None:
+            try:
+                self.viewer.window.remove_dock_widget(self.magicgui_container.native)
+            except Exception as e:
+                main_warning("[SctOperator] Exception when removing dock widget:", e)
 
     def get_all_scs(self):
         """Return all single cell objects in the current trajec_collection"""
@@ -312,7 +325,7 @@ class SctOperator:
         shape_layer.events.current_properties.connect(self.select_shape)
         self.store_shape_layer_info()
 
-    def store_shape_layer_info(self, update_slice=slice(0, None, 1)):
+    def store_shape_layer_info(self, update_slice=None):
         # check if original_face_colors is initialized
         if not hasattr(self, "original_face_colors"):
             self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
@@ -323,16 +336,22 @@ class SctOperator:
         if not hasattr(self, "original_shape_data"):
             self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
 
-        # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
-        self.original_face_colors[update_slice] = copy.deepcopy(list(self.shape_layer.face_color))[update_slice]
-        # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
-        self.original_scs[update_slice] = list(self.shape_layer.properties["sc"])[update_slice]
-        for key in self.original_properties.keys():
-            self.original_properties[key][update_slice] = copy.deepcopy(self.shape_layer.properties.copy())[key][
-                update_slice
-            ]
-        self.original_shape_data[update_slice] = copy.deepcopy(self.shape_layer.data.copy())[update_slice]
-        self.original_properties["sc"][update_slice] = self.original_scs[update_slice]
+        if update_slice:
+            # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
+            self.original_face_colors[update_slice] = copy.deepcopy(list(self.shape_layer.face_color))[update_slice]
+            # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
+            self.original_scs[update_slice] = list(self.shape_layer.properties["sc"])[update_slice]
+            for key in self.original_properties.keys():
+                self.original_properties[key][update_slice] = copy.deepcopy(self.shape_layer.properties.copy())[key][
+                    update_slice
+                ]
+            self.original_shape_data[update_slice] = copy.deepcopy(self.shape_layer.data.copy())[update_slice]
+            self.original_properties["sc"][update_slice] = self.original_scs[update_slice]
+        else:
+            self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
+            self.original_scs = list(self.shape_layer.properties["sc"])
+            self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
+            self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
 
     def restore_shapes_data(self):
         print("<restoring sct shapes>")
@@ -473,8 +492,10 @@ class SctOperator:
 
         for label in self.annotate_click_samples:
             samples = self.annotate_click_samples[label]
+            label_dir: Path = sample_out_dir / label
+            label_dir.mkdir(exist_ok=True)
             for i, sample in enumerate(samples):
-                sample_json_path = sample_out_dir / label / (filename_pattern.format(sample_index=i))
+                sample_json_path = label_dir / (filename_pattern.format(sample_index=i))
                 SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
                 sample_paths.append(sample_json_path)
         print("<saving annotations complete>")
@@ -485,6 +506,7 @@ class SctOperator:
         print("<adding new sc>")
         assert self.time_span is not None, "Please set the time span first."
         min_time = self.time_span[0]
+        # min_time = 0 # TODO: if we regulate that img_dataset is always used, then we can use this line
         cur_time = self.viewer.dims.current_step[0] + min_time
         new_sc = SingleCellStatic(timeframe=cur_time, contour=[], img_dataset=self.img_dataset)
         sc_operator = self.edit_sc(new_sc)
@@ -677,41 +699,65 @@ def create_sct_napari_ui(sct_operator: SctOperator):
 
 
 def create_scts_operator_viewer(
-    scts: SingleCellTrajectoryCollection, img_dataset=None, viewer=None, time_span=None
+    sctc: SingleCellTrajectoryCollection, img_dataset=None, viewer=None, time_span=None
 ) -> SctOperator:
     import napari
     from livecell_tracker.core.napari_visualizer import NapariVisualizer
     from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
 
-    if time_span is None:
-        if img_dataset is not None:
-            sorted_times = img_dataset.get_sorted_times()
-            time_span = (sorted_times[0], sorted_times[-1])
-        else:
-            # TODO: use scts' time span
-            time_span = (0, np.inf)
+    if not (time_span is None):
+        if img_dataset is None:
+            # TODO: confirm and report the following issue to Napari
+            main_warning(
+                "img_dataset is None: a known bug may occur if at some point SingleCellTrajectory does not contain any shape. Napari is going to ignore the time point entirely and create one fewer slices in its data structure. This may mess up functionality in sctc operator"
+            )
+        new_scts = SingleCellTrajectoryCollection()
+        for _, sct in sctc:
+            new_scts.add_trajectory(sct.subsct(time_span[0], time_span[1]))
+        sctc = new_scts
 
+    # if the img_dataset is not None, then we can use it to determine the time span
+    if img_dataset is not None:
+        time_span = img_dataset.time_span()
     if viewer is None:
         if img_dataset is not None:
             viewer = napari.view_image(img_dataset.to_dask(), name="img_image", cache=True)
-    else:
-        viewer = napari.Viewer()
-    shape_layer = NapariVisualizer.gen_trajectories_shapes(scts, viewer, contour_sample_num=20)
-    shape_layer.mode = "select"
+        else:
+            viewer = napari.Viewer()
 
-    sct_operator = SctOperator(scts, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
+    shape_layer = NapariVisualizer.gen_trajectories_shapes(sctc, viewer, contour_sample_num=20)
+    shape_layer.mode = "select"
+    sct_operator = SctOperator(sctc, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
     create_sct_napari_ui(sct_operator)
     return sct_operator
 
 
-def create_scs_edit_viewer(single_cells: List[SingleCellStatic], img_dataset=None, viewer=None) -> SctOperator:
+def create_scs_edit_viewer(
+    single_cells: List[SingleCellStatic], img_dataset=None, viewer=None, time_span=None
+) -> SctOperator:
+    """
+    Creates a viewer for editing SingleCellStatic objects.
+    The single cells are stored in sct_operators, meaning when the users change the scs in the viewer, the changes will be reflected in the single cell list input.
+
+    Args:
+        single_cells (List[SingleCellStatic]): A list of SingleCellStatic objects to be edited.
+        img_dataset (Optional): An optional image dataset to be displayed in the viewer.
+        viewer (Optional): An optional napari viewer to be used for displaying the image dataset and shapes.
+        time_span (Optional): An optional tuple of start and end timepoints to be displayed in the viewer.
+
+    Returns:
+        SctOperator: An instance of the SctOperator class for editing SingleCellStatic objects.
+    """
     import napari
     from livecell_tracker.core.napari_visualizer import NapariVisualizer
     from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
 
+    # Create a temporary SingleCellTrajectoryCollection for editing the SingleCellStatic objects
     temp_sc_trajs_for_correct = SingleCellTrajectoryCollection()
     for idx, sc in enumerate(single_cells):
         sct = SingleCellTrajectory(track_id=idx, timeframe_to_single_cell={sc.timeframe: sc})
         temp_sc_trajs_for_correct.add_trajectory(sct)
-    sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer)
+
+    # Create an SctOperator instance for editing the SingleCellStatic objects
+    sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer, time_span)
     return sct_operator

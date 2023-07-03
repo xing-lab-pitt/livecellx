@@ -376,7 +376,6 @@ class ScSegOperator:
     def close(self):
         # remove the shaper layer
         self.viewer.layers.remove(self.shape_layer)
-        self.notify_sct_to_remove_sc_operator()
         # self.magicgui_container.hide()
         # self.magicgui_container.close()
         if self.magicgui_container is not None:
@@ -384,6 +383,7 @@ class ScSegOperator:
                 self.viewer.window.remove_dock_widget(self.magicgui_container.native)
             except Exception as e:
                 main_warning("Exception when removing dock widget:", e)
+        self.notify_sct_to_remove_sc_operator()
 
 
 def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
