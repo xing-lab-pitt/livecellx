@@ -1,0 +1,3 @@
+[submodule "docs/livecell_notebooks"]
+	path = docs/livecell_notebooks
+	url = https://github.com/MandyZhou807/livecell_notebooks
