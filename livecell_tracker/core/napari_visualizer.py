@@ -17,6 +17,9 @@ class NapariVisualizer:
         import matplotlib
         import matplotlib.cm as cm
 
+        if values is None or len(values) == 0:
+            return []
+
         minima = min(values)
         maxima = max(values)
 

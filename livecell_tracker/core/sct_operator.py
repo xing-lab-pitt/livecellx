@@ -10,8 +10,14 @@ from napari.layers import Shapes
 from pathlib import Path
 
 from livecell_tracker.core.sc_seg_operator import ScSegOperator, create_sc_seg_napari_ui
-from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic, SingleCellTrajectory
+from livecell_tracker.core.single_cell import (
+    SingleCellTrajectoryCollection,
+    SingleCellStatic,
+    SingleCellTrajectory,
+    create_sctc_from_scs,
+)
 from livecell_tracker.livecell_logger import main_warning, main_info, main_critical
+from livecell_tracker.core.napari_visualizer import NapariVisualizer
 
 
 class SctOperator:
@@ -324,10 +330,22 @@ class SctOperator:
             main_info(f"removing empty contour sct with id {id}")
             self.traj_collection.pop_trajectory(id)
 
+    def remove_shape_layer(self):
+        self.viewer.layers.remove(self.shape_layer)
+        self.shape_layer = None
+
     def setup_shape_layer(self, shape_layer: Shapes):
         self.shape_layer = shape_layer
         shape_layer.events.current_properties.connect(self.select_shape)
         self.store_shape_layer_info()
+
+    def setup_from_sctc(self, sctc: SingleCellTrajectoryCollection, contour_sample_num=20):
+        shape_layer = NapariVisualizer.gen_trajectories_shapes(sctc, self.viewer, contour_sample_num=contour_sample_num)
+        if self.shape_layer is not None:
+            self.remove_shape_layer()
+        self.setup_shape_layer(shape_layer)
+        self.traj_collection = sctc
+        return shape_layer
 
     def store_shape_layer_info(self, update_slice=None):
         # check if original_face_colors is initialized
@@ -442,15 +460,21 @@ class SctOperator:
         self.clear_selection()
         print("<delete operation complete>")
 
-    def annotate_click(self, label):
+    def annotate_click(self, label, label_info_key="_annotation_label_info"):
+        from livecell_tracker.annotation.annotation_id_generator import AnnotationIdGenerator as AIG
+
         print("<annotating click>: adding a sample")
         sample = []
+        sample_id = AIG.gen_global_id()
         for selected_shape in self.select_info:
             sct, sc, shape_index = selected_shape
             sample.append(sc)
-            if "_labels" not in sc.meta:
-                sc.meta["_labels"] = []
-            sc.meta["_labels"].append(label)
+            if label_info_key not in sc.meta:
+                sc.meta[label_info_key] = []
+            sc.meta[label_info_key].append = {
+                "label": label,
+                "sample_id": sample_id,
+            }
         if label not in self.annotate_click_samples:
             self.annotate_click_samples[label] = []
         self.annotate_click_samples[label].append(sample)
@@ -640,7 +664,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         print("delete trajectory callback fired!")
         _report_func_exception_wrapper(sct_operator.delete_selected_sct)()
 
-    @magicgui(call_button="click&annotate")
+    @magicgui(call_button="annotate the sample")
     def annotate_click_widget(label="mitosis"):
         print("annotate callback fired!")
         # sct_operator.delete_selected_sct()
@@ -774,10 +798,7 @@ def create_scs_edit_viewer(
     from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellTrajectory
 
     # Create a temporary SingleCellTrajectoryCollection for editing the SingleCellStatic objects
-    temp_sc_trajs_for_correct = SingleCellTrajectoryCollection()
-    for idx, sc in enumerate(single_cells):
-        sct = SingleCellTrajectory(track_id=idx, timeframe_to_single_cell={sc.timeframe: sc})
-        temp_sc_trajs_for_correct.add_trajectory(sct)
+    temp_sc_trajs_for_correct = create_sctc_from_scs(single_cells)
 
     # Create an SctOperator instance for editing the SingleCellStatic objects
     sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer, time_span)
