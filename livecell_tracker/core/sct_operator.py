@@ -11,7 +11,7 @@ from pathlib import Path
 
 from livecell_tracker.core.sc_seg_operator import ScSegOperator, create_sc_seg_napari_ui
 from livecell_tracker.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic, SingleCellTrajectory
-from livecell_tracker.livecell_logger import main_warning, main_info
+from livecell_tracker.livecell_logger import main_warning, main_info, main_critical
 
 
 class SctOperator:
@@ -282,6 +282,10 @@ class SctOperator:
 
     def clear_selection(self):
         print("clearing selection...")
+        if len(self.shape_layer.face_color) != len(self.original_face_colors):
+            main_critical("shape layer face color length does not match original face color length")
+            main_info("probably some shapes are added or deleted DIRECTLY on the shape layer, restoring...")
+            self.restore_shapes_data()
         self.select_info = []
         self.shape_layer.face_color = list(self.original_face_colors)
         self.shape_layer.properties = self.original_properties
@@ -350,8 +354,11 @@ class SctOperator:
         else:
             self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
             self.original_scs = list(self.shape_layer.properties["sc"])
-            self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
+            # self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
+            for key in self.original_properties.keys():
+                self.original_properties[key] = copy.deepcopy(self.shape_layer.properties.copy())[key]
             self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
+            self.original_properties["sc"] = self.original_scs
 
     def restore_shapes_data(self):
         print("<restoring sct shapes>")
@@ -594,62 +601,76 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         _description_
     """
 
+    def _report_func_exception_wrapper(func):
+        import traceback
+
+        def wrapper(*args, **kwargs):
+            try:
+                func(*args, **kwargs)
+            except Exception as e:
+                main_critical(e)
+                # print back trace of the error
+                traceback.print_exc()
+                raise e
+
+        return wrapper
+
     @magicgui(call_button="connect")
     def connect_widget():
         print("connect callback fired!")
-        sct_operator.connect_two_scts()
+        _report_func_exception_wrapper(sct_operator.connect_two_scts)()
 
     @magicgui(call_button="clear selection")
     def clear_selection_widget():
         print("clear selection callback fired!")
-        sct_operator.clear_selection()
+        _report_func_exception_wrapper(sct_operator.clear_selection)()
 
     @magicgui(call_button="disconnect")
     def disconnect_widget():
         print("disconnect callback fired!")
-        sct_operator.disconnect_sct()
+        _report_func_exception_wrapper(sct_operator.disconnect_sct)()
 
     @magicgui(call_button="add mother/daughter relation")
     def add_mother_daughter_relation_widget():
         print("add mother/daughter relation callback fired!")
-        sct_operator.add_mother_daughter_relation()
+        _report_func_exception_wrapper(sct_operator.add_mother_daughter_relation)()
 
     @magicgui(call_button="delete trajectory")
     def delete_trajectory_widget():
         print("delete trajectory callback fired!")
-        sct_operator.delete_selected_sct()
+        _report_func_exception_wrapper(sct_operator.delete_selected_sct)()
 
     @magicgui(call_button="click&annotate")
     def annotate_click_widget(label="mitosis"):
         print("annotate callback fired!")
         # sct_operator.delete_selected_sct()
-        sct_operator.annotate_click(label=label)
+        _report_func_exception_wrapper(sct_operator.annotate_click)(label=label)
 
     @magicgui(call_button="edit selected sc")
     def edit_selected_sc():
         print("edit sc fired!")
         # sct_operator.delete_selected_sct()
-        sct_operator.edit_selected_sc()
+        _report_func_exception_wrapper(sct_operator.edit_selected_sc)()
 
     @magicgui(call_button="restore sct shapes")
     def restore_sct_shapes():
         print("restore sct shapes fired!")
-        sct_operator.restore_shapes_data()
+        _report_func_exception_wrapper(sct_operator.restore_shapes_data)()
 
     @magicgui(call_button="toggle shapes text")
     def toggle_shapes_text():
         print("toggle shapes text fired!")
-        sct_operator.toggle_shapes_text()
+        _report_func_exception_wrapper(sct_operator.toggle_shapes_text)()
 
     @magicgui(call_button="clear sc operators")
     def clear_sc_operators():
         print("clear sc operators fired!")
-        sct_operator.clear_sc_opeartors()
+        _report_func_exception_wrapper(sct_operator.clear_sc_opeartors)()
 
     @magicgui(call_button="add new sc")
     def add_new_sc():
         print("add new sc fired!")
-        sct_operator.add_new_sc()
+        _report_func_exception_wrapper(sct_operator.add_new_sc)()
 
     @magicgui(
         auto_call=True,
