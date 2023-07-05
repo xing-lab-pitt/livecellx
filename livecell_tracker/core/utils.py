@@ -51,8 +51,24 @@ def gray_img_to_rgb(img):
     return cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
 
+def rgb_img_to_gray(img):
+    """Convert rgb image to gray image.
+
+    Parameters
+    ----------
+    img : np.ndarray
+        RGB image.
+
+    Returns
+    -------
+    np.ndarray
+        Gray image.
+    """
+    return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+
+
 def get_cv2_bbox(label_mask: np.array):
-    """generate cv2 style bounding box from label mask
+    """generate cv2 style bounding box from a label mask
 
     Parameters
     ----------
