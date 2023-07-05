@@ -15,7 +15,7 @@ class AnnotationIdGenerator:
         self._id += 1
         return self._id
 
-    def gen_global_id(self):
+    def gen_global_id():
         """
         Returns a unique global annotation id.
         """
