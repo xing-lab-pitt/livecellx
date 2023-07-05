@@ -15,6 +15,7 @@ from livecell_tracker.core.single_cell import (
     SingleCellStatic,
     SingleCellTrajectory,
     create_sctc_from_scs,
+    filter_sctc_by_time_span,
 )
 from livecell_tracker.livecell_logger import main_warning, main_info, main_critical
 from livecell_tracker.core.napari_visualizer import NapariVisualizer
@@ -471,10 +472,12 @@ class SctOperator:
             sample.append(sc)
             if label_info_key not in sc.meta:
                 sc.meta[label_info_key] = []
-            sc.meta[label_info_key].append = {
-                "label": label,
-                "sample_id": sample_id,
-            }
+            sc.meta[label_info_key].append(
+                {
+                    "label": label,
+                    "sample_id": sample_id,
+                }
+            )
         if label not in self.annotate_click_samples:
             self.annotate_click_samples[label] = []
         self.annotate_click_samples[label].append(sample)
@@ -803,3 +806,99 @@ def create_scs_edit_viewer(
     # Create an SctOperator instance for editing the SingleCellStatic objects
     sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer, time_span)
     return sct_operator
+
+
+def _get_viewer_sct_operator(viewer, points_data_layer_key="_lcx_sct_cur_idx"):
+    if points_data_layer_key not in viewer.layers:
+        raise ValueError(f"points_data_layer_key {points_data_layer_key} not in viewer.layers")
+    points_layer = viewer.layers[points_data_layer_key]
+    cur_idx = points_layer.metadata["cur_idx"]
+    sct_operator = points_layer.metadata["cur_sct_operator"]
+    return sct_operator
+
+
+def create_scs_edit_viewer_by_interval(single_cells, img_dataset, span_interval=10, viewer=None, clear_prev_batch=True):
+    # TODO: a potential bug is that the slice index is not the same concept as the time. A solution is to add time frame to shape properties
+    # Here for now we assume indices represents timeframes
+    sct_operator = create_scs_edit_viewer(
+        single_cells, img_dataset=img_dataset, viewer=viewer, time_span=(0, span_interval)
+    )
+    viewer = sct_operator.viewer
+    tmp_points_data_layer_key = "_lcx_sct_cur_idx"
+    sc_times = [sc.timeframe for sc in single_cells]
+    max_time = max(sc_times)
+    if "cur_idx" not in viewer.layers:
+        points = np.zeros((1, 3))
+        points_layer = viewer.add_points(points, name=tmp_points_data_layer_key)
+        points_layer.metadata["cur_idx"] = 0
+    else:
+        points_layer = viewer.layers["cur_idx"]
+    viewer.dims.set_point(0, points_layer.metadata["cur_idx"])
+    points_layer.metadata["cur_sct_operator"] = sct_operator
+
+    def _get_cur_idx(viewer):
+        points_layer = viewer.layers[tmp_points_data_layer_key]
+        cur_idx = points_layer.metadata["cur_idx"]
+        return cur_idx
+
+    def _move_span(viewer, offset):
+        try:
+            points_layer = viewer.layers[tmp_points_data_layer_key]
+            sct_operator: SctOperator = points_layer.metadata["cur_sct_operator"]
+            cur_idx = points_layer.metadata["cur_idx"]
+            if not (sct_operator is None):
+                sct_operator_scs = sct_operator.get_all_scs()
+                all_sc_set = set(single_cells)
+                for sc in sct_operator_scs:
+                    if sc not in all_sc_set:
+                        print("<add new sc>:", sc)
+                        single_cells.append(sc)
+                for sc in single_cells:
+                    if sc.timeframe < cur_idx or sc.timeframe > cur_idx + span_interval:
+                        continue
+                    if sc not in sct_operator_scs:
+                        print("<remove sc>:", sc)
+                        single_cells.remove(sc)
+            cur_idx += offset
+            cur_idx = min(cur_idx, max_time)  # (max_time - span_interval) is acceptable as well here
+            cur_idx = max(cur_idx, 0)
+            points_layer.metadata["cur_idx"] = cur_idx
+            cur_span = (cur_idx, cur_idx + span_interval)
+            print("new span:", cur_span)
+            # if clear_prev_batch:
+            #     sct_operator.close()
+            # sct_operator = create_scs_edit_viewer(single_cells, img_dataset = dic_dataset, viewer = viewer, time_span=cur_span)
+            if clear_prev_batch:
+                # TODO: shapes may be invisible, though select is sc/sct based and should be fine
+                sct_operator.clear_selection()
+            temp_sc_trajs_for_correct = create_sctc_from_scs(single_cells)
+            temp_sc_trajs_for_correct = filter_sctc_by_time_span(temp_sc_trajs_for_correct, cur_span)
+            print("len of temp_sc_trajs_for_correct:", len(temp_sc_trajs_for_correct))
+            if len(temp_sc_trajs_for_correct) != 0:
+                sct_operator.setup_from_sctc(temp_sc_trajs_for_correct)
+            else:
+                sct_operator.shape_layer.data = []
+            points_layer.metadata["cur_sct_operator"] = sct_operator
+            viewer.dims.set_point(0, cur_idx)
+        except Exception as e:
+            print("Error:", e)
+            print("Failed to load next span. Please try again.")
+            import traceback
+
+            traceback.print_exc()
+
+    @viewer.bind_key("n")
+    def next_span(viewer):
+        _move_span(viewer, span_interval)
+
+    @viewer.bind_key("b")
+    def prev_span(viewer):
+        _move_span(viewer, -span_interval)
+
+    @viewer.bind_key("m")
+    def load_from_cur_step(viewer):
+        cur_step = viewer.dims.point[0]
+        cur_idx = _get_cur_idx(viewer)
+        _move_span(viewer, cur_step - cur_idx)
+
+    return viewer
