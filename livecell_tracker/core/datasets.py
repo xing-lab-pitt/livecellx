@@ -194,12 +194,15 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             "time2url": self.time2url,
         }
 
-    def get_default_json_path(self, out_dir=None):
+    def get_default_json_path(self, out_dir=None, posix=True):
         """Return the default json path for this dataset"""
         filename = Path("livecell-dataset-%s.json" % (self.name))
         if out_dir is None:
             out_dir = self.DEFAULT_OUT_DIR
-        return Path(out_dir) / filename
+        res_path = Path(out_dir) / filename
+        if posix:
+            res_path = res_path.as_posix()
+        return res_path
 
     # TODO: refactor
     def write_json(self, path=None, overwrite=True, out_dir=None):
