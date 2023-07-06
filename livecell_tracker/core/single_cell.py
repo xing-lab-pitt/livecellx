@@ -428,6 +428,15 @@ class SingleCellStatic:
         return single_cells
 
     @staticmethod
+    # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
+    def load_single_cells_jsons(paths: str, json=None) -> List["SingleCellStatic"]:
+        all_scs = []
+        for path in paths:
+            single_cells = SingleCellStatic.load_single_cells_json(path=path, json=json)
+            all_scs.extend(single_cells)
+        return all_scs
+
+    @staticmethod
     def write_single_cells_json(single_cells: List["SingleCellStatic"], path: str, dataset_dir: str, return_list=False):
         """write a json file containing a list of single cells
 
