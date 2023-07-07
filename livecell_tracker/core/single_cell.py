@@ -428,6 +428,15 @@ class SingleCellStatic:
         return single_cells
 
     @staticmethod
+    # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
+    def load_single_cells_jsons(paths: str, json=None) -> List["SingleCellStatic"]:
+        all_scs = []
+        for path in paths:
+            single_cells = SingleCellStatic.load_single_cells_json(path=path, json=json)
+            all_scs.extend(single_cells)
+        return all_scs
+
+    @staticmethod
     def write_single_cells_json(single_cells: List["SingleCellStatic"], path: str, dataset_dir: str, return_list=False):
         """write a json file containing a list of single cells
 
@@ -837,6 +846,9 @@ class SingleCellTrajectory:
     def get_all_scs(self) -> List[SingleCellStatic]:
         return list(self.timeframe_to_single_cell.values())
 
+    def num_scs(self) -> int:
+        return len(self.timeframe_to_single_cell)
+
     def pop_single_cell(self, timeframe: int):
         self.timeframe_set.remove(timeframe)
         return self.timeframe_to_single_cell.pop(timeframe)
@@ -1068,7 +1080,7 @@ class SingleCellTrajectoryCollection:
     """
 
     def __init__(self) -> None:
-        self.track_id_to_trajectory = dict()
+        self.track_id_to_trajectory: Dict[float, SingleCellTrajectory] = dict()
         self._iter_index = 0
 
     def __contains__(self, track_id):
@@ -1184,3 +1196,20 @@ class SingleCellTrajectoryCollection:
         if len(self.get_track_ids()) == 0:
             return 0
         return max(self.get_track_ids()) + 1
+
+
+def create_sctc_from_scs(scs: List[SingleCellStatic]):
+    temp_sc_trajs_for_correct = SingleCellTrajectoryCollection()
+    for idx, sc in enumerate(scs):
+        sct = SingleCellTrajectory(track_id=idx, timeframe_to_single_cell={sc.timeframe: sc})
+        temp_sc_trajs_for_correct.add_trajectory(sct)
+    return temp_sc_trajs_for_correct
+
+
+def filter_sctc_by_time_span(sctc: SingleCellTrajectoryCollection = None, time_span=(0, np.inf)):
+    new_sctc = SingleCellTrajectoryCollection()
+    for _, sct in sctc:
+        subsct = sct.subsct(time_span[0], time_span[1])
+        if subsct.num_scs() > 0:
+            new_sctc.add_trajectory(subsct)
+    return new_sctc
