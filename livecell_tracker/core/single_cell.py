@@ -390,7 +390,7 @@ class SingleCellStatic:
 
     @staticmethod
     # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
-    def load_single_cells_json(path: str, json=None) -> List["SingleCellStatic"]:
+    def load_single_cells_json(path: str) -> List["SingleCellStatic"]:
         """load a json file containing a list of single cells
 
         Parameters
@@ -403,8 +403,6 @@ class SingleCellStatic:
         _type_
             _description_
         """
-        import json
-
         with open(path, "r") as f:
             sc_json_dict_list = json.load(f)
 
@@ -429,10 +427,10 @@ class SingleCellStatic:
 
     @staticmethod
     # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
-    def load_single_cells_jsons(paths: str, json=None) -> List["SingleCellStatic"]:
+    def load_single_cells_jsons(paths: str) -> List["SingleCellStatic"]:
         all_scs = []
         for path in paths:
-            single_cells = SingleCellStatic.load_single_cells_json(path=path, json=json)
+            single_cells = SingleCellStatic.load_single_cells_json(path=path)
             all_scs.extend(single_cells)
         return all_scs
 
