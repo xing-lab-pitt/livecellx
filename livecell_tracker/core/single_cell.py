@@ -493,16 +493,19 @@ class SingleCellStatic:
         return self.get_bbox_from_contour(contours)
 
     def get_contour_coords_on_img_crop(self, padding=0) -> np.array:
-        """a utility function to calculate pixel coord in image crop's coordinate system
-            to draw contours on an image crop
+        """
+        A utility function to calculate pixel coord in image crop's coordinate system
+        to draw contours on an image crop.
+
         Parameters
         ----------
         padding : int, optional
-            _description_, by default 0
+            Padding value to be used in the calculations, by default 0
 
         Returns
         -------
-            returns contour coordinates in the cropped image's coordinate system
+        np.array
+            Returns contour coordinates in the cropped image's coordinate system
         """
         xs = self.contour[:, 0] - max(0, self.bbox[0] - padding)
         ys = self.contour[:, 1] - max(0, self.bbox[1] - padding)
