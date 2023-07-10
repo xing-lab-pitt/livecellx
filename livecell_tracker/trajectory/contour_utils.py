@@ -6,6 +6,7 @@ from livecell_tracker.core import (
 )
 from livecell_tracker.trajectory.contour.contour_class import Contour
 import matplotlib.pyplot as plt
+
 from sklearn.decomposition import PCA
 import numpy as np
 
@@ -27,9 +28,10 @@ def viz_contours(cell_contours: List[Contour], **kwargs):
     for contour in cell_contours:
         plt.plot(contour.points[:, 0], contour.points[:, 1], **kwargs)
     plt.show()
-    
-def get_morphology_PCA(trajectory_collection, contour_num_points, trajectory_threshold=1, num_components=0.98, dim = 2):
-    """Obtain PCA for the morphology contour features obtained through active shape model for an entire trajectory data for an image dataset. 
+
+
+def get_morphology_PCA(trajectory_collection, contour_num_points, trajectory_threshold=1, num_components=0.98, dim=2):
+    """Obtain PCA for the morphology contour features obtained through active shape model for an entire trajectory data for an image dataset.
 
     Args:
         trajectory_collection (obj): trajectory collection of a dataset
@@ -40,13 +42,15 @@ def get_morphology_PCA(trajectory_collection, contour_num_points, trajectory_thr
     Returns:
         List: PCA values for sct contours
     """
-    all_flat_contours = [] # all flattened contours, shape: # num_trajectories x (#timeframes * #contour_num_points)
+    all_flat_contours = []  # all flattened contours, shape: # num_trajectories x (#timeframes * #contour_num_points)
 
     for track_id_num in trajectory_collection.get_track_ids():
         traj = trajectory_collection.get_trajectory(track_id_num)
 
         # getting cell contours using active shape model
-        sct_contours = get_cellTool_contour_points(traj, contour_num_points=contour_num_points) #shape: #time x #contours
+        sct_contours = get_cellTool_contour_points(
+            traj, contour_num_points=contour_num_points
+        )  # shape: #time x #contours
 
         if len(sct_contours) > trajectory_threshold:
             # Flatten each 2D array and stack them horizontally
@@ -60,7 +64,11 @@ def get_morphology_PCA(trajectory_collection, contour_num_points, trajectory_thr
     _pca_model = PCA(n_components=num_components, svd_solver="full")
 
     transformed_pca_contour_data = _pca_model.fit_transform(all_sctc_contours)
-    print("Variance ratios and their sum = ", _pca_model.explained_variance_ratio_, sum(_pca_model.explained_variance_ratio_))
+    print(
+        "Variance ratios and their sum = ",
+        _pca_model.explained_variance_ratio_,
+        sum(_pca_model.explained_variance_ratio_),
+    )
 
     pca_sctc = [
         _pca_model.transform(
