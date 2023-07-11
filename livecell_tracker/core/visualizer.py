@@ -1,4 +1,4 @@
-from livecell_tracker.core.single_cell import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
+from livecell_tracker.core import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
 import numpy as np
 from napari.viewer import Viewer
 import matplotlib.pyplot as plt

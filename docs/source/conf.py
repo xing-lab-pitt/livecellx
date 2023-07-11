@@ -28,11 +28,12 @@ import livecell_tracker
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
-source_suffix = [".rst"]
+source_suffix = {".rst": "restructuredtext"}
 # bibtex_bibfiles = ["./notebooks/lap.bib", "./notebooks/livetracker_ref.bib"]
 # bibtex_reference_style = "author_year"
 
 master_doc = "index"
+pygments_style = "sphinx"
 
 
 github_org = "xing-lab-pitt"
@@ -67,6 +68,7 @@ needs_sphinx = "4"
 extensions = [
     "nbsphinx",
     "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
     "sphinx.ext.doctest",
     "sphinx.ext.coverage",
@@ -88,19 +90,21 @@ extensions = [
 intersphinx_mapping = {
     "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
     "cycler": ("https://matplotlib.org/cycler/", None),
+    "dask": ("https://docs.dask.org/en/latest/", None),
     "h5py": ("http://docs.h5py.org/en/stable/", None),
     "ipython": ("https://ipython.readthedocs.io/en/stable/", None),
     "louvain": ("https://louvain-igraph.readthedocs.io/en/latest/", None),
-    "matplotlib": ("https://matplotlib.org/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
     "networkx": (
-        "https://networkx.github.io/documentation/networkx-1.10/",
+        "https://networkx.org/documentation/stable/",
         None,
     ),
+    "napari": ("https://napari.org/", None),
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
     "pytest": ("https://docs.pytest.org/en/latest/", None),
     "python": ("https://docs.python.org/3", None),
-    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     "seaborn": ("https://seaborn.pydata.org/", None),
     "sklearn": ("https://scikit-learn.org/stable/", None),
 }
@@ -131,8 +135,8 @@ autodoc_default_flags = [
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-# html_theme = "sphinx_rtd_theme"
-html_theme = "furo"
+html_theme = "sphinx_rtd_theme"
+# html_theme = "furo"
 html_theme_options = dict(
     navigation_depth=4,
     logo_only=True,
@@ -144,6 +148,7 @@ html_context = dict(
     github_version="master",  # Version
     conf_py_path="/docs/source/",
 )
+html_show_sphinx = False
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
@@ -151,6 +156,20 @@ html_static_path = ["_static"]
 html_css_files = ["css/custom.css"]
 # html_logo = "_static/logo.png"
 html_logo = "_static/logo_with_word.png"
+
+
+autodoc_member_order = "groupwise"
+autodoc_typehints = "signature"
+autodoc_docstring_signature = True
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = False
+napoleon_use_rtype = True
+napoleon_use_param = True
+
+bibtex_bibfiles = ["references.bib"]
+bibtex_reference_style = "author_year"
+bibtex_default_style = "alpha"
 
 
 def setup(app):
