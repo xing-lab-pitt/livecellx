@@ -44,6 +44,7 @@ class SingleCellStatic:
         id: Optional[int] = None,  # TODO: automatically assign id (incremental or uuid),
         cache: Optional[Dict[str, object]] = None,  # TODO: now only image crop is cached
         update_mask_dataset_by_contour=False,
+        empty_cell=False,
     ) -> None:
         """_summary_
 
@@ -62,6 +63,8 @@ class SingleCellStatic:
             _description_, by default {}
         contour:
             an array of contour coordinates [(x1, y1), (x2, y2), ...)], in a WHOLE image (not in a cropped image)
+        empty_cell: bool
+            use when intend to create an empty cell object. suppress the empty warning.
         """
         self.cache = cache
         self.regionprops = regionprops
@@ -76,7 +79,7 @@ class SingleCellStatic:
             self.feature_dict = dict()
 
         self.bbox = bbox
-        if contour is None:
+        if contour is None and not empty_cell:
             main_warning(">>> [SingleCellStatic] WARNING: contour is None, please check if this is intended.")
             contour = np.array([], dtype=int)
         self.contour = contour
@@ -421,7 +424,7 @@ class SingleCellStatic:
                 mask_dataset_json_path = sc_json_dict[SCKM.JSON_MASK_DATASET_PATH]
                 mask_dataset_json = json.load(open(mask_dataset_json_path, "r"))
                 mask_dataset = LiveCellImageDataset().load_from_json_dict(json_dict=mask_dataset_json)
-            sc = SingleCellStatic(contour=[]).load_from_json_dict(
+            sc = SingleCellStatic(contour=[], empty_cell=True).load_from_json_dict(
                 sc_json_dict, img_dataset=img_dataset, mask_dataset=mask_dataset
             )
             single_cells.append(sc)
@@ -433,6 +436,8 @@ class SingleCellStatic:
         all_scs = []
         for path in paths:
             single_cells = SingleCellStatic.load_single_cells_json(path=path, json=json)
+            for sc in single_cells:
+                sc.meta["src_json"] = path
             all_scs.extend(single_cells)
         return all_scs
 
@@ -940,7 +945,6 @@ class SingleCellTrajectory:
 
         self.timeframe_set = set(self.timeframe_to_single_cell.keys())
         self.times = sorted(self.timeframe_set)
-
         return self
 
     def inflate_other_trajectories(self, track_id_to_trajectory: Dict[int, "SingleCellTrajectory"]):
