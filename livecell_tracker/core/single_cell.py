@@ -393,7 +393,7 @@ class SingleCellStatic:
 
     @staticmethod
     # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
-    def load_single_cells_json(path: str, json=None) -> List["SingleCellStatic"]:
+    def load_single_cells_json(path: str) -> List["SingleCellStatic"]:
         """load a json file containing a list of single cells
 
         Parameters
@@ -406,8 +406,6 @@ class SingleCellStatic:
         _type_
             _description_
         """
-        import json
-
         with open(path, "r") as f:
             sc_json_dict_list = json.load(f)
 
@@ -432,7 +430,7 @@ class SingleCellStatic:
 
     @staticmethod
     # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
-    def load_single_cells_jsons(paths: str, json=None) -> List["SingleCellStatic"]:
+    def load_single_cells_jsons(paths: str) -> List["SingleCellStatic"]:
         all_scs = []
         for path in paths:
             single_cells = SingleCellStatic.load_single_cells_json(path=path, json=json)
@@ -500,16 +498,19 @@ class SingleCellStatic:
         return self.get_bbox_from_contour(contours)
 
     def get_contour_coords_on_img_crop(self, padding=0) -> np.array:
-        """a utility function to calculate pixel coord in image crop's coordinate system
-            to draw contours on an image crop
+        """
+        A utility function to calculate pixel coord in image crop's coordinate system
+        to draw contours on an image crop.
+
         Parameters
         ----------
         padding : int, optional
-            _description_, by default 0
+            Padding value to be used in the calculations, by default 0
 
         Returns
         -------
-            returns contour coordinates in the cropped image's coordinate system
+        np.array
+            Returns contour coordinates in the cropped image's coordinate system
         """
         xs = self.contour[:, 0] - max(0, self.bbox[0] - padding)
         ys = self.contour[:, 1] - max(0, self.bbox[1] - padding)
