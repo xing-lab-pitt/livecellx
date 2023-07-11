@@ -58,17 +58,21 @@ class SingleCellStaticIOTest(unittest.TestCase):
         if dataset_json_dir:
             assert "dataset_json_dir" in result
             assert result["dataset_json_dir"] == str(self.io_out_dir)
+
+        if self.cell.img_dataset is not None:
             assert SCKM.JSON_IMG_DATASET_PATH in result
             assert result[SCKM.JSON_IMG_DATASET_PATH] == str(
-                self.cell.img_dataset.get_default_json_path(out_dir=self.io_out_dir)
-            )
-            assert SCKM.JSON_MASK_DATASET_PATH in result
-            assert result[SCKM.JSON_MASK_DATASET_PATH] == str(
-                self.cell.mask_dataset.get_default_json_path(out_dir=self.io_out_dir)
+                self.cell.img_dataset.get_default_json_path(out_dir=dataset_json_dir)
             )
         else:
-            assert "dataset_json_dir" not in result
             assert SCKM.JSON_IMG_DATASET_PATH not in result
+
+        if self.cell.mask_dataset is not None:
+            assert SCKM.JSON_MASK_DATASET_PATH in result
+            assert result[SCKM.JSON_MASK_DATASET_PATH] == str(
+                self.cell.mask_dataset.get_default_json_path(out_dir=dataset_json_dir)
+            )
+        else:
             assert SCKM.JSON_MASK_DATASET_PATH not in result
 
     def test_load_from_json_dict(self):
