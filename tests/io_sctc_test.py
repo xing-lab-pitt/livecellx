@@ -19,7 +19,7 @@ from livecell_tracker.track.sort_tracker_utils import (
     track_SORT_bbox_from_contours,
     track_SORT_bbox_from_scs,
 )
-from test_utils import TestHelper
+from tests.test_utils import TestHelper
 
 
 class SingleCellTrajectoryCollectionIOTest(TestHelper):
