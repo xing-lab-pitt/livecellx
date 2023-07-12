@@ -433,7 +433,7 @@ class SingleCellStatic:
     def load_single_cells_jsons(paths: str) -> List["SingleCellStatic"]:
         all_scs = []
         for path in paths:
-            single_cells = SingleCellStatic.load_single_cells_json(path=path, json=json)
+            single_cells = SingleCellStatic.load_single_cells_json(path=path)
             for sc in single_cells:
                 sc.meta["src_json"] = path
             all_scs.extend(single_cells)
