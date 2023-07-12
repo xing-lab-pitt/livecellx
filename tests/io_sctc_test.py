@@ -19,7 +19,7 @@ from livecell_tracker.track.sort_tracker_utils import (
     track_SORT_bbox_from_contours,
     track_SORT_bbox_from_scs,
 )
-from test_utils import TestHelper
+from tests.test_utils import TestHelper
 
 
 class SingleCellTrajectoryCollectionIOTest(TestHelper):
@@ -38,7 +38,6 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
         self.io_out_dir = Path("test_io_output")
         self.io_out_dir.mkdir(exist_ok=True)  # Make sure the directory exists before each test
         self.json_file_path = self.io_out_dir / "test_sct_collection.json"
-        self.helper = TestHelper()
 
     def _test_write_dataset(self, dataset, dataset_json_path_key, json_dict=None):
         if dataset is not None and dataset_json_path_key in json_dict:
@@ -69,7 +68,7 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
             print("Loading dataset from", traj["img_dataset_json_path"])  # print file path
             loaded_sct = SingleCellTrajectory().load_from_json_dict(traj)
             original_sct = self.traj_collection.get_trajectory(track_id)
-            self.helper.assertEqualSCTs(original_sct, loaded_sct)
+            self.assertEqualSCTs(original_sct, loaded_sct)
 
     def test_load_from_json_dict(self):
         json_dict = self.traj_collection.to_json_dict(self.io_out_dir)
@@ -77,8 +76,6 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
             # Convert the SingleCellTrajectory object to a JSON dict
             traj_json_dict = traj.to_json_dict(self.io_out_dir)
             # Write the datasets to files
-            print("json_dict contains img_dataset_json_path:", "img_dataset_json_path" in traj_json_dict)
-            print("json_dict contains mask_dataset_json_path:", "mask_dataset_json_path" in traj_json_dict)
             self._test_write_dataset(traj.img_dataset, "img_dataset_json_path", traj_json_dict)
             self._test_write_dataset(traj.mask_dataset, "mask_dataset_json_path", traj_json_dict)
 
@@ -90,7 +87,7 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
         # Check each SingleCellTrajectory
         for track_id, original_sct in self.traj_collection.track_id_to_trajectory.items():
             loaded_sct = loaded_collection.get_trajectory(track_id)
-            self.helper.assertEqualSCTs(loaded_sct, original_sct)
+            self.assertEqualSCTs(loaded_sct, original_sct)
 
     def test_write_json(self):
         self.traj_collection.write_json(path=self.json_file_path, dataset_json_dir=self.io_out_dir)
@@ -105,7 +102,7 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
         # Check each SingleCellTrajectory
         for track_id, original_sct in self.traj_collection.track_id_to_trajectory.items():
             loaded_sct = loaded_collection.get_trajectory(track_id)
-            self.helper.assertEqualSCTs(loaded_sct, original_sct)
+            self.assertEqualSCTs(loaded_sct, original_sct)
 
     def test_load_from_json_file(self):
         self.traj_collection.write_json(path=self.json_file_path, dataset_json_dir=self.io_out_dir)
@@ -118,7 +115,7 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
         # Check each SingleCellTrajectory
         for track_id, original_sct in self.traj_collection.track_id_to_trajectory.items():
             new_sct = new_collection.get_trajectory(track_id)
-            self.helper.assertEqualSCTs(new_sct, original_sct)
+            self.assertEqualSCTs(new_sct, original_sct)
 
     def tearDown(self):
         # Remove test file after the tests run
