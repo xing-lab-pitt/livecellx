@@ -1,3 +1,6 @@
+import uuid
+
+
 class AnnotationIdGenerator:
     """
     Class for generating unique annotation ids.
@@ -15,9 +18,8 @@ class AnnotationIdGenerator:
         self._id += 1
         return self._id
 
-    def gen_global_id():
+    def gen_uuid():
         """
-        Returns a unique global annotation id.
+        Returns a unique global annotation id. UUID instead of incremental ids
         """
-        AnnotationIdGenerator.global_id += 1
-        return AnnotationIdGenerator.global_id
+        return uuid.uuid4()
