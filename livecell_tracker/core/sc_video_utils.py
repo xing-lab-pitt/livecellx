@@ -1,11 +1,11 @@
+from pathlib import Path
 from typing import List
 import cv2
 import numpy as np
-import pandas as p
-
-d
+import pandas as pd
 from livecell_tracker.core import SingleCellTrajectory, SingleCellStatic
 from livecell_tracker.track.classify_utils import video_frames_and_masks_from_sample, combine_video_frames_and_masks
+from livecell_tracker.core.parallel import parallelize
 
 
 def gen_mp4_from_frames(video_frames, output_file, fps):
@@ -19,6 +19,19 @@ def gen_mp4_from_frames(video_frames, output_file, fps):
     for frame in video_frames:
         out.write(frame)
     out.release()
+
+
+def gen_mp4s_helper(sample, output_file, mask_output_file, combined_output_file, fps, padding_pixels):
+    video_frames, video_frame_masks = video_frames_and_masks_from_sample(sample, padding_pixels=padding_pixels)
+    combined_frames = combine_video_frames_and_masks(video_frames, video_frame_masks)
+    # print("mask output file: ", mask_output_file)
+    # print("combined output file: ", combined_output_file)
+    # print("output file: ", output_file)
+    # print("len video_frames: ", len(video_frames))
+    gen_mp4_from_frames(video_frames, output_file, fps=fps)
+    gen_mp4_from_frames(video_frame_masks, mask_output_file, fps=fps)
+    gen_mp4_from_frames(combined_frames, combined_output_file, fps=fps)
+    return output_file, mask_output_file, combined_output_file
 
 
 def gen_samples_mp4s(
@@ -44,29 +57,34 @@ def gen_samples_mp4s(
     """
     res_paths = {"video": [], "mask": [], "combined": []}
     res_extra_info = []
+    if isinstance(output_dir, str):
+        output_dir = Path(output_dir)
+    # create output dir if not exist
+    output_dir.mkdir(exist_ok=True, parents=True)
+    helper_input_args = []
     for i, sample in enumerate(sc_samples):
-        output_file = output_dir / (f"{prefix}_{class_label}_{i}_raw_padding-{padding_pixels}.mp4")
-        mask_output_file = output_dir / (f"{prefix}_{class_label}_{i}_mask_padding-{padding_pixels}.mp4")
-        combined_output_file = output_dir / (f"{prefix}_{class_label}_{i}_combined_padding-{padding_pixels}.mp4")
-
-        # record video file path and class label
-        video_frames, video_frame_masks = video_frames_and_masks_from_sample(sample, padding_pixels=padding_pixels)
-        combined_frames = combine_video_frames_and_masks(video_frames, video_frame_masks)
-
-        # # for debug
-        # print("len video_frames: ", len(video_frames))
-        # print("len masks video: ", len(video_frame_masks))
-        # print("len combined_frames: ", len(combined_frames))
-
-        gen_mp4_from_frames(video_frames, output_file, fps=fps)
-        gen_mp4_from_frames(video_frame_masks, mask_output_file, fps=fps)
-        gen_mp4_from_frames(combined_frames, combined_output_file, fps=fps)
+        extra_sample_info = samples_info_list[i]
+        if "tid" in extra_sample_info:
+            output_file = output_dir / (
+                f"{prefix}_tid-{extra_sample_info['tid']}_{class_label}_sample-{i}_raw_padding-{padding_pixels}.mp4"
+            )
+            mask_output_file = output_dir / (
+                f"{prefix}_tid-{extra_sample_info['tid']}_{class_label}_sample-{i}_mask_padding-{padding_pixels}.mp4"
+            )
+            combined_output_file = output_dir / (
+                f"{prefix}_tid-{extra_sample_info['tid']}_{class_label}_sample-{i}_combined_padding-{padding_pixels}.mp4"
+            )
+        else:
+            output_file = output_dir / (f"{prefix}_{class_label}_{i}_raw_padding-{padding_pixels}.mp4")
+            mask_output_file = output_dir / (f"{prefix}_{class_label}_{i}_mask_padding-{padding_pixels}.mp4")
+            combined_output_file = output_dir / (f"{prefix}_{class_label}_{i}_combined_padding-{padding_pixels}.mp4")
+        helper_input_args.append((sample, output_file, mask_output_file, combined_output_file, fps, padding_pixels))
         res_paths["video"].append(output_file)
         res_paths["mask"].append(mask_output_file)
         res_paths["combined"].append(combined_output_file)
 
-        extra_sample_info = samples_info_list[i]
         res_extra_info.append(extra_sample_info)
+    parallelize(gen_mp4s_helper, helper_input_args)
     return res_paths, res_extra_info
 
 
