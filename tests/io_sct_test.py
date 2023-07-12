@@ -24,7 +24,7 @@ from livecell_tracker.track.sort_tracker_utils import (
 from tests.test_utils import TestHelper
 
 
-class SingleCellTrajectoryIOTest(unittest.TestCase):
+class SingleCellTrajectoryIOTest(TestHelper):
     @classmethod
     def setUpClass(cls):
         # this is a set up method to create a sample SingleCellTrajectory object
@@ -45,7 +45,6 @@ class SingleCellTrajectoryIOTest(unittest.TestCase):
         self.io_out_dir = Path("test_io_output")
         self.io_out_dir.mkdir(exist_ok=True)  # Make sure the directory exists before each test
         self.json_file_path = self.io_out_dir / "test_sc_trajectory.json"
-        self.helper = TestHelper()
 
     def test_to_json_dict(self):
         # this test checks if the to_json_dict method works correctly
@@ -207,7 +206,7 @@ class SingleCellTrajectoryIOTest(unittest.TestCase):
         self.assertIsInstance(new_sct, SingleCellTrajectory)
 
         # Compare the two SingleCellTrajectory objects
-        self.helper.assertEqualSCTs(new_sct, self.sct)
+        self.assertEqualSCTs(new_sct, self.sct)
 
     def tearDown(self):
         # Clean up the test file if it exists

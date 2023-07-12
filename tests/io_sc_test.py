@@ -11,9 +11,10 @@ from livecell_tracker.core import (
     SingleCellStatic,
     SingleCellTrajectoryCollection,
 )
+from tests.test_utils import TestHelper
 
 
-class SingleCellStaticIOTest(unittest.TestCase):
+class SingleCellStaticIOTest(TestHelper):
     @classmethod
     def setUpClass(cls):
         dic_dataset, mask_dataset = sample_data.tutorial_three_image_sys()
@@ -26,6 +27,16 @@ class SingleCellStaticIOTest(unittest.TestCase):
     def setUp(self):
         self.io_out_dir = Path("test_io_output")
         self.io_out_dir.mkdir(exist_ok=True)  # Make sure the directory exists before each test
+
+    def validate_properties(self, cell, sc_json_dict):
+        self.assertEqual(str(cell.id), sc_json_dict["id"], "id does not match")
+        self.assertEqual(cell.timeframe, sc_json_dict["timeframe"], "timeframe does not match")
+        np.testing.assert_array_equal(cell.bbox, np.array(sc_json_dict["bbox"]), "bbox does not match")
+        self.assertEqual(cell.feature_dict, sc_json_dict["feature_dict"], "feature_dict does not match")
+        np.testing.assert_array_equal(cell.contour, np.array(sc_json_dict["contour"]), "contour does not match")
+        # Load the meta from JSON string to dict before comparing
+        sc_meta = sc_json_dict["meta"]
+        self.assertEqual(cell.meta, sc_meta, "meta does not match")
 
     def test_to_json_dict(self):
         for include_dataset_json in [True, False]:
@@ -43,61 +54,50 @@ class SingleCellStaticIOTest(unittest.TestCase):
                 assert result["id"] == str(self.cell.id)
                 assert result["meta"] == self.cell.meta
 
-        if include_dataset_json:
-            assert "dataset_json" in result
-            dataset_json = result["dataset_json"]
-            assert isinstance(dataset_json, dict)
-            assert "name" in dataset_json
-            assert "data_dir_path" in dataset_json
-            assert "max_cache_size" in dataset_json
-            assert "ext" in dataset_json
-            assert "time2url" in dataset_json
-        else:
-            assert "dataset_json" not in result
+                # Check the 'dataset_json' field
+                if include_dataset_json:
+                    assert "dataset_json" in result
+                    dataset_json = result["dataset_json"]
+                    assert isinstance(dataset_json, dict)
+                    assert "name" in dataset_json
+                    assert "data_dir_path" in dataset_json
+                    assert "max_cache_size" in dataset_json
+                    assert "ext" in dataset_json
+                    assert "time2url" in dataset_json
+                else:
+                    assert "dataset_json" not in result
 
-        if dataset_json_dir:
-            assert "dataset_json_dir" in result
-            assert result["dataset_json_dir"] == str(self.io_out_dir)
-            assert SCKM.JSON_IMG_DATASET_PATH in result
-            assert result[SCKM.JSON_IMG_DATASET_PATH] == str(
-                self.cell.img_dataset.get_default_json_path(out_dir=self.io_out_dir)
-            )
-            assert SCKM.JSON_MASK_DATASET_PATH in result
-            assert result[SCKM.JSON_MASK_DATASET_PATH] == str(
-                self.cell.mask_dataset.get_default_json_path(out_dir=self.io_out_dir)
-            )
-        else:
-            assert "dataset_json_dir" not in result
-            assert SCKM.JSON_IMG_DATASET_PATH not in result
-            assert SCKM.JSON_MASK_DATASET_PATH not in result
+                # Check the 'dataset_json_dir' field
+                if dataset_json_dir:
+                    assert "dataset_json_dir" in result
+                    assert result["dataset_json_dir"] == str(dataset_json_dir)
+                else:
+                    assert "dataset_json_dir" not in result
+
+                # Check paths and dataset json files for img_dataset and mask_dataset
+                if self.cell.img_dataset is not None:
+                    assert SCKM.JSON_IMG_DATASET_PATH in result["meta"]
+                    assert result["meta"][SCKM.JSON_IMG_DATASET_PATH] == str(
+                        self.cell.img_dataset.get_default_json_path(out_dir=dataset_json_dir)
+                    )
+                else:
+                    assert SCKM.JSON_IMG_DATASET_PATH not in result["meta"]
+
+                if self.cell.mask_dataset is not None:
+                    assert SCKM.JSON_MASK_DATASET_PATH in result["meta"]
+                    assert result["meta"][SCKM.JSON_MASK_DATASET_PATH] == str(
+                        self.cell.mask_dataset.get_default_json_path(out_dir=dataset_json_dir)
+                    )
+                else:
+                    assert SCKM.JSON_MASK_DATASET_PATH not in result["meta"]
 
     def test_load_from_json_dict(self):
         json_dict = self.cell.to_json_dict(dataset_json_dir=self.io_out_dir)
 
-        new_cell = SingleCellStatic()
-        new_cell.load_from_json_dict(json_dict)
+        new_cell = SingleCellStatic().load_from_json_dict(json_dict)
 
-        # Now validate the properties
-        # Validate timeframe
-        self.assertEqual(self.cell.timeframe, new_cell.timeframe, "timeframe does not match")
-        # Validate bbox
-        np.testing.assert_array_equal(self.cell.bbox, new_cell.bbox, "bbox does not match")
-        # Validate feature_dict
-        self.assertEqual(self.cell.feature_dict, new_cell.feature_dict, "feature_dict does not match")
-        # Validate contour
-        np.testing.assert_array_equal(self.cell.contour, new_cell.contour, "contour does not match")
-        # Validate id
-        self.assertEqual(str(self.cell.id), new_cell.id, "id does not match")
-        # Validate meta
-        self.assertEqual(self.cell.meta, new_cell.meta, "meta does not match")
-
-        # Validate img_dataset and mask_dataset
-        for prop in ["data_dir_path", "ext", "time2url", "name"]:
-            if self.cell.img_dataset is not None and new_cell.img_dataset is not None:
-                self.assertEqual(getattr(self.cell.img_dataset, prop), getattr(new_cell.img_dataset, prop))
-
-            if self.cell.mask_dataset is not None and new_cell.mask_dataset is not None:
-                self.assertEqual(getattr(self.cell.mask_dataset, prop), getattr(new_cell.mask_dataset, prop))
+        # Now validate the properties using ssertEqualSC method
+        self.assertEqualSC(self.cell, new_cell)
 
     def test_write_single_cells_json(self):
         json_path = self.io_out_dir / "test_single_cells.json"
@@ -110,16 +110,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
 
         # Check that the json data matches the cell data
         for i, cell in enumerate(self.cells):
-            self.assertEqual(str(cell.id), sc_json_dict_list[i]["id"], "id does not match")
-            self.assertEqual(cell.timeframe, sc_json_dict_list[i]["timeframe"], "timeframe does not match")
-            np.testing.assert_array_equal(cell.bbox, np.array(sc_json_dict_list[i]["bbox"]), "bbox does not match")
-            self.assertEqual(cell.feature_dict, sc_json_dict_list[i]["feature_dict"], "feature_dict does not match")
-            np.testing.assert_array_equal(
-                cell.contour, np.array(sc_json_dict_list[i]["contour"]), "contour does not match"
-            )
-            # Load the meta from JSON string to dict before comparing
-            sc_meta = sc_json_dict_list[i]["meta"]
-            self.assertEqual(self.cell.meta, sc_meta, "meta does not match")
+            self.validate_properties(cell, sc_json_dict_list[i])
 
     def test_load_single_cells_json(self):
         json_path = self.io_out_dir / "test_single_cells.json"
@@ -130,18 +121,7 @@ class SingleCellStaticIOTest(unittest.TestCase):
         # Check that the loaded cells match the original ones
         for i, loaded_cell in enumerate(loaded_cells):
             original_cell = self.cells[i]
-            # Validate timeframe
-            self.assertEqual(original_cell.timeframe, loaded_cell.timeframe, "timeframe does not match")
-            # Validate bbox
-            np.testing.assert_array_equal(original_cell.bbox, loaded_cell.bbox, "bbox does not match")
-            # Validate feature_dict
-            self.assertEqual(original_cell.feature_dict, loaded_cell.feature_dict, "feature_dict does not match")
-            # Validate contour
-            np.testing.assert_array_equal(original_cell.contour, loaded_cell.contour, "contour does not match")
-            # Validate id
-            self.assertEqual(str(original_cell.id), loaded_cell.id, "id does not match")
-            # Validate meta
-            self.assertEqual(original_cell.meta, loaded_cell.meta, "meta does not match")
+            self.assertEqualSC(original_cell, loaded_cell)
 
     def test_write_json(self):
         # Test write to file
@@ -152,28 +132,13 @@ class SingleCellStaticIOTest(unittest.TestCase):
         with open(json_path, "r") as f:
             sc_json_dict = json.load(f)
         # Validate the properties
-        self.assertEqual(str(self.cell.id), sc_json_dict["id"], "id does not match")
-        self.assertEqual(self.cell.timeframe, sc_json_dict["timeframe"], "timeframe does not match")
-        np.testing.assert_array_equal(self.cell.bbox, np.array(sc_json_dict["bbox"]), "bbox does not match")
-        self.assertEqual(self.cell.feature_dict, sc_json_dict["feature_dict"], "feature_dict does not match")
-        np.testing.assert_array_equal(self.cell.contour, np.array(sc_json_dict["contour"]), "contour does not match")
-
-        # Load the meta from JSON string to dict before comparing
-        sc_meta = sc_json_dict["meta"]
-        self.assertEqual(self.cell.meta, sc_meta, "meta does not match")
+        self.validate_properties(self.cell, sc_json_dict)
 
         # Test write to string
         json_str = self.cell.write_json()
         sc_json_dict = json.loads(json_str)
         # Validate the properties
-        self.assertEqual(str(self.cell.id), sc_json_dict["id"], "id does not match")
-        self.assertEqual(self.cell.timeframe, sc_json_dict["timeframe"], "timeframe does not match")
-        np.testing.assert_array_equal(self.cell.bbox, np.array(sc_json_dict["bbox"]), "bbox does not match")
-        self.assertEqual(self.cell.feature_dict, sc_json_dict["feature_dict"], "feature_dict does not match")
-        np.testing.assert_array_equal(self.cell.contour, np.array(sc_json_dict["contour"]), "contour does not match")
-
-        sc_meta = sc_json_dict["meta"]
-        self.assertEqual(self.cell.meta, sc_meta, "meta does not match")
+        self.validate_properties(self.cell, sc_json_dict)
 
     def tearDown(self):
         # This method will be called after each test. Clean up the test fixture here.

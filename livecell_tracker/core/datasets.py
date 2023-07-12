@@ -208,12 +208,12 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     def write_json(self, path=None, overwrite=True, out_dir=None):
         """Write the dataset info to a local json file. Returns a json string if path is None."""
 
+        # If path and out_dir are None, use default out_dir
+        if path is None and out_dir is None:
+            out_dir = self.DEFAULT_OUT_DIR
+
         if path is None and (out_dir is not None):
             path = Path(out_dir) / Path("livecell-dataset-%s.json" % (self.name))
-
-        if path is None:
-            # TODO: raise error here?
-            return json.dumps(self.to_dict())
 
         path = Path(path)
         if not path.parent.exists():
