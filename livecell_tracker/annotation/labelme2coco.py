@@ -31,16 +31,20 @@ def get_coco_from_labelme_folder(
     dataset_folder_path=None,
 ) -> Coco:
     """
-    generate coco object from labelme annotations
-    load images according to the following rules in order:
-        1) if dataset_folder_path is provided, load images from datasets there
-        2) if is_image_image_in_json_folder is True, then load image from the same folder as json, with extension replaced by image_file_ext
+    Generate coco object from labelme annotations. This function wil load images according to the following rules:
+
+        1) If dataset_folder_path is provided, load images from datasets there
+        2) If is_image_image_in_json_folder is True, then load image from the same folder as json, with extension replaced by image_file_ext
         3) otherwise try loading from labelme's json data['imagePath']
+
     Args:
         labelme_folder: folder that contains labelme annotations and image files
         coco_category_list: start from a predefined coco cateory list
-        is_image_image_in_json_folder: if True, image files are in the same folder as json files
+        is_image_in_json_folder: if True, image files are in the same folder as json files
         dataset_folder_path: the path to the dataset folder
+
+     Returns:
+        Coco: An instance of the Coco class.
     """
 
     # get json list
@@ -68,7 +72,7 @@ def get_coco_from_labelme_folder(
         image_path = str(Path(image_path).as_posix())
         print("original json annotation path: ", json_path)
         print("loading image from:", image_path)
-       
+
         return Image.open(image_path), image_path
 
     # parse labelme annotations

@@ -44,6 +44,7 @@ class SingleCellStatic:
         id: Optional[int] = None,  # TODO: automatically assign id (incremental or uuid),
         cache: Optional[Dict[str, object]] = None,  # TODO: now only image crop is cached
         update_mask_dataset_by_contour=False,
+        empty_cell=False,
     ) -> None:
         """_summary_
 
@@ -62,6 +63,8 @@ class SingleCellStatic:
             _description_, by default {}
         contour:
             an array of contour coordinates [(x1, y1), (x2, y2), ...)], in a WHOLE image (not in a cropped image)
+        empty_cell: bool
+            use when intend to create an empty cell object. suppress the empty warning.
         """
         self.cache = cache
         self.regionprops = regionprops
@@ -76,7 +79,7 @@ class SingleCellStatic:
             self.feature_dict = dict()
 
         self.bbox = bbox
-        if contour is None:
+        if contour is None and not empty_cell:
             main_warning(">>> [SingleCellStatic] WARNING: contour is None, please check if this is intended.")
             contour = np.array([], dtype=int)
         self.contour = contour
@@ -435,7 +438,9 @@ class SingleCellStatic:
     def load_single_cells_jsons(paths: str) -> List["SingleCellStatic"]:
         all_scs = []
         for path in paths:
-            single_cells = SingleCellStatic.load_single_cells_json(path=path)
+            single_cells = SingleCellStatic.load_single_cells_json(path=path, json=json)
+            for sc in single_cells:
+                sc.meta["src_json"] = path
             all_scs.extend(single_cells)
         return all_scs
 
@@ -498,16 +503,19 @@ class SingleCellStatic:
         return self.get_bbox_from_contour(contours)
 
     def get_contour_coords_on_img_crop(self, padding=0) -> np.array:
-        """a utility function to calculate pixel coord in image crop's coordinate system
-            to draw contours on an image crop
+        """
+        A utility function to calculate pixel coord in image crop's coordinate system
+        to draw contours on an image crop.
+
         Parameters
         ----------
         padding : int, optional
-            _description_, by default 0
+            Padding value to be used in the calculations, by default 0
 
         Returns
         -------
-            returns contour coordinates in the cropped image's coordinate system
+        np.array
+            Returns contour coordinates in the cropped image's coordinate system
         """
         xs = self.contour[:, 0] - max(0, self.bbox[0] - padding)
         ys = self.contour[:, 1] - max(0, self.bbox[1] - padding)
@@ -943,7 +951,6 @@ class SingleCellTrajectory:
 
         self.timeframe_set = set(self.timeframe_to_single_cell.keys())
         self.times = sorted(self.timeframe_set)
-
         return self
 
     def inflate_other_trajectories(self, track_id_to_trajectory: Dict[int, "SingleCellTrajectory"]):
