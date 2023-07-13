@@ -68,7 +68,7 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
             print("Loading dataset from", traj["img_dataset_json_path"])  # print file path
             loaded_sct = SingleCellTrajectory().load_from_json_dict(traj)
             original_sct = self.traj_collection.get_trajectory(track_id)
-            self.assertEqualSCTs(original_sct, loaded_sct)
+            self.assertEqualSct(original_sct, loaded_sct)
 
     def test_load_from_json_dict(self):
         json_dict = self.traj_collection.to_json_dict(self.io_out_dir)
@@ -87,7 +87,7 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
         # Check each SingleCellTrajectory
         for track_id, original_sct in self.traj_collection.track_id_to_trajectory.items():
             loaded_sct = loaded_collection.get_trajectory(track_id)
-            self.assertEqualSCTs(loaded_sct, original_sct)
+            self.assertEqualSct(loaded_sct, original_sct)
 
     def test_write_json(self):
         self.traj_collection.write_json(path=self.json_file_path, dataset_json_dir=self.io_out_dir)
@@ -102,7 +102,7 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
         # Check each SingleCellTrajectory
         for track_id, original_sct in self.traj_collection.track_id_to_trajectory.items():
             loaded_sct = loaded_collection.get_trajectory(track_id)
-            self.assertEqualSCTs(loaded_sct, original_sct)
+            self.assertEqualSct(loaded_sct, original_sct)
 
     def test_load_from_json_file(self):
         self.traj_collection.write_json(path=self.json_file_path, dataset_json_dir=self.io_out_dir)
@@ -115,7 +115,7 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
         # Check each SingleCellTrajectory
         for track_id, original_sct in self.traj_collection.track_id_to_trajectory.items():
             new_sct = new_collection.get_trajectory(track_id)
-            self.assertEqualSCTs(new_sct, original_sct)
+            self.assertEqualSct(new_sct, original_sct)
 
     def tearDown(self):
         # Remove test file after the tests run
