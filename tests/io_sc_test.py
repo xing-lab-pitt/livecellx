@@ -97,7 +97,7 @@ class SingleCellStaticIOTest(TestHelper):
         new_cell = SingleCellStatic().load_from_json_dict(json_dict)
 
         # Now validate the properties using ssertEqualSC method
-        self.assertEqualSC(self.cell, new_cell)
+        self.assertEqualSc(self.cell, new_cell)
 
     def test_write_single_cells_json(self):
         json_path = self.io_out_dir / "test_single_cells.json"
@@ -121,7 +121,7 @@ class SingleCellStaticIOTest(TestHelper):
         # Check that the loaded cells match the original ones
         for i, loaded_cell in enumerate(loaded_cells):
             original_cell = self.cells[i]
-            self.assertEqualSC(original_cell, loaded_cell)
+            self.assertEqualSc(original_cell, loaded_cell)
 
     def test_write_json(self):
         # Test write to file
