@@ -438,7 +438,7 @@ class SingleCellStatic:
     def load_single_cells_jsons(paths: str) -> List["SingleCellStatic"]:
         all_scs = []
         for path in paths:
-            single_cells = SingleCellStatic.load_single_cells_json(path=path, json=json)
+            single_cells = SingleCellStatic.load_single_cells_json(path=path)
             for sc in single_cells:
                 sc.meta["src_json"] = path
             all_scs.extend(single_cells)
@@ -855,7 +855,11 @@ class SingleCellTrajectory:
         return self.timeframe_to_single_cell[timeframe]
 
     def get_all_scs(self) -> List[SingleCellStatic]:
-        return list(self.timeframe_to_single_cell.values())
+        scs = self.timeframe_to_single_cell.values()
+        sorted_scs = sorted(scs, key=lambda sc: sc.timeframe)
+        return list(sorted_scs)
+
+    get_sorted_scs = get_all_scs
 
     def num_scs(self) -> int:
         return len(self.timeframe_to_single_cell)
@@ -1122,6 +1126,13 @@ class SingleCellTrajectoryCollection:
 
     def get_trajectory(self, track_id) -> SingleCellTrajectory:
         return self.track_id_to_trajectory[track_id]
+
+    def get_all_scs(self) -> List[SingleCellStatic]:
+        all_scts = self.get_all_trajectories()
+        all_scs = []
+        for sct in all_scts:
+            all_scs.extend(sct.get_all_scs())
+        return all_scs
 
     def get_all_trajectories(self) -> List[SingleCellTrajectory]:
         return list(self.track_id_to_trajectory.values())
