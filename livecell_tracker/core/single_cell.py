@@ -765,6 +765,8 @@ class SingleCellTrajectory:
         self.img_dataset = img_dataset
         self.img_total_timeframe = len(img_dataset) if img_dataset is not None else None
         self.track_id = track_id
+        if track_id is None:
+            self.track_id = uuid.uuid4()
         self.mask_dataset = mask_dataset
         self.extra_datasets = extra_datasets
 
@@ -1130,6 +1132,11 @@ class SingleCellTrajectoryCollection:
 
     def get_all_trajectories(self) -> List[SingleCellTrajectory]:
         return list(self.track_id_to_trajectory.values())
+
+    def get_all_tids(self) -> List[float]:
+        return list(self.track_id_to_trajectory.keys())
+
+    get_all_track_ids = get_all_tids
 
     def pop_trajectory(self, track_id):
         return self.track_id_to_trajectory.pop(track_id)

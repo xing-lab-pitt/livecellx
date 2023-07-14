@@ -206,7 +206,7 @@ class SingleCellTrajectoryIOTest(TestHelper):
         self.assertIsInstance(new_sct, SingleCellTrajectory)
 
         # Compare the two SingleCellTrajectory objects
-        self.assertEqualSCTs(new_sct, self.sct)
+        self.assertEqualSct(new_sct, self.sct)
 
     def tearDown(self):
         # Clean up the test file if it exists

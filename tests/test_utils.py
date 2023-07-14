@@ -9,7 +9,7 @@ from livecell_tracker.core.datasets import LiveCellImageDataset
 
 
 class TestHelper(unittest.TestCase):
-    def assertEqualSC(self, sc1, sc2):
+    def assertEqualSc(self, sc1, sc2):
         """
         Checks if two instances of SingleCellStatic are equal.
 
@@ -53,7 +53,7 @@ class TestHelper(unittest.TestCase):
         self.compare_datasets(sc1.mask_dataset, sc2.mask_dataset)
         return True
 
-    def assertEqualSCTs(self, sct1: SingleCellTrajectory, sct2: SingleCellTrajectory):
+    def assertEqualSct(self, sct1: SingleCellTrajectory, sct2: SingleCellTrajectory):
         """
         Checks if two instances of SingleCellTrajectory are equal.
 
@@ -72,7 +72,7 @@ class TestHelper(unittest.TestCase):
 
         for timeframe, single_cell1 in sct1.timeframe_to_single_cell.items():
             single_cell2 = sct2.timeframe_to_single_cell.get(timeframe)
-            self.assertEqualSC(single_cell1, single_cell2)
+            self.assertEqualSc(single_cell1, single_cell2)
 
         self.assertTrue(self.compare_datasets(sct1.img_dataset, sct2.img_dataset), "img_datasets are not the same")
         self.assertTrue(self.compare_datasets(sct1.mask_dataset, sct2.mask_dataset), "mask_datasets are not the same")
