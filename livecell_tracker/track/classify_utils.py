@@ -3,7 +3,7 @@ from typing import List, Tuple
 
 from scipy import ndimage
 from livecell_tracker.core.single_cell import SingleCellStatic
-from livecell_tracker.core.utils import gray_img_to_rgb, rgb_img_to_gray
+from livecell_tracker.core.utils import gray_img_to_rgb, rgb_img_to_gray, label_mask_to_edt_mask
 from livecell_tracker.preprocess.utils import normalize_img_to_uint8
 
 
@@ -79,21 +79,6 @@ def video_frames_and_masks_from_sample(
         video_frames.append(tmp_img)
         video_frame_masks.append(gray_img_to_rgb(normalize_img_to_uint8(merged_label_mask)))
     return video_frames, video_frame_masks
-
-
-def label_mask_to_edt_mask(label_mask, bg_val=0):
-    labels = np.unique(label_mask)
-    # remvoe bg_val
-    labels = labels[labels != bg_val]
-    edt_mask = np.zeros(label_mask.shape, dtype=np.float32)
-    for label in labels:
-        tmp_mask = label_mask == label
-        # perform euclidean distance transform and normalize
-        tmp_mask = ndimage.distance_transform_edt(tmp_mask)
-        normalized_mask = normalize_img_to_uint8(tmp_mask)
-        tmp_mask[tmp_mask != bg_val] = normalized_mask[tmp_mask != bg_val]
-        edt_mask += tmp_mask
-    return edt_mask.astype(np.uint8)
 
 
 def combine_video_frames_and_masks(video_frames, video_frame_masks, edt_transform=True):
