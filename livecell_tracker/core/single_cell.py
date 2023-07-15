@@ -387,15 +387,9 @@ class SingleCellStatic:
         self.mask_dataset = mask_dataset
 
         if self.img_dataset is None and img_dataset_path:
-            main_warning(
-                f"the current single cell:{self}'s img dataset is None, you may want to load it from json in meta"
-            )
             self.img_dataset = LiveCellImageDataset.load_from_json_file(path=self.meta[SCKM.JSON_IMG_DATASET_PATH])
 
         if self.mask_dataset is None and mask_dataset_path:
-            main_warning(
-                f"the current single cell:{self}'s mask dataset is None, you may want to load it from json in meta"
-            )
             self.mask_dataset = LiveCellImageDataset.load_from_json_file(path=self.meta[SCKM.JSON_MASK_DATASET_PATH])
 
         # TODO: discuss and decide whether to keep mask dataset
