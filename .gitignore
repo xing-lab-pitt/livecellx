@@ -1,4 +1,5 @@
-
+*.mp4
+*.npy
 **/lightning_logs/**
 **/eval_results/**
 **/test_logs/**
