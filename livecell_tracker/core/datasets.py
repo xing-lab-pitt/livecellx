@@ -46,7 +46,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         name=None,  # "livecell-base",
         ext="tif",
         max_cache_size=50,
-        num_imgs=None,
+        max_img_num=None,
         force_posix_path=True,
         read_img_url_func: Callable = read_img_default,
         index_by_time=True,
@@ -109,10 +109,10 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
                     time: str(Path(path).as_posix()).replace("\\", "/") for time, path in self.time2url.items()
                 }
 
-        if num_imgs is not None:
+        if max_img_num is not None:
             tmp_tuples = list(self.time2url.items())
             tmp_tuples = sorted(tmp_tuples, key=lambda x: x[0])
-            tmp_tuples = tmp_tuples[:num_imgs]
+            tmp_tuples = tmp_tuples[:max_img_num]
             self.time2url = {time: path for time, path in tmp_tuples}
         self.times = list(self.time2url.keys())
         self.urls = list(self.time2url.values())
