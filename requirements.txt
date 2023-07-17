@@ -5,7 +5,7 @@ scikit-image
 ipympl
 
 # correction CNN training requirements
-torchmetrics==0.8.2 # DO NOT change version here, otherwise it will break the training (complaints about Accuracy())
+torchmetrics==1.0.1 # DO NOT change version here, otherwise it will break the training (complaints about Accuracy())
 
 # labelme2coco requirements below
 sahi>=0.8.19
