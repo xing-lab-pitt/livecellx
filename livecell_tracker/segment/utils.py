@@ -117,7 +117,8 @@ def filter_labels_match_map(gt2seg_iou__map, iou_threshold):
 
 
 def compute_match_label_map(t1, t2, mask_dataset, iou_threshold=0.2) -> tuple:
-    """compute the label map (mapping between objects) between two time points
+    """
+    Compute the label map (mapping between objects) between two time points
 
     Parameters
     ----------
@@ -132,25 +133,30 @@ def compute_match_label_map(t1, t2, mask_dataset, iou_threshold=0.2) -> tuple:
 
     Returns
     -------
-    A tuple consisting of 3 elements:
-    t1, t2, a dictionary of the form:
-    {
-        t1_label_1: {
-            t2_label_1: {
-                "iou": iou_score
-            },
-            t2_label_2: {
-                "iou": iou_score
-            },
-            ...
-        },
-        t1_label_2: {
-            t2_label_1: {
-                "iou": iou_score
-            },
-        },
-        ...
-    }
+    tuple
+        A tuple consisting of 3 elements:
+        - t1
+        - t2
+        - a dictionary of the form::
+
+            {
+                t1_label_1: {
+                    t2_label_1: {
+                        "iou": iou_score
+                    },
+                    t2_label_2: {
+                        "iou": iou_score
+                    },
+                    ...
+                },
+                t1_label_2: {
+                    t2_label_1: {
+                        "iou": iou_score
+                    },
+                },
+                ...
+            }
+
     """
     label_mask1 = mask_dataset.get_img_by_time(t1)
     label_mask2 = mask_dataset.get_img_by_time(t2)

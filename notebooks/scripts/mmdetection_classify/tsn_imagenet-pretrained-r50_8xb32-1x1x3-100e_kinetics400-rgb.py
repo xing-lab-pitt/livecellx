@@ -6,7 +6,7 @@
 
 _base_ = [
     "./tsn_r50.py",
-    "./sgd_10000e.py",
+    "./sgd_500e.py",
     "./default_runtime.py",
 ]
 
@@ -23,10 +23,10 @@ load_from = "https://download.openmmlab.com/mmaction/v1.0/recognition/tsn/tsn_im
 # ann_file_train = 'data/kinetics400/kinetics400_train_list_videos.txt'
 # ann_file_val = 'data/kinetics400/kinetics400_val_list_videos.txt'
 
-ver = 8
+ver = 9
 frame_type = "combined"
 # frame_type = "video"
-CLIP_LEN = 1
+CLIP_LEN = 2
 TRAIN_CLIP_NUM = 3
 VAL_CLIP_NUM = 3
 
@@ -76,7 +76,7 @@ val_pipeline = [
 ]
 test_pipeline = [
     dict(type="DecordInit", **file_client_args),
-    dict(type="SampleFrames", clip_len=CLIP_LEN, frame_interval=1, num_clips=25, test_mode=True),
+    dict(type="SampleFrames", clip_len=CLIP_LEN, frame_interval=1, num_clips=VAL_CLIP_NUM, test_mode=True),
     dict(type="DecordDecode"),
     dict(type="Resize", scale=(-1, 256)),
     dict(type="TenCrop", crop_size=224),
@@ -123,7 +123,7 @@ test_dataloader = dict(
 val_evaluator = dict(type="AccMetric")
 test_evaluator = val_evaluator
 
-default_hooks = dict(checkpoint=dict(interval=3, max_keep_ckpts=3))
+default_hooks = dict(checkpoint=dict(interval=50, max_keep_ckpts=10))
 
 # Default setting for scaling LR automatically
 #   - `enable` means enable scaling LR automatically
