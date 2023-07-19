@@ -1,7 +1,9 @@
 import numpy as np
 from typing import List, Tuple
+
+from scipy import ndimage
 from livecell_tracker.core.single_cell import SingleCellStatic
-from livecell_tracker.core.utils import gray_img_to_rgb, rgb_img_to_gray
+from livecell_tracker.core.utils import gray_img_to_rgb, rgb_img_to_gray, label_mask_to_edt_mask
 from livecell_tracker.preprocess.utils import normalize_img_to_uint8
 
 
@@ -79,8 +81,11 @@ def video_frames_and_masks_from_sample(
     return video_frames, video_frame_masks
 
 
-def combine_video_frames_and_masks(video_frames, video_frame_masks):
+def combine_video_frames_and_masks(video_frames, video_frame_masks, edt_transform=True):
     """returns a list of combined video frames and masks, each item contains a 3-channel image with first channel as frame and second channel as mask"""
+    if edt_transform:
+        video_frame_masks = [label_mask_to_edt_mask(x) for x in video_frame_masks]
+
     res_frames = []
     for frame, mask in zip(video_frames, video_frame_masks):
         frame = rgb_img_to_gray(frame)

@@ -1,4 +1,5 @@
 import unittest
+import numpy as np
 from livecell_tracker.core import (
     SingleCellTrajectory,
     SingleCellStatic,
@@ -8,7 +9,51 @@ from livecell_tracker.core.datasets import LiveCellImageDataset
 
 
 class TestHelper(unittest.TestCase):
-    def assertEqualSCTs(self, sct1: SingleCellTrajectory, sct2: SingleCellTrajectory):
+    def assertEqualSc(self, sc1, sc2):
+        """
+        Checks if two instances of SingleCellStatic are equal.
+
+        Parameters:
+        - sc1: first instance of SingleCellStatic.
+        - sc2: second instance of SingleCellStatic.
+
+        Raises an AssertionError if the instances are not equal.
+        """
+        self.assertEqual(
+            sc1.timeframe,
+            sc2.timeframe,
+            f"timeframe mismatch: {sc1.timeframe} vs {sc2.timeframe}",
+        )
+        np.testing.assert_array_equal(
+            sc1.bbox,
+            sc2.bbox,
+            f"bbox mismatch: {sc1.bbox} vs {sc2.bbox}",
+        )
+        self.assertEqual(
+            sc1.feature_dict,
+            sc2.feature_dict,
+            f"feature_dict mismatch: {sc1.feature_dict} vs {sc2.feature_dict}",
+        )
+        np.testing.assert_array_equal(
+            sc1.contour,
+            sc2.contour,
+            f"contour mismatch: {sc1.contour} vs {sc2.contour}",
+        )
+        self.assertEqual(
+            str(sc1.id),
+            str(sc2.id),
+            f"id mismatch: {sc1.id} vs {sc2.id}",
+        )
+        self.assertEqual(
+            sc1.meta,
+            sc2.meta,
+            f"meta mismatch: {sc1.meta} vs {sc2.meta}",
+        )
+        self.compare_datasets(sc1.img_dataset, sc2.img_dataset)
+        self.compare_datasets(sc1.mask_dataset, sc2.mask_dataset)
+        return True
+
+    def assertEqualSct(self, sct1: SingleCellTrajectory, sct2: SingleCellTrajectory):
         """
         Checks if two instances of SingleCellTrajectory are equal.
 
@@ -26,12 +71,8 @@ class TestHelper(unittest.TestCase):
         )
 
         for timeframe, single_cell1 in sct1.timeframe_to_single_cell.items():
-            single_cell2_json = sct2.timeframe_to_single_cell.get(timeframe).to_json_dict()
-            self.assertDictEqual(
-                single_cell1.to_json_dict(),
-                single_cell2_json,
-                f"SingleCellStatic instance mismatch at timeframe {timeframe}",
-            )
+            single_cell2 = sct2.timeframe_to_single_cell.get(timeframe)
+            self.assertEqualSc(single_cell1, single_cell2)
 
         self.assertTrue(self.compare_datasets(sct1.img_dataset, sct2.img_dataset), "img_datasets are not the same")
         self.assertTrue(self.compare_datasets(sct1.mask_dataset, sct2.mask_dataset), "mask_datasets are not the same")
