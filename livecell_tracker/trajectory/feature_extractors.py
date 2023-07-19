@@ -5,13 +5,43 @@ import skimage.measure
 from pandas import Series
 import numpy as np
 import pandas as pd
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
-from livecell_tracker.core.single_cell import SingleCellStatic
+from livecell_tracker.core.single_cell import (
+    SingleCellStatic,
+    SingleCellTrajectory,
+    SingleCellTrajectoryCollection,
+)
+
+from livecell_tracker.core.single_cell import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
+from livecell_tracker.core.datasets import LiveCellImageDataset
 
 
-def compute_haralick_features(
+def max_min_normalization(img: np.array) -> np.array:
+    """Normalize the image using min pixel of the image
+
+    Parameters
+    ----------
+    img : np.array
+        Input image.
+
+    Returns
+    -------
+    np.array
+        Normalized image.
+    """
+    img_min = np.amin(img)
+    img_min = img_min - 1
+
+    img = img - img_min
+    return img
+
+
+def compute_haralick_features_norm(
     sc: SingleCellStatic,
     feature_key="haralick",
+    norm=False,
     ignore_zeros=True,
     return_mean=True,
     ret_arr=True,
@@ -33,6 +63,8 @@ def compute_haralick_features(
     import mahotas.features.texture
 
     image = sc.get_contour_img(crop=True)
+    if norm == True:
+        image = max_min_normalization(sc.get_contour_img(crop=True))
     features = mahotas.features.texture.haralick(image, ignore_zeros=ignore_zeros, return_mean=return_mean, **kwargs)
     if ret_arr:
         return features
@@ -109,7 +141,160 @@ def compute_skimage_regionprops(
                 "Regionprops should only return one value per property, %s contains %d values"
                 % (key, len(regionprops_results[key]))
             )
+
     res_table = pd.Series(regionprops_results)
     if add_feature_to_sc:
         sc.add_feature(feature_key, res_table)
     return res_table
+
+
+def get_sct_haralick_features(
+    traj: SingleCellTrajectory, fl_dataset: LiveCellImageDataset, label_free_dataset: LiveCellImageDataset, norm=True
+):
+    """Calculates haralick features for a trajectory
+
+    Args:
+        traj (SingleCellTrajectory): single trajectory
+        fl_dataset (LiveCellImageDataset): Fluoresence Dataset
+        label_free_dataset (Live    CellImageDataset): Label free dataset
+        norm
+
+    Returns:
+        list: sct_haralick_features
+    """
+    sorted_timeframes = sorted(traj.timeframe_set)
+    sct_haralick_features = []
+    sct_haralick_features_normalized = []
+    for timeframe in sorted_timeframes:
+        single_cell = traj.get_single_cell(timeframe)
+        single_cell.img_dataset = fl_dataset
+        sc_haralick_features = compute_haralick_features_norm(single_cell)
+        if norm == True:
+            sc_haralick_features_normalized = compute_haralick_features_norm(single_cell, norm=True)
+        single_cell.img_dataset = label_free_dataset
+        sct_haralick_features.append(sc_haralick_features)
+        sct_haralick_features_normalized.append(sc_haralick_features_normalized)
+    return sct_haralick_features, sct_haralick_features_normalized
+
+
+def get_sct_skimage_features(
+    traj: SingleCellTrajectory, fl_dataset: LiveCellImageDataset, label_free_dataset: LiveCellImageDataset
+):
+    """Calculates skimage features for a trajectory
+
+
+    Args:
+        traj (SingleCellTrajectory): single trajectory
+        fl_dataset (LiveCellImageDataset): Fluoresence Dataset
+        label_free_dataset (LiveCellImageDataset): Label free dataset
+
+    Returns:
+        list: sct_skimage_features
+    """
+    sorted_timeframes = sorted(traj.timeframe_set)
+    sct_skimage_features = []
+    for timeframe in sorted_timeframes:
+        single_cell = traj.get_single_cell(timeframe)
+        single_cell.img_dataset = fl_dataset
+        sc_skimage_features = compute_skimage_regionprops(single_cell)
+        single_cell.img_dataset = label_free_dataset
+        sct_skimage_features.append(sc_skimage_features.dropna().values)
+    return sct_skimage_features
+
+
+def get_sctc_skimage_features_pca(
+    traj_collection: SingleCellTrajectoryCollection,
+    fl_dataset: LiveCellImageDataset,
+    label_free_dataset: LiveCellImageDataset,
+    traj_len_threshold=1,
+):
+    """Calculates skimage features for a trajectory collection and calulates its PCA
+
+
+    Args:
+        traj_collection (SingleCellTrajectoryCollection): collection of trajectories
+        fl_dataset (LiveCellImageDataset): Fluoresence Dataset
+        label_free_dataset (LiveCellImageDataset): Label free dataset
+        traj_len_threshold (int, optional): user-defined threshold for trajectory length. Defaults to 1.
+
+    Returns:
+        List: pca_sct_skimage_features
+
+    """
+    sctc_skimage_features = []
+
+    for track_id_num in traj_collection.get_track_ids():
+        traj = traj_collection.get_trajectory(track_id_num)
+
+        if len(traj) > traj_len_threshold:
+            # getting skimage features
+            sct_skimage_features = get_sct_skimage_features(traj, fl_dataset, label_free_dataset)
+
+            sctc_skimage_features.append(sct_skimage_features)
+
+    sctc_skimage_features_resized = np.concatenate(sctc_skimage_features)
+
+    # getting PCA
+    _scaler_model = StandardScaler()
+    sctc_scaled_skimage_features = _scaler_model.fit_transform(sctc_skimage_features_resized)
+    _pca_model = PCA(n_components=0.98, svd_solver="full")
+    pca_sctc_skimage_features = _pca_model.fit_transform(sctc_scaled_skimage_features)
+
+    pca_sct_skimage_features = [
+        _pca_model.transform(sct_skimage_features) for sct_skimage_features in sctc_skimage_features
+    ]
+
+    return pca_sct_skimage_features
+
+
+def get_sctc_haralick_features_pca(
+    traj_collection: SingleCellTrajectoryCollection,
+    fl_dataset: LiveCellImageDataset,
+    label_free_dataset: LiveCellImageDataset,
+    traj_len_threshold=1,
+):
+    """Calculates haralick features for a trajectory collection and calulates its PCA
+
+
+    Args:
+        traj_collection (SingleCellTrajectoryCollection): collection of trajectories
+        fl_dataset (LiveCellImageDataset): Fluoresence Dataset
+        label_free_dataset (LiveCellImageDataset): Label free dataset
+        traj_len_threshold (int, optional): user-defined threshold for trajectory length. Defaults to 1.
+
+    Returns:
+        List: pca_sct_haralick_features
+
+    """
+    haralick_features_sctc = {}
+    pca_haralick_features_sct = {}
+
+    for track_id_num in traj_collection.get_track_ids():
+        traj = traj_collection.get_trajectory(track_id_num)
+
+        if len(traj) > traj_len_threshold:
+            # getting haralick features
+            sct_haralick_features, sct_haralick_features_normalized = get_sct_haralick_features(
+                traj, fl_dataset, label_free_dataset
+            )
+
+            haralick_features_sctc.setdefault("haralick_features_sctc", []).append(sct_haralick_features)
+            haralick_features_sctc.setdefault("haralick_features_sctc_normalized", []).append(
+                sct_haralick_features_normalized
+            )
+
+    # getting PCA
+    _scaler_model = StandardScaler()
+    _pca_model = PCA(n_components=0.98, svd_solver="full")
+
+    for key in haralick_features_sctc:
+        haralick_features_sctc_resized = np.concatenate(haralick_features_sctc[key])
+        # getting PCA
+        scaled_haralick_features_sctc = _scaler_model.fit_transform(haralick_features_sctc_resized)
+        pca_haralick_features_sctc = _pca_model.fit_transform(np.array(scaled_haralick_features_sctc))
+        pca_haralick_features_sct[key] = [
+            _pca_model.transform(np.array(sct_haralick_features))
+            for sct_haralick_features in haralick_features_sctc[key]
+        ]
+
+    return pca_haralick_features_sct
