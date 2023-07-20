@@ -868,6 +868,17 @@ class SingleCellTrajectory:
         # Check if mother and daughter trajectories exist in metadata. If not, add them
         if "mother_trajectory_ids" not in self.meta or "daughter_trajectory_ids" not in self.meta:
             self.update_meta_trajectories()
+        # Update metadata with img and mask datasets json paths
+        self.meta.update(
+            {
+                "img_dataset_json_path": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
+                if self.img_dataset is not None
+                else None,
+                "mask_dataset_json_path": str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
+                if self.mask_dataset is not None
+                else None,
+            }
+        )
 
         res = {
             "track_id": int(self.track_id),
@@ -875,15 +886,8 @@ class SingleCellTrajectory:
                 int(float(timeframe)): sc.to_json_dict(dataset_json_dir=dataset_json_dir)
                 for timeframe, sc in self.timeframe_to_single_cell.items()
             },
-            # Store mother and daughter trajectories, and other information in metadata
+            # Store mother and daughter trajectories, and dataset json path in metadata
             "meta": self.meta,
-            # Store json path for img and mask datasets
-            "img_dataset_json_path": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
-            if self.img_dataset is not None
-            else None,
-            "mask_dataset_json_path": str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
-            if self.mask_dataset is not None
-            else None,
         }
 
         if self.img_dataset is not None and res.get("img_dataset_json_path") is not None:
@@ -900,19 +904,12 @@ class SingleCellTrajectory:
         json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
 
         # Write img and mask datasets to JSON file
-        if self.img_dataset is not None and json_dict.get("img_dataset_json_path") is not None:
-            img_dataset_dir = os.path.dirname(json_dict.get("img_dataset_json_path"))
+        if self.img_dataset is not None and json_dict["meta"].get("img_dataset_json_path") is not None:
+            img_dataset_dir = os.path.dirname(json_dict["meta"].get("img_dataset_json_path"))
             self.img_dataset.write_json(out_dir=img_dataset_dir, overwrite=False)
-        if self.mask_dataset is not None and json_dict.get("mask_dataset_json_path") is not None:
-            mask_dataset_dir = os.path.dirname(json_dict.get("mask_dataset_json_path"))
+        if self.mask_dataset is not None and json_dict["meta"].get("mask_dataset_json_path") is not None:
+            mask_dataset_dir = os.path.dirname(json_dict["meta"].get("mask_dataset_json_path"))
             self.mask_dataset.write_json(out_dir=mask_dataset_dir, overwrite=False)
-
-        # extra_datasets
-        extra_datasets_json_dir = json_dict.get("extra_datasets_json_dir")
-        if self.extra_datasets is not None and extra_datasets_json_dir is not None:
-            for k, extra_dataset_json_path in extra_datasets_json_dir.items():
-                extra_dataset_json_dir = os.path.dirname(extra_dataset_json_path)
-                self.extra_datasets[k].write_json(out_dir=extra_dataset_json_dir, overwrite=False)
 
         if path is None:
             return json.dumps(json_dict, cls=LiveCellEncoder)
@@ -934,13 +931,24 @@ class SingleCellTrajectory:
             shared_img_dataset = self.img_dataset
 
         # Load img dataset and mask dataset from json
-        img_dataset_json_path = json_dict.get("img_dataset_json_path")
-        if self.img_dataset is None and img_dataset_json_path is not None and os.path.exists(img_dataset_json_path):
-            self.img_dataset = LiveCellImageDataset.load_from_json_file(path=img_dataset_json_path)
+        # Backward compatibility: check dataset json file path from meta first.
+        # If they're not found, look in `json_dict`.
+        img_dataset_json_path = self.meta.get("img_dataset_json_path", json_dict.get("img_dataset_json_path"))
+        if self.img_dataset is None and img_dataset_json_path is not None:
+            if os.path.exists(img_dataset_json_path):
+                self.img_dataset = LiveCellImageDataset.load_from_json_file(path=img_dataset_json_path)
+            else:
+                raise Warning(f"img_dataset_json_path {img_dataset_json_path} does not exist")
 
-        mask_dataset_json_path = json_dict.get("mask_dataset_json_path")
-        if self.mask_dataset is None and mask_dataset_json_path is not None and os.path.exists(mask_dataset_json_path):
-            self.mask_dataset = LiveCellImageDataset.load_from_json_file(path=mask_dataset_json_path)
+        mask_dataset_json_path = self.meta.get("mask_dataset_json_path", json_dict.get("mask_dataset_json_path"))
+        if self.mask_dataset is None and mask_dataset_json_path is not None:
+            if os.path.exists(mask_dataset_json_path):
+                self.mask_dataset = LiveCellImageDataset.load_from_json_file(path=mask_dataset_json_path)
+            else:
+                raise Warning(f"mask_dataset_json_path {mask_dataset_json_path} does not exist")
+
+        if self.img_dataset is None:
+            raise ValueError("img_dataset is None after attempting to load it")
 
         self.img_total_timeframe = len(self.img_dataset)
         self.timeframe_to_single_cell = {}

@@ -63,19 +63,19 @@ class SingleCellTrajectoryIOTest(TestHelper):
 
         if self.sct.img_dataset is not None:
             self.assertEqual(
-                result["img_dataset_json_path"],
+                result["meta"]["img_dataset_json_path"],
                 str(self.sct.img_dataset.get_default_json_path(out_dir=self.io_out_dir)),
             )
         else:
-            self.assertIsNone(result["img_dataset_json_path"])
+            self.assertIsNone(result["meta"]["img_dataset_json_path"])
 
         if self.sct.mask_dataset is not None:
             self.assertEqual(
-                result["mask_dataset_json_path"],
+                result["meta"]["mask_dataset_json_path"],
                 str(self.sct.mask_dataset.get_default_json_path(out_dir=self.io_out_dir)),
             )
         else:
-            self.assertIsNone(result["mask_dataset_json_path"])
+            self.assertIsNone(result["meta"]["mask_dataset_json_path"])
 
     def test_load_from_json_dict(self):
         # this test checks if the load_from_json_dict method works correctly
@@ -83,17 +83,17 @@ class SingleCellTrajectoryIOTest(TestHelper):
         json_dict = self.sct.to_json_dict(dataset_json_dir=self.io_out_dir)
 
         # define a helper function to write datasets to json files
-        def _test_write_dataset(dataset, json_dir_key):
-            if dataset is not None and json_dir_key in json_dict:
-                dir_path = os.path.dirname(json_dict[json_dir_key])  # get the directory path
+        def _write_dataset(dataset, json_dir_key, meta_dict):
+            if dataset is not None and json_dir_key in meta_dict:
+                dir_path = os.path.dirname(meta_dict[json_dir_key])  # get the directory path
                 if not os.path.exists(dir_path):  # check if the directory exists
                     os.makedirs(dir_path)  # create the directory
-                with open(json_dict[json_dir_key], "w+") as f:
+                with open(meta_dict[json_dir_key], "w+") as f:
                     json.dump(dataset.to_json_dict(), f)
 
         # manually write datasets to their json directories
-        _test_write_dataset(self.sct.img_dataset, "img_dataset_json_path")
-        _test_write_dataset(self.sct.mask_dataset, "mask_dataset_json_path")
+        _write_dataset(self.sct.img_dataset, "img_dataset_json_path", json_dict["meta"])
+        _write_dataset(self.sct.mask_dataset, "mask_dataset_json_path", json_dict["meta"])
 
         new_sct = SingleCellTrajectory().load_from_json_dict(json_dict)
 
@@ -167,10 +167,14 @@ class SingleCellTrajectoryIOTest(TestHelper):
         _test_load_dataset(new_sct.mask_dataset, self.sct.mask_dataset)
 
         # Clean up created JSON files
-        if json_dict["img_dataset_json_path"] is not None and os.path.exists(json_dict["img_dataset_json_path"]):
-            os.remove(json_dict["img_dataset_json_path"])
-        if json_dict["mask_dataset_json_path"] is not None and os.path.exists(json_dict["mask_dataset_json_path"]):
-            os.remove(json_dict["mask_dataset_json_path"])
+        if json_dict["meta"]["img_dataset_json_path"] is not None and os.path.exists(
+            json_dict["meta"]["img_dataset_json_path"]
+        ):
+            os.remove(json_dict["meta"]["img_dataset_json_path"])
+        if json_dict["meta"]["mask_dataset_json_path"] is not None and os.path.exists(
+            json_dict["meta"]["mask_dataset_json_path"]
+        ):
+            os.remove(json_dict["meta"]["mask_dataset_json_path"])
 
     def test_write_json(self):
         # this test checks if the write_json method works correctly
