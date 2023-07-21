@@ -144,7 +144,7 @@ class SingleCellStatic:
         return np.logical_and(mask, other_cell.get_contour_mask(bbox=bbox).astype(bool))
 
     def compute_overlap_percent(self, other_cell: "SingleCellStatic", bbox=None):
-        """compute overlap defined by: overlap = intersection / self's area
+        """compute overlap defined by: overlap = intersection / self's area. It is different from IoU.
 
         Parameters
         ----------

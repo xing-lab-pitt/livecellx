@@ -55,7 +55,7 @@ def gen_samples_mp4s(
     Returns:
         A dictionary containing the file paths of the generated videos, masks, and combined videos.
     """
-    res_paths = {"video": [], "mask": [], "combined": []}
+    type2paths = {"video": [], "mask": [], "combined": []}
     res_extra_info = []
     if isinstance(output_dir, str):
         output_dir = Path(output_dir)
@@ -66,32 +66,32 @@ def gen_samples_mp4s(
         extra_sample_info = samples_info_list[i]
         if "tid" in extra_sample_info:
             output_file = output_dir / (
-                f"{prefix}_tid-{extra_sample_info['tid']}_{class_label}_sample-{i}_raw_padding-{padding_pixels}.mp4"
+                f"{prefix}_tid-{int(extra_sample_info['tid'])}_{class_label}_sample-{i}_raw_padding-{padding_pixels}.mp4"
             )
             mask_output_file = output_dir / (
-                f"{prefix}_tid-{extra_sample_info['tid']}_{class_label}_sample-{i}_mask_padding-{padding_pixels}.mp4"
+                f"{prefix}_tid-{int(extra_sample_info['tid'])}_{class_label}_sample-{i}_mask_padding-{padding_pixels}.mp4"
             )
             combined_output_file = output_dir / (
-                f"{prefix}_tid-{extra_sample_info['tid']}_{class_label}_sample-{i}_combined_padding-{padding_pixels}.mp4"
+                f"{prefix}_tid-{int(extra_sample_info['tid'])}_{class_label}_sample-{i}_combined_padding-{padding_pixels}.mp4"
             )
         else:
             output_file = output_dir / (f"{prefix}_{class_label}_{i}_raw_padding-{padding_pixels}.mp4")
             mask_output_file = output_dir / (f"{prefix}_{class_label}_{i}_mask_padding-{padding_pixels}.mp4")
             combined_output_file = output_dir / (f"{prefix}_{class_label}_{i}_combined_padding-{padding_pixels}.mp4")
         helper_input_args.append((sample, output_file, mask_output_file, combined_output_file, fps, padding_pixels))
-        res_paths["video"].append(output_file)
-        res_paths["mask"].append(mask_output_file)
-        res_paths["combined"].append(combined_output_file)
+        type2paths["video"].append(output_file)
+        type2paths["mask"].append(mask_output_file)
+        type2paths["combined"].append(combined_output_file)
 
         res_extra_info.append(extra_sample_info)
     parallelize(gen_mp4s_helper, helper_input_args)
-    return res_paths, res_extra_info
+    return type2paths, res_extra_info
 
 
 def gen_samples_df(
     class2samples, class2sample_extra_info, data_dir, class_labels, padding_pixels, frame_types, fps, prefix=""
 ):
-    df_cols = ["path", "label_index", "padding_pixels", "frame_type", "src_dir"]
+    df_cols = ["path", "label_index", "padding_pixels", "frame_type", "src_dir", "track_id"]
     sample_info_df = pd.DataFrame(columns=df_cols)
     for class_label in class_labels:
         output_dir = Path(data_dir) / "videos"
@@ -99,7 +99,7 @@ def gen_samples_df(
         video_frames_samples = class2samples[class_label]
         video_frames_samples_info = class2sample_extra_info[class_label]
         for padding_pixel in padding_pixels:
-            res_paths, res_extra_info = gen_samples_mp4s(
+            frametype2paths, res_extra_info = gen_samples_mp4s(
                 video_frames_samples,
                 video_frames_samples_info,
                 class_label,
@@ -120,9 +120,10 @@ def gen_samples_df(
                                     class_labels.index(class_label),
                                     padding_pixel,
                                     selected_frame_type,
-                                    res_extra_info[i]["src_dir"],
+                                    res_extra_info[i]["src_dir"] if "src_dir" in res_extra_info[i] else "",
+                                    int(res_extra_info[i]["tid"]) if "tid" in res_extra_info[i] else -1,
                                 )
-                                for i, path in enumerate(res_paths[selected_frame_type])
+                                for i, path in enumerate(frametype2paths[selected_frame_type])
                             ],
                             columns=df_cols,
                         ),
