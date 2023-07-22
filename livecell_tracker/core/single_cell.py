@@ -950,7 +950,7 @@ class SingleCellTrajectory:
         if self.img_dataset is None:
             raise ValueError("img_dataset is None after attempting to load it")
 
-        self.img_total_timeframe = len(self.img_dataset)
+        self.img_total_timeframe = len(self.img_dataset) if self.img_dataset is not None else 0
         self.timeframe_to_single_cell = {}
         for timeframe, sc in json_dict["timeframe_to_single_cell"].items():
             self.timeframe_to_single_cell[int(timeframe)] = SingleCellStatic(
