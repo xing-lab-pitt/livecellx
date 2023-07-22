@@ -1044,7 +1044,7 @@ class SingleCellTrajectory:
         if max_time == self_span[1]:
             require_copy_daughters_info = True
 
-        sub_sct = SingleCellTrajectory()
+        sub_sct = SingleCellTrajectory(img_dataset=self.img_dataset, mask_dataset=self.mask_dataset)
         for timeframe, sc in self:
             if timeframe >= min_time and timeframe <= max_time:
                 sub_sct.add_single_cell(timeframe, sc)
