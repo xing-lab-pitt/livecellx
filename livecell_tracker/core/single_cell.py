@@ -954,7 +954,7 @@ class SingleCellTrajectory:
         self.timeframe_to_single_cell = {}
         for timeframe, sc in json_dict["timeframe_to_single_cell"].items():
             self.timeframe_to_single_cell[int(timeframe)] = SingleCellStatic(
-                int(timeframe), img_dataset=shared_img_dataset
+                timeframe=int(timeframe), img_dataset=shared_img_dataset, empty_cell=True
             ).load_from_json_dict(sc, img_dataset=shared_img_dataset)
 
         self.timeframe_set = set(self.timeframe_to_single_cell.keys())
