@@ -92,7 +92,7 @@ val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=False)
 # Define the PyTorch Lightning module and trainer
 model = RegSegModel()
 
-checkpoint_callback = ModelCheckpoint(monitor="val_iou", mode="max", save_top_k=5)
+checkpoint_callback = ModelCheckpoint(monitor="val_iou", mode="max", save_top_k=5, save_last=True)
 
 trainer = Trainer(
     gpus=1,

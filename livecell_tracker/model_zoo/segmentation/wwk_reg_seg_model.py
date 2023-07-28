@@ -154,8 +154,7 @@ class RegSegModel(pl.LightningModule):
             if union > 0:
                 iou = intersection / union * 100
             else:
-                iou = torch.tensor(0.0) * 100
-
+                iou = torch.tensor(0.0)
         self.log_dict(
             {
                 "val_loss": mse_loss,
@@ -168,4 +167,4 @@ class RegSegModel(pl.LightningModule):
         return mse_loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-2)
+        return torch.optim.Adam(self.parameters(), lr=1e-3)
