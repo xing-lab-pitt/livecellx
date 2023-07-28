@@ -112,12 +112,18 @@ class RegSegModel(pl.LightningModule):
         return outputs
 
     def training_step(self, batch, batch_idx):
+        threshold = 0.5
         x, y = batch
         y_hat = self(x)
         # print(f"shape of y_hat: {y_hat.shape}", f"shape of y: {y.shape}")
         loss = F.mse_loss(y_hat, y)
+        acc = ((y_hat > threshold) == (y >= threshold)).float().mean()
         self.log("train_loss", loss)
         return loss
+
+    def training_epoch_end(self, outputs):
+        avg_loss = torch.stack([x["loss"] for x in outputs]).mean()
+        self.log("train_loss_epoch", avg_loss)
 
     def validation_step(self, batch, batch_idx):
         threshold = 0.5
@@ -131,16 +137,35 @@ class RegSegModel(pl.LightningModule):
         y_hat = y_hat > threshold  # 0.5 as threshold
         y = y.int()
 
-        intersection = (y_hat & (y >= 1)).sum()
-        union = (y_hat | y).sum()
+        for sample in range(y.shape[0]):
+            # intersection = (y_hat & (y >= 1)).sum()
+            # union = (y_hat | y).sum()
 
-        if union > 0:
-            iou = intersection / union
-        else:
-            iou = torch.tensor(0.0)
+            # if union > 0:
+            #     iou = intersection / union
+            # else:
+            #     iou = torch.tensor(0.0)
 
-        self.log_dict({"val_loss": mse_loss, "val_l1_loss": l1_loss, "val_acc": acc, f"val_iou_{threshold}=0.5": iou})
+            # compute IOU by sample
+            y_hat_positive = y_hat[sample] > threshold
+            y_positive = y[sample] >= 1
+            intersection = (y_hat_positive & y_positive).sum()
+            union = (y_hat_positive | y_positive).sum()
+            if union > 0:
+                iou = intersection / union * 100
+            else:
+                iou = torch.tensor(0.0) * 100
+
+        self.log_dict(
+            {
+                "val_loss": mse_loss,
+                "val_l1_loss": l1_loss,
+                "val_acc": acc,
+                f"val_iou_{threshold}=0.5": iou,
+                f"val_iou": iou,
+            }
+        )
         return mse_loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-5)
+        return torch.optim.Adam(self.parameters(), lr=1e-2)

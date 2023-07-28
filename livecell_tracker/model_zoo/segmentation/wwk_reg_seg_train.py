@@ -16,7 +16,12 @@ from livecell_tracker.preprocess.utils import normalize_img_to_uint8
 parser = argparse.ArgumentParser()
 parser.add_argument("--raw_dir", type=str, required=True, help="Path to the directory containing the raw images")
 parser.add_argument("--mask_dir", type=str, required=True, help="Path to the directory containing the EDT masks")
+parser.add_argument("--ckpt_path", type=str, default=None, help="Path to checkpoint file")
 args = parser.parse_args()
+
+print("Command line arguments:")
+for arg in vars(args):
+    print(f"{arg}: {getattr(args, arg)}")
 
 # Define the transforms for the raw images and masks
 raw_transforms = transforms.Compose(
@@ -86,8 +91,15 @@ val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=False)
 
 # Define the PyTorch Lightning module and trainer
 model = RegSegModel()
+
+checkpoint_callback = ModelCheckpoint(monitor="val_iou", mode="max", save_top_k=5)
+
 trainer = Trainer(
-    gpus=1, max_epochs=10000, val_check_interval=100, checkpoint_callback=ModelCheckpoint(monitor="val_loss")
+    gpus=1,
+    max_epochs=10000,
+    val_check_interval=100,
+    checkpoint_callback=checkpoint_callback,
+    resume_from_checkpoint=args.ckpt_path,
 )
 
 # Train the model
