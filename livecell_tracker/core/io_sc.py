@@ -70,7 +70,9 @@ def process_scs_from_label_mask(label_mask_dataset, dic_dataset, time, bg_val=0,
     # contours = find_contours(seg_mask) # skimage: find_contours
     _scs = []
     for i, contour in enumerate(contours):
-        label = contour_labels[i]
+        label = int(
+            contour_labels[i]
+        )  # int important here to get rid of numpy.int64 or numpy.int8, etc, to avoid json dump error
         sc = SingleCellStatic(
             timeframe=time,
             img_dataset=dic_dataset,
