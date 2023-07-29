@@ -329,9 +329,9 @@ class SingleCellStatic:
         res = {
             "timeframe": int(self.timeframe),
             "bbox": list(np.array(self.bbox, dtype=float)),
-            "feature_dict": self.feature_dict,
+            "feature_dict": dict(self.feature_dict),
             "contour": self.contour.tolist(),
-            "meta": self.meta,
+            "meta": dict(self.meta),
             "id": str(self.id),
         }
 
@@ -464,7 +464,12 @@ class SingleCellStatic:
             return all_sc_jsons
         with open(path, "w+") as f:
             # json.dump([sc.to_json_dict() for sc in single_cells], f)
-            json.dump(all_sc_jsons, f)
+            try:
+                json.dump(all_sc_jsons, f)
+            except TypeError as e:
+                print("sample sc:", all_sc_jsons[0])
+                print("Error writing json file. Check that all attributes are serializable.")
+                raise e
 
     def write_json(self, path=None, dataset_json_dir=None):
         json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
