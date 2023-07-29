@@ -49,7 +49,7 @@ def process_scs_from_label_mask(label_mask_dataset, dic_dataset, time, bg_val=0,
 
         if len(filtered_label_contours) < len(label_contours):
             main_info(
-                "at time {}, label {} has {} contours, {} of them are filtered by contour length threshold: {}".format(
+                "at time {}, label {} has {} contours found by opencv, {} of them are filtered by contour length threshold: {}".format(
                     time,
                     label,
                     len(label_contours),
