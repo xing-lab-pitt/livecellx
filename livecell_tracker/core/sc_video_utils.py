@@ -99,7 +99,7 @@ def gen_class2sample_samples(
     frame_types=["video", "mask", "combined"],
     prefix="",
 ) -> pd.DataFrame:
-    df_cols = ["path", "label_index", "padding_pixels", "frame_type", "src_dir", "track_id"]
+    df_cols = ["path", "label_index", "padding_pixels", "frame_type", "src_dir", "track_id", "start_time", "end_time"]
     sample_info_df = pd.DataFrame(columns=df_cols)
     for class_label in class_labels:
         output_dir = Path(data_dir) / "videos"
@@ -130,6 +130,8 @@ def gen_class2sample_samples(
                                     selected_frame_type,
                                     res_extra_info[i]["src_dir"] if "src_dir" in res_extra_info[i] else "",
                                     int(res_extra_info[i]["tid"]) if "tid" in res_extra_info[i] else -1,
+                                    int(res_extra_info[i]["start_time"]) if "start_time" in res_extra_info[i] else -1,
+                                    int(res_extra_info[i]["end_time"]) if "end_time" in res_extra_info[i] else -1,
                                 )
                                 for i, path in enumerate(frametype2paths[selected_frame_type])
                             ],

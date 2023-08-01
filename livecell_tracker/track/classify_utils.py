@@ -15,14 +15,18 @@ from livecell_tracker.core.sc_video_utils import (
 
 def gen_one_sc_samples_by_window(sctc: SingleCellTrajectoryCollection, window_size=7, step_size=1):
     tid2samples = {}
+    tid2start_end_times = {}
     for tid, sct in sctc:
         sct_samples = []
+        start_end_times = []
         sorted_scs = sct.get_sorted_scs()
         for i in range(0, len(sorted_scs) - window_size + 1, step_size):
             samples = sorted_scs[i : i + window_size]
             sct_samples.append(samples)
+            start_end_times.append((samples[0].timeframe, samples[-1].timeframe))
         tid2samples[tid] = sct_samples
-    return tid2samples
+        tid2start_end_times[tid] = start_end_times
+    return tid2samples, tid2start_end_times
 
 
 def gen_inference_sctc_sample_videos(
@@ -38,11 +42,14 @@ def gen_inference_sctc_sample_videos(
     sc_samples = []
     samples_info_list = []
 
-    tid2samples = gen_one_sc_samples_by_window(sctc, window_size=window_size, step_size=step_size)
+    tid2samples, tid2start_end_times = gen_one_sc_samples_by_window(sctc, window_size=window_size, step_size=step_size)
     for tid, samples in tid2samples.items():
+        start_end_times = tid2start_end_times[tid]
         for i, sample in enumerate(samples):
             sc_samples.append(sample)
-            samples_info_list.append({"tid": tid, "sample_idx": i})
+            samples_info_list.append(
+                {"tid": tid, "sample_idx": i, "start_time": start_end_times[i][0], "end_time": start_end_times[i][1]}
+            )
 
     saved_sample_info_df = gen_class2sample_samples(
         {class_label: sc_samples},
