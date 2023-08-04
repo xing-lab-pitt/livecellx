@@ -761,8 +761,11 @@ def create_scts_operator_viewer(
             )
         new_scts = SingleCellTrajectoryCollection()
         for _, sct in sctc:
-            new_scts.add_trajectory(sct.subsct(time_span[0], time_span[1]))
+            new_scts.add_trajectory(sct.subsct(time_span[0], time_span[1], keep_track_id=True))
         sctc = new_scts
+        main_info(
+            f"A new SCTC object with size {len(sctc)} is created by subsetting the original sctc with time span {time_span}"
+        )
 
     # if the img_dataset is not None, then we can use it to determine the time span
     if img_dataset is not None:
@@ -851,31 +854,31 @@ def create_scs_edit_viewer_by_interval(single_cells, img_dataset, span_interval=
                 all_sc_set = set(single_cells)
                 for sc in sct_operator_scs:
                     if sc not in all_sc_set:
-                        print("<add new sc>:", sc)
+                        main_info("<add new sc>:", sc)
                         single_cells.append(sc)
                 for sc in single_cells:
                     if sc.timeframe < cur_idx or sc.timeframe > cur_idx + span_interval:
                         continue
                     if sc not in sct_operator_scs:
-                        print("<remove sc>:", sc)
+                        main_info("<remove sc>:", sc)
                         single_cells.remove(sc)
             cur_idx += offset
             cur_idx = min(cur_idx, max_time)  # (max_time - span_interval) is acceptable as well here
             cur_idx = max(cur_idx, 0)
             points_layer.metadata["cur_idx"] = cur_idx
             cur_span = (cur_idx, cur_idx + span_interval)
-            print("new span:", cur_span)
+            main_info("new span:", cur_span)
             # if clear_prev_batch:
             #     sct_operator.close()
             # sct_operator = create_scs_edit_viewer(single_cells, img_dataset = dic_dataset, viewer = viewer, time_span=cur_span)
             if clear_prev_batch:
                 # TODO: shapes may be invisible, though select is sc/sct based and should be fine
                 sct_operator.clear_selection()
-            temp_sc_trajs_for_correct = create_sctc_from_scs(single_cells)
-            temp_sc_trajs_for_correct = filter_sctc_by_time_span(temp_sc_trajs_for_correct, cur_span)
-            print("len of temp_sc_trajs_for_correct:", len(temp_sc_trajs_for_correct))
-            if len(temp_sc_trajs_for_correct) != 0:
-                sct_operator.setup_from_sctc(temp_sc_trajs_for_correct)
+            temp_sc_trajs = create_sctc_from_scs(single_cells)
+            temp_sc_trajs = filter_sctc_by_time_span(temp_sc_trajs, cur_span)
+            main_info("len of temp_sc_trajs:", len(temp_sc_trajs))
+            if len(temp_sc_trajs) != 0:
+                sct_operator.setup_from_sctc(temp_sc_trajs)
             else:
                 sct_operator.shape_layer.data = []
             points_layer.metadata["cur_sct_operator"] = sct_operator
