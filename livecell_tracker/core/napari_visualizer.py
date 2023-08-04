@@ -57,10 +57,13 @@ class NapariVisualizer:
             all_scs.extend(scs)
             all_status.extend([""] * len(traj_shapes))
         properties = {"track_id": track_ids, "sc": all_scs, "status": all_status}
+
+        # Track ID can be UUID, so we need to map it to an integer
+        track_value_indices = [idx for idx, v in enumerate(track_ids)]
         shape_layer = viewer.add_shapes(
             all_shapes,
             properties=properties,
-            face_color=NapariVisualizer.map_colors(properties["track_id"]),
+            face_color=NapariVisualizer.map_colors(track_value_indices),
             face_colormap="viridis",
             shape_type="polygon",
             text=text_parameters,

@@ -16,7 +16,7 @@ import uuid
 from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecell_tracker.core.io_utils import LiveCellEncoder
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
-from livecell_tracker.livecell_logger import main_warning
+from livecell_tracker.livecell_logger import main_warning, main_exception
 
 
 # TODO: possibly refactor load_from_json methods into a mixin class
@@ -467,8 +467,8 @@ class SingleCellStatic:
             try:
                 json.dump(all_sc_jsons, f)
             except TypeError as e:
-                print("sample sc:", all_sc_jsons[0])
-                print("Error writing json file. Check that all attributes are serializable.")
+                main_exception("sample sc:", all_sc_jsons[0])
+                main_exception("Error writing json file. Check that all attributes are serializable.")
                 raise e
 
     def write_json(self, path=None, dataset_json_dir=None):
@@ -1037,7 +1037,7 @@ class SingleCellTrajectory:
 
         return copy.deepcopy(self)
 
-    def subsct(self, min_time, max_time):
+    def subsct(self, min_time, max_time, track_id=None, keep_track_id=False):
         """return a subtrajectory of this trajectory, with timeframes between min_time and max_time. Mother and daugher info will be copied if the min_time and max_time are the start and end of the new trajectory, respectively."""
         require_copy_mothers_info = False
         require_copy_daughters_info = False
@@ -1048,8 +1048,9 @@ class SingleCellTrajectory:
             require_copy_mothers_info = True
         if max_time == self_span[1]:
             require_copy_daughters_info = True
-
-        sub_sct = SingleCellTrajectory(img_dataset=self.img_dataset, mask_dataset=self.mask_dataset)
+        if keep_track_id:
+            track_id = self.track_id
+        sub_sct = SingleCellTrajectory(img_dataset=self.img_dataset, mask_dataset=self.mask_dataset, track_id=track_id)
         for timeframe, sc in self:
             if timeframe >= min_time and timeframe <= max_time:
                 sub_sct.add_single_cell(timeframe, sc)
@@ -1233,18 +1234,24 @@ class SingleCellTrajectoryCollection:
         return max(self.get_track_ids()) + 1
 
 
-def create_sctc_from_scs(scs: List[SingleCellStatic]):
-    temp_sc_trajs_for_correct = SingleCellTrajectoryCollection()
+def create_sctc_from_scs(scs: List[SingleCellStatic]) -> SingleCellTrajectoryCollection:
+    temp_sc_trajs = SingleCellTrajectoryCollection()
     for idx, sc in enumerate(scs):
         sct = SingleCellTrajectory(track_id=idx, timeframe_to_single_cell={sc.timeframe: sc})
-        temp_sc_trajs_for_correct.add_trajectory(sct)
-    return temp_sc_trajs_for_correct
+        temp_sc_trajs.add_trajectory(sct)
+    return temp_sc_trajs
 
 
-def filter_sctc_by_time_span(sctc: SingleCellTrajectoryCollection = None, time_span=(0, np.inf)):
+def filter_sctc_by_time_span(sctc: SingleCellTrajectoryCollection = None, time_span=(0, np.inf), keep_track_id=True):
     new_sctc = SingleCellTrajectoryCollection()
+    track_id_counter = 0
     for _, sct in sctc:
-        subsct = sct.subsct(time_span[0], time_span[1])
+        if keep_track_id:
+            track_id = sct.track_id
+        else:
+            track_id = track_id_counter
+        subsct = sct.subsct(time_span[0], time_span[1], track_id=track_id)
+        track_id_counter += 1
         if subsct.num_scs() > 0:
             new_sctc.add_trajectory(subsct)
     return new_sctc
