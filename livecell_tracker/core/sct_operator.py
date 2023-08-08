@@ -461,7 +461,7 @@ class SctOperator:
         self.clear_selection()
         print("<delete operation complete>")
 
-    def annotate_click(self, label, label_info_key="_annotation_label_info"):
+    def annotate_click(self, label):
         from livecell_tracker.annotation.annotation_id_generator import AnnotationIdGenerator as AIG
 
         print("<annotating click>: adding a sample")
@@ -470,17 +470,15 @@ class SctOperator:
         for selected_shape in self.select_info:
             sct, sc, shape_index = selected_shape
             sample.append(sc)
-            if label_info_key not in sc.meta:
-                sc.meta[label_info_key] = []
-            sc.meta[label_info_key].append(
-                {
-                    "label": label,
-                    "sample_id": sample_id,
-                }
-            )
+
         if label not in self.annotate_click_samples:
             self.annotate_click_samples[label] = []
-        self.annotate_click_samples[label].append(sample)
+        self.annotate_click_samples[label].append(
+            {
+                "sample": sample,
+                "sample_id": sample_id,
+            }
+        )
         self.clear_selection()
         print("<annotate click operation complete>")
 
@@ -513,6 +511,7 @@ class SctOperator:
         sample_out_dir: Union[Path, str],
         filename_pattern: str = "sample_{sample_index}.json",
         sample_dataset_dir: Optional[Union[Path, str]] = None,
+        label_info_key="_annotation_label_info",
     ):
         print("<saving annotations>")
         if isinstance(sample_out_dir, str):
@@ -525,11 +524,23 @@ class SctOperator:
         sample_paths = []
 
         for label in self.annotate_click_samples:
-            samples = self.annotate_click_samples[label]
+            sample_dicts = self.annotate_click_samples[label]
             label_dir: Path = sample_out_dir / label
             label_dir.mkdir(exist_ok=True)
-            for i, sample in enumerate(samples):
-                sample_json_path = label_dir / (filename_pattern.format(sample_index=i))
+            for i, sample_dict in enumerate(sample_dicts):
+                sample = sample_dict["sample"]
+                sample_id = sample_dict["sample_id"]
+                for sc in sample:
+                    if label_info_key not in sc.meta:
+                        sc.meta[label_info_key] = []
+
+                    sc.meta[label_info_key].append(
+                        {
+                            "label": label,
+                            "sample_id": str(sample_id) if not isinstance(sample_id, int) else sample_id,
+                        }
+                    )
+                sample_json_path = label_dir / (filename_pattern.format(sample_index=sample_id))
                 SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
                 sample_paths.append(sample_json_path)
         print("<saving annotations complete>")
