@@ -466,7 +466,7 @@ class SctOperator:
 
         print("<annotating click>: adding a sample")
         sample = []
-        sample_id = AIG.gen_global_id()
+        sample_id = AIG.gen_uuid()
         for selected_shape in self.select_info:
             sct, sc, shape_index = selected_shape
             sample.append(sc)
