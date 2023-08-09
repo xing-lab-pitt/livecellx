@@ -19,6 +19,7 @@ from livecell_tracker.core.single_cell import (
 )
 from livecell_tracker.livecell_logger import main_warning, main_info, main_critical
 from livecell_tracker.core.napari_visualizer import NapariVisualizer
+from livecell_tracker.core.datasets import LiveCellImageDataset
 
 
 class SctOperator:
@@ -377,7 +378,7 @@ class SctOperator:
             for key in self.original_properties.keys():
                 self.original_properties[key] = copy.deepcopy(self.shape_layer.properties.copy())[key]
             self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
-            self.original_properties["sc"] = self.original_scs
+            self.original_properties["sc"] = self.original_scs  # avoid deepcopying the single cells
 
     def restore_shapes_data(self):
         print("<restoring sct shapes>")
@@ -831,7 +832,9 @@ def _get_viewer_sct_operator(viewer, points_data_layer_key="_lcx_sct_cur_idx"):
     return sct_operator
 
 
-def create_scs_edit_viewer_by_interval(single_cells, img_dataset, span_interval=10, viewer=None, clear_prev_batch=True):
+def create_scs_edit_viewer_by_interval(
+    single_cells, img_dataset: LiveCellImageDataset, span_interval=10, viewer=None, clear_prev_batch=True
+):
     # TODO: a potential bug is that the slice index is not the same concept as the time. A solution is to add time frame to shape properties
     # Here for now we assume indices represents timeframes
     sct_operator = create_scs_edit_viewer(
@@ -840,7 +843,7 @@ def create_scs_edit_viewer_by_interval(single_cells, img_dataset, span_interval=
     viewer = sct_operator.viewer
     tmp_points_data_layer_key = "_lcx_sct_cur_idx"
     sc_times = [sc.timeframe for sc in single_cells]
-    max_time = max(sc_times)
+    max_time = max(img_dataset.times)
     if "cur_idx" not in viewer.layers:
         points = np.zeros((1, 3))
         points_layer = viewer.add_points(points, name=tmp_points_data_layer_key)

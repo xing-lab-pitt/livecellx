@@ -41,6 +41,7 @@ class NapariVisualizer:
             "anchor": "center",
             "translation": [-2, 0],
         },
+        layer_name="Trajectories",
     ):
         if viewer_kwargs is None:
             viewer_kwargs = dict()
@@ -61,13 +62,13 @@ class NapariVisualizer:
         # Track ID can be UUID, so we need to map it to an integer
         track_value_indices = [idx for idx, v in enumerate(track_ids)]
         shape_layer = viewer.add_shapes(
-            all_shapes,
+            all_shapes if len(all_shapes) > 0 else None,
             properties=properties,
             face_color=NapariVisualizer.map_colors(track_value_indices),
             face_colormap="viridis",
             shape_type="polygon",
             text=text_parameters,
-            name="trajectories",
+            name=layer_name,
             **viewer_kwargs
         )
         return shape_layer
