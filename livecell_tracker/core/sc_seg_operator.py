@@ -108,7 +108,7 @@ class ScSegOperator:
 
         properties = {"sc": [self.sc]}
         shape_layer = self.viewer.add_shapes(
-            shapes_data,
+            shapes_data if len(shapes_data) > 0 else None,
             properties=properties,
             face_color=[self.face_color],
             shape_type="polygon",

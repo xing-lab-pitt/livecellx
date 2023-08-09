@@ -578,12 +578,15 @@ class SctOperator:
         }
         sc_dummy_napari_data = [np.array([[new_sc.timeframe, -50, -50], [new_sc.timeframe, -10, -10]])]
         # self.shape_layer.data = list(self.shape_layer.data) + sc_napari_data
-        self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon")
+        random_color = list(np.random.rand(4))
+        random_color[-1] = 1.0
+        self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon", face_color=random_color)
         self.shape_layer.properties = new_sc_layer_properties
 
+        # Create placeholder for the new sc in the original properties
         # WARNING: only update the newly added sc's shape layer info
-        # because it will cause problems e.g. other function status staying forever on the shape layer
-        self.original_face_colors.append(self.original_face_colors[0])  # TODO: randomly generate a color?
+        # Because without update_slice, we have problems e.g. other function status staying forever on the shape layer
+        self.original_face_colors.append(None)
 
         self.original_properties["sc"] = np.append(self.original_properties["sc"], new_sc)
         self.original_properties["track_id"] = np.append(self.original_properties["track_id"], new_sct.track_id)
