@@ -545,7 +545,7 @@ class SctOperator:
                 SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
                 sample_paths.append(sample_json_path)
         main_info("saving scs")
-        scs_json_path = sample_out_dir / "scs.json"
+        scs_json_path = sample_out_dir / "single_cells.json"
         all_scs = self.get_all_scs()
         SingleCellStatic.write_single_cells_json(all_scs, scs_json_path, dataset_dir=sample_dataset_dir)
         print("<saving annotations complete>")
