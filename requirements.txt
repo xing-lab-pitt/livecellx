@@ -21,7 +21,7 @@ Augmentor
 # seg evaluation
 miseval
 cellpose
-opencv-contrib-python>=4.7.0
+opencv-contrib-python==4.7.0.72
 
 
 ################################################################################
