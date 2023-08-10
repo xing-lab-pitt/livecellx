@@ -1,4 +1,4 @@
-numpy
+numpy>=1.22.0
 pandas
 Pillow
 scikit-image
@@ -21,7 +21,7 @@ Augmentor
 # seg evaluation
 miseval
 cellpose
-opencv-contrib-python
+opencv-contrib-python==4.7.0
 
 
 ################################################################################
