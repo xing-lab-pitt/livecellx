@@ -875,20 +875,19 @@ def create_scs_edit_viewer_by_interval(
                 all_sc_set = set(single_cells)
                 for sc in sct_operator_scs:
                     if sc not in all_sc_set:
-                        main_info("<add new sc>:", sc)
+                        main_info("<add new sc>:" + str(sc))
                         single_cells.append(sc)
                 for sc in single_cells:
                     if sc.timeframe < cur_idx or sc.timeframe > cur_idx + span_interval:
                         continue
                     if sc not in sct_operator_scs:
-                        main_info("<remove sc>:", sc)
+                        main_info("<remove sc>:" + str(sc))
                         single_cells.remove(sc)
             cur_idx += offset
             cur_idx = min(cur_idx, max_time)  # (max_time - span_interval) is acceptable as well here
             cur_idx = max(cur_idx, 0)
             points_layer.metadata["cur_idx"] = cur_idx
             cur_span = (cur_idx, cur_idx + span_interval)
-            main_info("new span:", cur_span)
             # if clear_prev_batch:
             #     sct_operator.close()
             # sct_operator = create_scs_edit_viewer(single_cells, img_dataset = dic_dataset, viewer = viewer, time_span=cur_span)
@@ -897,7 +896,6 @@ def create_scs_edit_viewer_by_interval(
                 sct_operator.clear_selection()
             temp_sc_trajs = create_sctc_from_scs(single_cells)
             temp_sc_trajs = filter_sctc_by_time_span(temp_sc_trajs, cur_span)
-            main_info("len of temp_sc_trajs:", len(temp_sc_trajs))
             if len(temp_sc_trajs) != 0:
                 sct_operator.setup_from_sctc(temp_sc_trajs)
             else:
