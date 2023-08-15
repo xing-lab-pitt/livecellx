@@ -14,8 +14,8 @@ The majority of our analysis methods/notebooks are in `https://github.com/xing-l
 Note: if you encounter issue related to lap and numpy, please install numpy first and then install lap. If there is any issue with numba and numpy, please follow the error message and resolve numba and numpy version issues. (suggestions: ask chatgpt regarding how to resolve dependency issues)  
 `pip install -r requirements.txt`  
 `pip install -r napari_requirements.txt`
-`pip install .`  
-(or `pip install -e .` if you would like to install an editable version and develop the package)
+`pip install -e .` 
+(-e option enables you to install an editable version for developing the package or receiving quick code changes from repo by pulling via git)
 
 
 **Pytorch (including torchvision)**  
