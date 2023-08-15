@@ -1,7 +1,7 @@
 from livecell_tracker.core.single_cell import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
 import numpy as np
 from napari.viewer import Viewer
-from livecell_tracker.core.visualizer import Visualizer
+from livecell_tracker.plot.visualizer import Visualizer
 
 
 class NapariVisualizer:

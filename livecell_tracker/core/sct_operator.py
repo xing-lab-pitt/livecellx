@@ -547,7 +547,16 @@ class SctOperator:
         main_info("saving scs")
         scs_json_path = sample_out_dir / "single_cells.json"
         all_scs = self.get_all_scs()
-        SingleCellStatic.write_single_cells_json(all_scs, scs_json_path, dataset_dir=sample_dataset_dir)
+
+        # remove empty contour scs
+        filtered_scs = []
+        for sc in all_scs:
+            if len(sc.contour) > 0:
+                filtered_scs.append(sc)
+            else:
+                main_warning(f"sc: {sc} has empty contour. It is ignored during saving.")
+
+        SingleCellStatic.write_single_cells_json(filtered_scs, scs_json_path, dataset_dir=sample_dataset_dir)
         print("<saving annotations complete>")
         return sample_paths
 
