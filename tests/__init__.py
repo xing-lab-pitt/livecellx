@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
 
-"""Dynamo test package initialization."""
+"""Livecell-X test package initialization."""
 
 __version__ = "0.0.0"
