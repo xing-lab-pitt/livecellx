@@ -1,3 +1,4 @@
+import glob
 from pathlib import Path
 import numpy as np
 from typing import List, Tuple
@@ -11,6 +12,42 @@ from livecell_tracker.core.sc_video_utils import (
     video_frames_and_masks_from_sample,
     combine_video_frames_and_masks,
 )
+
+
+def load_class2samples_from_json_dir(
+    sample_json_dir: Path, class_subfolders=["mitosis", "apoptosis", "normal"]
+) -> dict:
+    # sample_paths = glob.glob(str(sample_json_dir / "*.json"))
+    class2samples = {}
+    for subfolder in class_subfolders:
+        class2samples[subfolder] = []
+        sample_paths = glob.glob(str(sample_json_dir / subfolder / "*.json"))
+        for sample_path in sample_paths:
+            sample = SingleCellStatic.load_single_cells_json(sample_path)
+            class2samples[subfolder].append(sample)
+    return class2samples
+
+
+def load_all_json_dirs(sample_json_dirs: Path) -> tuple:
+    all_class2samples = None
+    all_class2sample_extra_info = {}
+    for sample_json_dir in sample_json_dirs:
+        _class2samples = load_class2samples_from_json_dir(sample_json_dir)
+        print(_class2samples)
+        for class_name in _class2samples:
+            # report how many samples loaded from the sample json dir
+            print(f"Loaded {len(_class2samples[class_name])} annotated samples from {sample_json_dir / class_name}")
+
+        if all_class2samples is None:
+            all_class2samples = _class2samples
+        for class_name in _class2samples:
+            all_class2samples[class_name] += _class2samples[class_name]
+            _extra_info = [{"src_dir": sample_json_dir} for _ in range(len(_class2samples[class_name]))]
+            if class_name not in all_class2sample_extra_info:
+                all_class2sample_extra_info[class_name] = _extra_info
+            else:
+                all_class2sample_extra_info[class_name] += _extra_info
+    return all_class2samples, all_class2sample_extra_info
 
 
 def gen_one_sc_samples_by_window(sctc: SingleCellTrajectoryCollection, window_size=7, step_size=1):
