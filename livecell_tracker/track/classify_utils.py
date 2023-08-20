@@ -29,7 +29,7 @@ def load_class2samples_from_json_dir(
 
 
 def load_all_json_dirs(sample_json_dirs: Path) -> tuple:
-    all_class2samples = None
+    all_class2samples = {}
     all_class2sample_extra_info = {}
     for sample_json_dir in sample_json_dirs:
         _class2samples = load_class2samples_from_json_dir(sample_json_dir)
@@ -38,10 +38,12 @@ def load_all_json_dirs(sample_json_dirs: Path) -> tuple:
             # report how many samples loaded from the sample json dir
             print(f"Loaded {len(_class2samples[class_name])} annotated samples from {sample_json_dir / class_name}")
 
-        if all_class2samples is None:
-            all_class2samples = _class2samples
         for class_name in _class2samples:
-            all_class2samples[class_name] += _class2samples[class_name]
+            if class_name not in all_class2samples:
+                all_class2samples[class_name] = _class2samples[class_name]
+            else:
+                all_class2samples[class_name] += _class2samples[class_name]
+
             _extra_info = [{"src_dir": sample_json_dir} for _ in range(len(_class2samples[class_name]))]
             if class_name not in all_class2sample_extra_info:
                 all_class2sample_extra_info[class_name] = _extra_info
