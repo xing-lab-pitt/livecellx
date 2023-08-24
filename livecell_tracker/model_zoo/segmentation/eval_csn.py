@@ -32,8 +32,6 @@ def assemble_dataset(df: pd.DataFrame, apply_gt_seg_edt=False, exclude_raw_input
     raw_transformed_img_paths = list(df["raw_transformed_img"])
     gt_label_mask_paths = list(df["gt_label_mask"])
 
-    split_seed = 237
-
     dataset = CorrectSegNetDataset(
         raw_img_paths,
         scaled_seg_mask_paths,
@@ -52,8 +50,7 @@ def assemble_dataset(df: pd.DataFrame, apply_gt_seg_edt=False, exclude_raw_input
     return dataset
 
 
-def assemble_train_test_dataset(train_df, test_df, model):
-    split_seed = 237  # default seed used in our CSN paper
+def assemble_train_test_dataset(train_df, test_df, model, split_seed=237):  # default seed used in our CSN paper
 
     dataset = assemble_dataset(
         train_df,
@@ -146,7 +143,7 @@ def evaluate_sample_v3_underseg(
 
     original_cell_count = len(np.unique(original_label_mask)) - 1  # -1 for bg
 
-    assert gt_label_mask is not None, "gt_label_mask is required for undersegmentation evaluation"
+    assert gt_label_mask is not None, "gt_label_mask is required for evaluation"
     assert len(set(np.unique(gt_seg_mask).tolist())) <= 2
 
     combined_over_under_seg = np.zeros([3] + list(out_mask.shape[1:]))
@@ -161,6 +158,7 @@ def evaluate_sample_v3_underseg(
 
     # match gt label mask with out label mask
     out_label_mask = skimage.measure.label(out_mask_predicted)
+
     out_matched_num, out_cell_count, gt_cell_num, gt_out_iou_list = match_label_mask_by_iou(
         out_label_mask, gt_label_mask, match_threshold=gt_iou_match_thresholds[0], return_iou_list=True
     )
