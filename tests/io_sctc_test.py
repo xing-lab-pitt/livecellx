@@ -65,7 +65,6 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
             self.assertIsInstance(traj, dict)
 
             # Check if the returned trajectory has correct format
-            print("Loading dataset from", traj["img_dataset_json_path"])  # print file path
             loaded_sct = SingleCellTrajectory().load_from_json_dict(traj)
             original_sct = self.traj_collection.get_trajectory(track_id)
             self.assertEqualSct(original_sct, loaded_sct)

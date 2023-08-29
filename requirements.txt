@@ -1,4 +1,4 @@
-numpy
+numpy==1.24.4
 pandas
 Pillow
 scikit-image
@@ -15,7 +15,10 @@ jsonschema>=2.6.0
 ################################################################################
 pycocotools
 # conda install pytorch torchvision -c pytorch
-pytorch-lightning
+
+# [TODO] remove later: required by CSN (correct segmentation network)
+pytorch-lightning==1.5.6
+
 # note we need to use multitracker in cv2 legacy
 Augmentor
 # seg evaluation

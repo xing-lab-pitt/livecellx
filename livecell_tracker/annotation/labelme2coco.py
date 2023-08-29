@@ -59,12 +59,13 @@ def get_coco_from_labelme_folder(
 
     def _load_image(json_path, labelme_data):
         """load an image based on structures mentioned in the arguments."""
-        print("dataset_folder_path: ", dataset_folder_path)
         image_path = str(Path(labelme_folder) / labelme_data["imagePath"])
         if not (dataset_folder_path is None):
+            print(">>> loading image from dataset_folder_path: ", dataset_folder_path)
+            print(">>>>>> dataset_name: ", dataset_name)
             image_filename = os.path.basename(json_path.replace(".json", "." + image_file_ext))
             dataset_name = Path(json_path).parent.name
-            print("dataset_name: ", dataset_name)
+
             image_path = str(Path(dataset_folder_path) / dataset_name / image_filename)
         elif is_image_in_json_folder:
             image_path = json_path.replace(".json", "." + image_file_ext)

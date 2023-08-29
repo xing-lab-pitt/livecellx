@@ -11,7 +11,7 @@ from livecell_tracker.core.datasets import LiveCellImageDataset
 from livecell_tracker.core.single_cell import SingleCellStatic
 
 
-def convert_coco_category_to_mask(coco_annotation: COCO, cat_id: int, output_dir: str):
+def convert_coco_category_to_mask(coco_annotation: COCO, cat_id: int, output_dir: str, label_mask: bool = True):
     """Converts a coco category to a binary mask. For each image, collect all of its annotations and aggregate them into a single mask.
 
     Parameters
@@ -27,13 +27,20 @@ def convert_coco_category_to_mask(coco_annotation: COCO, cat_id: int, output_dir
     id2anns = coco_annotation.imgToAnns
     for img_id, anns in id2anns.items():
         mask = None
+        cur_label = 1
         for ann in anns:
             if not (ann["category_id"] == cat_id):
                 continue
             tmp_mask = coco_annotation.annToMask(ann)
             if mask is None:
                 mask = tmp_mask
-            mask = np.logical_or(mask, tmp_mask)
+            if label_mask:
+                tmp_mask = tmp_mask * cur_label
+                cur_label += 1
+                mask[tmp_mask > 0] = tmp_mask[tmp_mask > 0]
+            else:
+                mask = np.logical_or(mask, tmp_mask)
+
         # print(type(mask))
         # plt.imshow(mask)
         # plt.show()

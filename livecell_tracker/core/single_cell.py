@@ -16,7 +16,7 @@ import uuid
 from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecell_tracker.core.io_utils import LiveCellEncoder
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
-from livecell_tracker.livecell_logger import main_warning
+from livecell_tracker.livecell_logger import main_warning, main_exception
 
 
 # TODO: possibly refactor load_from_json methods into a mixin class
@@ -144,7 +144,7 @@ class SingleCellStatic:
         return np.logical_and(mask, other_cell.get_contour_mask(bbox=bbox).astype(bool))
 
     def compute_overlap_percent(self, other_cell: "SingleCellStatic", bbox=None):
-        """compute overlap defined by: overlap = intersection / self's area
+        """compute overlap defined by: overlap = intersection / self's area. It is different from IoU.
 
         Parameters
         ----------
@@ -329,9 +329,9 @@ class SingleCellStatic:
         res = {
             "timeframe": int(self.timeframe),
             "bbox": list(np.array(self.bbox, dtype=float)),
-            "feature_dict": self.feature_dict,
+            "feature_dict": dict(self.feature_dict),
             "contour": self.contour.tolist(),
-            "meta": self.meta,
+            "meta": dict(self.meta),
             "id": str(self.id),
         }
 
@@ -464,7 +464,12 @@ class SingleCellStatic:
             return all_sc_jsons
         with open(path, "w+") as f:
             # json.dump([sc.to_json_dict() for sc in single_cells], f)
-            json.dump(all_sc_jsons, f)
+            try:
+                json.dump(all_sc_jsons, f)
+            except TypeError as e:
+                main_exception("sample sc:", all_sc_jsons[0])
+                main_exception("Error writing json file. Check that all attributes are serializable.")
+                raise e
 
     def write_json(self, path=None, dataset_json_dir=None):
         json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
@@ -868,6 +873,17 @@ class SingleCellTrajectory:
         # Check if mother and daughter trajectories exist in metadata. If not, add them
         if "mother_trajectory_ids" not in self.meta or "daughter_trajectory_ids" not in self.meta:
             self.update_meta_trajectories()
+        # Update metadata with img and mask datasets json paths
+        self.meta.update(
+            {
+                "img_dataset_json_path": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
+                if self.img_dataset is not None
+                else None,
+                "mask_dataset_json_path": str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
+                if self.mask_dataset is not None
+                else None,
+            }
+        )
 
         res = {
             "track_id": int(self.track_id),
@@ -875,15 +891,8 @@ class SingleCellTrajectory:
                 int(float(timeframe)): sc.to_json_dict(dataset_json_dir=dataset_json_dir)
                 for timeframe, sc in self.timeframe_to_single_cell.items()
             },
-            # Store mother and daughter trajectories, and other information in metadata
+            # Store mother and daughter trajectories, and dataset json path in metadata
             "meta": self.meta,
-            # Store json path for img and mask datasets
-            "img_dataset_json_path": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
-            if self.img_dataset is not None
-            else None,
-            "mask_dataset_json_path": str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
-            if self.mask_dataset is not None
-            else None,
         }
 
         if self.img_dataset is not None and res.get("img_dataset_json_path") is not None:
@@ -900,19 +909,12 @@ class SingleCellTrajectory:
         json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
 
         # Write img and mask datasets to JSON file
-        if self.img_dataset is not None and json_dict.get("img_dataset_json_path") is not None:
-            img_dataset_dir = os.path.dirname(json_dict.get("img_dataset_json_path"))
+        if self.img_dataset is not None and json_dict["meta"].get("img_dataset_json_path") is not None:
+            img_dataset_dir = os.path.dirname(json_dict["meta"].get("img_dataset_json_path"))
             self.img_dataset.write_json(out_dir=img_dataset_dir, overwrite=False)
-        if self.mask_dataset is not None and json_dict.get("mask_dataset_json_path") is not None:
-            mask_dataset_dir = os.path.dirname(json_dict.get("mask_dataset_json_path"))
+        if self.mask_dataset is not None and json_dict["meta"].get("mask_dataset_json_path") is not None:
+            mask_dataset_dir = os.path.dirname(json_dict["meta"].get("mask_dataset_json_path"))
             self.mask_dataset.write_json(out_dir=mask_dataset_dir, overwrite=False)
-
-        # extra_datasets
-        extra_datasets_json_dir = json_dict.get("extra_datasets_json_dir")
-        if self.extra_datasets is not None and extra_datasets_json_dir is not None:
-            for k, extra_dataset_json_path in extra_datasets_json_dir.items():
-                extra_dataset_json_dir = os.path.dirname(extra_dataset_json_path)
-                self.extra_datasets[k].write_json(out_dir=extra_dataset_json_dir, overwrite=False)
 
         if path is None:
             return json.dumps(json_dict, cls=LiveCellEncoder)
@@ -934,19 +936,30 @@ class SingleCellTrajectory:
             shared_img_dataset = self.img_dataset
 
         # Load img dataset and mask dataset from json
-        img_dataset_json_path = json_dict.get("img_dataset_json_path")
-        if self.img_dataset is None and img_dataset_json_path is not None and os.path.exists(img_dataset_json_path):
-            self.img_dataset = LiveCellImageDataset.load_from_json_file(path=img_dataset_json_path)
+        # Backward compatibility: check dataset json file path from meta first.
+        # If they're not found, look in `json_dict`.
+        img_dataset_json_path = self.meta.get("img_dataset_json_path", json_dict.get("img_dataset_json_path"))
+        if self.img_dataset is None and img_dataset_json_path is not None:
+            if os.path.exists(img_dataset_json_path):
+                self.img_dataset = LiveCellImageDataset.load_from_json_file(path=img_dataset_json_path)
+            else:
+                raise Warning(f"img_dataset_json_path {img_dataset_json_path} does not exist")
 
-        mask_dataset_json_path = json_dict.get("mask_dataset_json_path")
-        if self.mask_dataset is None and mask_dataset_json_path is not None and os.path.exists(mask_dataset_json_path):
-            self.mask_dataset = LiveCellImageDataset.load_from_json_file(path=mask_dataset_json_path)
+        mask_dataset_json_path = self.meta.get("mask_dataset_json_path", json_dict.get("mask_dataset_json_path"))
+        if self.mask_dataset is None and mask_dataset_json_path is not None:
+            if os.path.exists(mask_dataset_json_path):
+                self.mask_dataset = LiveCellImageDataset.load_from_json_file(path=mask_dataset_json_path)
+            else:
+                raise Warning(f"mask_dataset_json_path {mask_dataset_json_path} does not exist")
 
-        self.img_total_timeframe = len(self.img_dataset)
+        if self.img_dataset is None:
+            raise ValueError("img_dataset is None after attempting to load it")
+
+        self.img_total_timeframe = len(self.img_dataset) if self.img_dataset is not None else 0
         self.timeframe_to_single_cell = {}
         for timeframe, sc in json_dict["timeframe_to_single_cell"].items():
             self.timeframe_to_single_cell[int(timeframe)] = SingleCellStatic(
-                int(timeframe), img_dataset=shared_img_dataset
+                timeframe=int(timeframe), img_dataset=shared_img_dataset, empty_cell=True
             ).load_from_json_dict(sc, img_dataset=shared_img_dataset)
 
         self.timeframe_set = set(self.timeframe_to_single_cell.keys())
@@ -1024,7 +1037,7 @@ class SingleCellTrajectory:
 
         return copy.deepcopy(self)
 
-    def subsct(self, min_time, max_time):
+    def subsct(self, min_time, max_time, track_id=None, keep_track_id=False):
         """return a subtrajectory of this trajectory, with timeframes between min_time and max_time. Mother and daugher info will be copied if the min_time and max_time are the start and end of the new trajectory, respectively."""
         require_copy_mothers_info = False
         require_copy_daughters_info = False
@@ -1035,8 +1048,9 @@ class SingleCellTrajectory:
             require_copy_mothers_info = True
         if max_time == self_span[1]:
             require_copy_daughters_info = True
-
-        sub_sct = SingleCellTrajectory()
+        if keep_track_id:
+            track_id = self.track_id
+        sub_sct = SingleCellTrajectory(img_dataset=self.img_dataset, mask_dataset=self.mask_dataset, track_id=track_id)
         for timeframe, sc in self:
             if timeframe >= min_time and timeframe <= max_time:
                 sub_sct.add_single_cell(timeframe, sc)
@@ -1220,18 +1234,24 @@ class SingleCellTrajectoryCollection:
         return max(self.get_track_ids()) + 1
 
 
-def create_sctc_from_scs(scs: List[SingleCellStatic]):
-    temp_sc_trajs_for_correct = SingleCellTrajectoryCollection()
+def create_sctc_from_scs(scs: List[SingleCellStatic]) -> SingleCellTrajectoryCollection:
+    temp_sc_trajs = SingleCellTrajectoryCollection()
     for idx, sc in enumerate(scs):
         sct = SingleCellTrajectory(track_id=idx, timeframe_to_single_cell={sc.timeframe: sc})
-        temp_sc_trajs_for_correct.add_trajectory(sct)
-    return temp_sc_trajs_for_correct
+        temp_sc_trajs.add_trajectory(sct)
+    return temp_sc_trajs
 
 
-def filter_sctc_by_time_span(sctc: SingleCellTrajectoryCollection = None, time_span=(0, np.inf)):
+def filter_sctc_by_time_span(sctc: SingleCellTrajectoryCollection = None, time_span=(0, np.inf), keep_track_id=True):
     new_sctc = SingleCellTrajectoryCollection()
+    track_id_counter = 0
     for _, sct in sctc:
-        subsct = sct.subsct(time_span[0], time_span[1])
+        if keep_track_id:
+            track_id = sct.track_id
+        else:
+            track_id = track_id_counter
+        subsct = sct.subsct(time_span[0], time_span[1], track_id=track_id)
+        track_id_counter += 1
         if subsct.num_scs() > 0:
             new_sctc.add_trajectory(subsct)
     return new_sctc

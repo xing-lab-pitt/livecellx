@@ -171,7 +171,6 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         return self.name
 
     def get_dataset_path(self):
-
         return self.data_dir_path
 
     def __getitem__(self, idx) -> np.ndarray:
