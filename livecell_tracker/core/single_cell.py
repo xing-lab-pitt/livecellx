@@ -884,17 +884,6 @@ class SingleCellTrajectory:
                 else None,
             }
         )
-        # Update metadata with img and mask datasets json paths
-        self.meta.update(
-            {
-                "img_dataset_json_path": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
-                if self.img_dataset is not None
-                else None,
-                "mask_dataset_json_path": str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
-                if self.mask_dataset is not None
-                else None,
-            }
-        )
 
         res = {
             "track_id": int(self.track_id),
@@ -920,8 +909,8 @@ class SingleCellTrajectory:
         json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
 
         # Write img and mask datasets to JSON file
-        if self.img_dataset is not None and json_dict["meta"]["meta"].get("img_dataset_json_path") is not None:
-            img_dataset_dir = os.path.dirname(json_dict["meta"]["meta"].get("img_dataset_json_path"))
+        if self.img_dataset is not None and json_dict["meta"].get("img_dataset_json_path") is not None:
+            img_dataset_dir = os.path.dirname(json_dict["meta"].get("img_dataset_json_path"))
             self.img_dataset.write_json(out_dir=img_dataset_dir, overwrite=False)
         if self.mask_dataset is not None and json_dict["meta"].get("mask_dataset_json_path") is not None:
             mask_dataset_dir = os.path.dirname(json_dict["meta"].get("mask_dataset_json_path"))
