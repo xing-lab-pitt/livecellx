@@ -19,6 +19,7 @@ from livecell_tracker.core.single_cell import (
 )
 from livecell_tracker.livecell_logger import main_warning, main_info, main_critical
 from livecell_tracker.core.napari_visualizer import NapariVisualizer
+from livecell_tracker.core.datasets import LiveCellImageDataset
 
 
 class SctOperator:
@@ -377,7 +378,7 @@ class SctOperator:
             for key in self.original_properties.keys():
                 self.original_properties[key] = copy.deepcopy(self.shape_layer.properties.copy())[key]
             self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
-            self.original_properties["sc"] = self.original_scs
+            self.original_properties["sc"] = self.original_scs  # avoid deepcopying the single cells
 
     def restore_shapes_data(self):
         print("<restoring sct shapes>")
@@ -461,26 +462,24 @@ class SctOperator:
         self.clear_selection()
         print("<delete operation complete>")
 
-    def annotate_click(self, label, label_info_key="_annotation_label_info"):
+    def annotate_click(self, label):
         from livecell_tracker.annotation.annotation_id_generator import AnnotationIdGenerator as AIG
 
         print("<annotating click>: adding a sample")
         sample = []
-        sample_id = AIG.gen_global_id()
+        sample_id = AIG.gen_uuid()
         for selected_shape in self.select_info:
             sct, sc, shape_index = selected_shape
             sample.append(sc)
-            if label_info_key not in sc.meta:
-                sc.meta[label_info_key] = []
-            sc.meta[label_info_key].append(
-                {
-                    "label": label,
-                    "sample_id": sample_id,
-                }
-            )
+
         if label not in self.annotate_click_samples:
             self.annotate_click_samples[label] = []
-        self.annotate_click_samples[label].append(sample)
+        self.annotate_click_samples[label].append(
+            {
+                "sample": sample,
+                "sample_id": sample_id,
+            }
+        )
         self.clear_selection()
         print("<annotate click operation complete>")
 
@@ -513,6 +512,7 @@ class SctOperator:
         sample_out_dir: Union[Path, str],
         filename_pattern: str = "sample_{sample_index}.json",
         sample_dataset_dir: Optional[Union[Path, str]] = None,
+        label_info_key="_annotation_label_info",
     ):
         print("<saving annotations>")
         if isinstance(sample_out_dir, str):
@@ -525,13 +525,38 @@ class SctOperator:
         sample_paths = []
 
         for label in self.annotate_click_samples:
-            samples = self.annotate_click_samples[label]
+            sample_dicts = self.annotate_click_samples[label]
             label_dir: Path = sample_out_dir / label
             label_dir.mkdir(exist_ok=True)
-            for i, sample in enumerate(samples):
-                sample_json_path = label_dir / (filename_pattern.format(sample_index=i))
+            for i, sample_dict in enumerate(sample_dicts):
+                sample = sample_dict["sample"]
+                sample_id = sample_dict["sample_id"]
+                for sc in sample:
+                    if label_info_key not in sc.meta:
+                        sc.meta[label_info_key] = []
+
+                    sc.meta[label_info_key].append(
+                        {
+                            "label": label,
+                            "sample_id": str(sample_id) if not isinstance(sample_id, int) else sample_id,
+                        }
+                    )
+                sample_json_path = label_dir / (filename_pattern.format(sample_index=sample_id))
                 SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
                 sample_paths.append(sample_json_path)
+        main_info("saving scs")
+        scs_json_path = sample_out_dir / "single_cells.json"
+        all_scs = self.get_all_scs()
+
+        # remove empty contour scs
+        filtered_scs = []
+        for sc in all_scs:
+            if len(sc.contour) > 0:
+                filtered_scs.append(sc)
+            else:
+                main_warning(f"sc: {sc} has empty contour. It is ignored during saving.")
+
+        SingleCellStatic.write_single_cells_json(filtered_scs, scs_json_path, dataset_dir=sample_dataset_dir)
         print("<saving annotations complete>")
         return sample_paths
 
@@ -566,12 +591,15 @@ class SctOperator:
         }
         sc_dummy_napari_data = [np.array([[new_sc.timeframe, -50, -50], [new_sc.timeframe, -10, -10]])]
         # self.shape_layer.data = list(self.shape_layer.data) + sc_napari_data
-        self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon")
+        random_color = list(np.random.rand(4))
+        random_color[-1] = 1.0
+        self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon", face_color=random_color)
         self.shape_layer.properties = new_sc_layer_properties
 
+        # Create placeholder for the new sc in the original properties
         # WARNING: only update the newly added sc's shape layer info
-        # because it will cause problems e.g. other function status staying forever on the shape layer
-        self.original_face_colors.append(self.original_face_colors[0])  # TODO: randomly generate a color?
+        # Because without update_slice, we have problems e.g. other function status staying forever on the shape layer
+        self.original_face_colors.append(None)
 
         self.original_properties["sc"] = np.append(self.original_properties["sc"], new_sc)
         self.original_properties["track_id"] = np.append(self.original_properties["track_id"], new_sct.track_id)
@@ -761,8 +789,11 @@ def create_scts_operator_viewer(
             )
         new_scts = SingleCellTrajectoryCollection()
         for _, sct in sctc:
-            new_scts.add_trajectory(sct.subsct(time_span[0], time_span[1]))
+            new_scts.add_trajectory(sct.subsct(time_span[0], time_span[1], keep_track_id=True))
         sctc = new_scts
+        main_info(
+            f"A new SCTC object with size {len(sctc)} is created by subsetting the original sctc with time span {time_span}"
+        )
 
     # if the img_dataset is not None, then we can use it to determine the time span
     if img_dataset is not None:
@@ -817,7 +848,9 @@ def _get_viewer_sct_operator(viewer, points_data_layer_key="_lcx_sct_cur_idx"):
     return sct_operator
 
 
-def create_scs_edit_viewer_by_interval(single_cells, img_dataset, span_interval=10, viewer=None, clear_prev_batch=True):
+def create_scs_edit_viewer_by_interval(
+    single_cells, img_dataset: LiveCellImageDataset, span_interval=10, viewer=None, clear_prev_batch=True
+):
     # TODO: a potential bug is that the slice index is not the same concept as the time. A solution is to add time frame to shape properties
     # Here for now we assume indices represents timeframes
     sct_operator = create_scs_edit_viewer(
@@ -826,7 +859,7 @@ def create_scs_edit_viewer_by_interval(single_cells, img_dataset, span_interval=
     viewer = sct_operator.viewer
     tmp_points_data_layer_key = "_lcx_sct_cur_idx"
     sc_times = [sc.timeframe for sc in single_cells]
-    max_time = max(sc_times)
+    max_time = max(img_dataset.times)
     if "cur_idx" not in viewer.layers:
         points = np.zeros((1, 3))
         points_layer = viewer.add_points(points, name=tmp_points_data_layer_key)
@@ -851,31 +884,29 @@ def create_scs_edit_viewer_by_interval(single_cells, img_dataset, span_interval=
                 all_sc_set = set(single_cells)
                 for sc in sct_operator_scs:
                     if sc not in all_sc_set:
-                        print("<add new sc>:", sc)
+                        main_info("<add new sc>:" + str(sc))
                         single_cells.append(sc)
                 for sc in single_cells:
                     if sc.timeframe < cur_idx or sc.timeframe > cur_idx + span_interval:
                         continue
                     if sc not in sct_operator_scs:
-                        print("<remove sc>:", sc)
+                        main_info("<remove sc>:" + str(sc))
                         single_cells.remove(sc)
             cur_idx += offset
             cur_idx = min(cur_idx, max_time)  # (max_time - span_interval) is acceptable as well here
             cur_idx = max(cur_idx, 0)
             points_layer.metadata["cur_idx"] = cur_idx
             cur_span = (cur_idx, cur_idx + span_interval)
-            print("new span:", cur_span)
             # if clear_prev_batch:
             #     sct_operator.close()
             # sct_operator = create_scs_edit_viewer(single_cells, img_dataset = dic_dataset, viewer = viewer, time_span=cur_span)
             if clear_prev_batch:
                 # TODO: shapes may be invisible, though select is sc/sct based and should be fine
                 sct_operator.clear_selection()
-            temp_sc_trajs_for_correct = create_sctc_from_scs(single_cells)
-            temp_sc_trajs_for_correct = filter_sctc_by_time_span(temp_sc_trajs_for_correct, cur_span)
-            print("len of temp_sc_trajs_for_correct:", len(temp_sc_trajs_for_correct))
-            if len(temp_sc_trajs_for_correct) != 0:
-                sct_operator.setup_from_sctc(temp_sc_trajs_for_correct)
+            temp_sc_trajs = create_sctc_from_scs(single_cells)
+            temp_sc_trajs = filter_sctc_by_time_span(temp_sc_trajs, cur_span)
+            if len(temp_sc_trajs) != 0:
+                sct_operator.setup_from_sctc(temp_sc_trajs)
             else:
                 sct_operator.shape_layer.data = []
             points_layer.metadata["cur_sct_operator"] = sct_operator

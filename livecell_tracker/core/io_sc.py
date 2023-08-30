@@ -2,13 +2,14 @@ import tqdm
 import numpy as np
 from multiprocessing import Pool
 from skimage.measure import regionprops, find_contours
+from livecell_tracker.livecell_logger import main_info, main_warning
 from livecell_tracker.segment.ou_simulator import find_contours_opencv
 from livecell_tracker.core.single_cell import SingleCellStatic
 from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager
 
 
 # TODO: fix the function below
-def process_scs_from_label_mask(label_mask_dataset, dic_dataset, time, bg_val=0):
+def process_scs_from_label_mask(label_mask_dataset, dic_dataset, time, bg_val=0, min_contour_len=10):
     """process single cells from one label mask. Store labels of single cells in their meta data.
 
     Parameters
@@ -33,16 +34,45 @@ def process_scs_from_label_mask(label_mask_dataset, dic_dataset, time, bg_val=0)
         labels.remove(bg_val)
     contours = []
     labels = list(labels)
+    contour_labels = []
     for label in labels:
         bin_mask = (label_mask == label).astype(np.uint8)
         label_contours = find_contours_opencv(bin_mask)
-        assert len(label_contours) == 1, "at time {}, label {} has {} contours".format(time, label, len(label_contours))
-        contours.append(label_contours[0])
+        # assert len(label_contours) == 1, "at time {}, label {} has {} contours".format(time, label, len(label_contours))
+        # contours.append(label_contours[0])
+
+        # warn the users
+        filtered_label_contours = []
+        for contour in label_contours:
+            if len(contour) >= min_contour_len:
+                filtered_label_contours.append(contour)
+
+        if len(filtered_label_contours) < len(label_contours):
+            main_info(
+                "at time {}, label {} has {} contours found by opencv, {} of them are filtered by contour length threshold: {}".format(
+                    time,
+                    label,
+                    len(label_contours),
+                    len(label_contours) - len(filtered_label_contours),
+                    min_contour_len,
+                )
+            )
+
+        label_contours = filtered_label_contours
+
+        if len(label_contours) > 1:
+            main_warning("at time {}, label {} has {} contours".format(time, label, len(label_contours)))
+            main_warning("lengths of each contour: {}".format([len(c) for c in label_contours]))
+
+        contours.extend(label_contours)
+        contour_labels.extend([label] * len(label_contours))
 
     # contours = find_contours(seg_mask) # skimage: find_contours
     _scs = []
     for i, contour in enumerate(contours):
-        label = labels[i]
+        label = int(
+            contour_labels[i]
+        )  # int important here to get rid of numpy.int64 or numpy.int8, etc, to avoid json dump error
         sc = SingleCellStatic(
             timeframe=time,
             img_dataset=dic_dataset,
@@ -59,9 +89,9 @@ def process_mask_wrapper(args):
 
 
 # TODO: use parallelize function in the future
-def prep_scs_from_mask_dataset(mask_dataset, dic_dataset, cores=None):
+def prep_scs_from_mask_dataset(mask_dataset, img_dataset, cores=None):
     scs = []
-    inputs = [(mask_dataset, dic_dataset, time) for time in mask_dataset.time2url.keys()]
+    inputs = [(mask_dataset, img_dataset, time) for time in mask_dataset.time2url.keys()]
     pool = Pool(processes=cores)
     for _scs in tqdm.tqdm(pool.imap_unordered(process_mask_wrapper, inputs), total=len(inputs)):
         scs.extend(_scs)

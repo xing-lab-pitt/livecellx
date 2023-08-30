@@ -5,8 +5,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from cellpose import models
-from cellpose.io import imread
 from PIL import Image, ImageSequence, ImageEnhance
 from tqdm import tqdm
 import cv2 as cv
@@ -57,11 +55,8 @@ def normalize_img_to_uint8(img: np.array, dtype=np.uint8) -> np.array:
     return img.astype(dtype)
 
 
-def standard_preprocess(img, bg_correct_func=None):
-
-    if bg_correct_func is None:
-        img = correct_background_polyfit(img, 2)
-    else:
+def standard_preprocess(img, bg_correct_func=correct_background_polyfit):
+    if bg_correct_func is not None:
         img = bg_correct_func(img)
     img = normalize_img_to_uint8(img)
     return img

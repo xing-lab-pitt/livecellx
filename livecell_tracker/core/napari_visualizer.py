@@ -1,7 +1,7 @@
 from livecell_tracker.core.single_cell import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
 import numpy as np
 from napari.viewer import Viewer
-from livecell_tracker.core.visualizer import Visualizer
+from livecell_tracker.plot.visualizer import Visualizer
 
 
 class NapariVisualizer:
@@ -41,6 +41,7 @@ class NapariVisualizer:
             "anchor": "center",
             "translation": [-2, 0],
         },
+        layer_name="Trajectories",
     ):
         if viewer_kwargs is None:
             viewer_kwargs = dict()
@@ -57,14 +58,17 @@ class NapariVisualizer:
             all_scs.extend(scs)
             all_status.extend([""] * len(traj_shapes))
         properties = {"track_id": track_ids, "sc": all_scs, "status": all_status}
+
+        # Track ID can be UUID, so we need to map it to an integer
+        track_value_indices = [idx for idx, v in enumerate(track_ids)]
         shape_layer = viewer.add_shapes(
-            all_shapes,
+            all_shapes if len(all_shapes) > 0 else None,
             properties=properties,
-            face_color=NapariVisualizer.map_colors(properties["track_id"]),
+            face_color=NapariVisualizer.map_colors(track_value_indices),
             face_colormap="viridis",
             shape_type="polygon",
             text=text_parameters,
-            name="trajectories",
+            name=layer_name,
             **viewer_kwargs
         )
         return shape_layer

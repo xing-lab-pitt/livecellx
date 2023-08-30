@@ -108,7 +108,7 @@ class ScSegOperator:
 
         properties = {"sc": [self.sc]}
         shape_layer = self.viewer.add_shapes(
-            shapes_data,
+            shapes_data if len(shapes_data) > 0 else None,
             properties=properties,
             face_color=[self.face_color],
             shape_type="polygon",
@@ -252,17 +252,25 @@ class ScSegOperator:
 
     def save_seg_callback(self):
         """Save the segmentation to the single cell object."""
+        import napari
+        from PyQt5.QtWidgets import QMessageBox
+
         print("<save_seg_callback fired>")
         # Get the contour coordinates from the shape layer
         contours = self._get_contours_from_shape_layer(self.shape_layer)
+        if len(contours) != 1:
+            message = "Warning: Expected 1 contour, found {}.".format(len(contours))
+            QMessageBox.warning(None, "Warning", message)
+            return
         assert len(contours) > 0, "No contour is found in the shape layer."
         contour = contours[0]
         # Store the contour in the single cell object
         self.sc.update_contour(contour)
-        print("<save_seg_callback finished>")
 
         # Notify the observers
+        print("<save_seg_callback> notifying sct operator to update the sc")
         self.notify_sct_to_update()
+        print("<save_seg_callback finished>")
 
     def csn_correct_seg_callback(self, padding_pixels=50, threshold=0.5):
         print("csn_correct_seg_callback fired")
