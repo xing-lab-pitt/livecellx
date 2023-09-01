@@ -33,5 +33,5 @@ nvidia-smi -L
 PYTHON=/net/capricorn/home/xing/ken67/.conda/envs/livecell-tracker/bin/python
 OUT_DIR=cluster_outs
 
-model="v10_st_clip=3_clipnum=3"
-$PYTHON train.py "configs/config_train_v10_st_cliplen=3_clipnum=3.py" --resume auto > $OUT_DIR/train_out_model"$model".out
+model="v11_st_clip=3_clipnum=3-video"
+$PYTHON train.py "configs/config_train_v11_st_cliplen=3_clipnum=3-video.py" --resume auto > $OUT_DIR/train_out_model"$model".out
