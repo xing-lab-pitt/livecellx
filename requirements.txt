@@ -21,8 +21,8 @@ pytorch-lightning==1.5.6
 
 # note we need to use multitracker in cv2 legacy
 Augmentor
-# seg evaluation
-miseval
+# Segmentation evaluation
+# # miseval # TODO: make it optional
 cellpose
 opencv-contrib-python
 
