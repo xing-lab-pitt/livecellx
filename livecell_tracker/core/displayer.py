@@ -63,44 +63,6 @@ class SctDisplayer(Displayer):
         self.sct_table_widget = sct_table_widget(trajectory=self.trajectory)
 
 
-# class ScDisplayer:
-#     def __init__(self, sc: SingleCellStatic, trajectory: SingleCellTrajectory, viewer, magicgui_container: Optional[Container] = None):
-#         """
-#         Parameters
-#         ----------
-#         viewer : napari.Viewer
-#             The napari viewer.
-#         sc : SingleCellStatic
-#             The single cell static object.
-#         trajectory : SingleCellTrajectory
-#             The single cell trajectory object.
-#         """
-#         self.sc = sc
-#         self.trajectory = trajectory
-#         self.viewer = viewer
-#         self.magicgui_container = magicgui_container
-
-#         # Update regionprops and features for the SingleCellStatic instance
-#         if self.sc:
-#             if self.sc.regionprops is None:
-#                 self.sc.update_regionprops()
-#             skimage_features = compute_skimage_regionprops(sc=self.sc)
-#             self.sc.add_feature("skimage", skimage_features)
-#             self.sc_table_widget = sc_static_table_widget(sc=self.sc)
-
-#         # Update regionprops and features for all SingleCellStatic instances inside the trajectory
-#         if self.trajectory:
-#             for timeframe, single_cell in self.trajectory.timeframe_to_single_cell.items():
-#                 if single_cell.regionprops is None:
-#                     single_cell.update_regionprops()
-#             self.trajectory_table_widget = sct_table_widget(trajectory=self.trajectory)
-
-#         # For SingleCellTrajectory
-#         if self.trajectory:
-#             self.trajectory.compute_features("skimage", compute_skimage_regionprops)
-#             self.trajectory_table_widget = sct_table_widget(trajectory=self.trajectory)
-
-
 def save_sctc_features_to_csv(sctc: SingleCellTrajectoryCollection):
     for track_id, trajectory in sctc:
         trajectory.compute_features("skimage", compute_skimage_regionprops)
