@@ -370,25 +370,27 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
 class SingleImageDataset(LiveCellImageDataset):
     DEFAULT_TIME = 0
 
-    def __init__(self, img, name=None, ext=".png"):
+    def __init__(self, img, name=None, ext=".png", in_memory=True):
         super().__init__(
             time2url={SingleImageDataset.DEFAULT_TIME: "InMemory"},
             name=name,
             ext=ext,
-            read_img_url_func=self.read_single_img_url_func,
+            read_img_url_func=self.read_single_img_from_mem,
             index_by_time=True,
         )
         self.img = img
         self.url = None
+        # TODO: handle to case where img is not in memory
+        self.in_memory = in_memory
 
-    def read_single_img_url_func(self, url):
+    def read_single_img_from_mem(self, url):
         return self.img.copy()
 
     def get_img_by_time(self, time) -> np.array:
-        return self.read_single_img_url_func(self.url)
+        return self.read_single_img_from_mem(self.url)
 
     def get_img_by_idx(self, idx):
-        return self.read_single_img_url_func(self.url)
+        return self.read_single_img_from_mem(self.url)
 
 
 # TODO

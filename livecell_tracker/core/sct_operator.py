@@ -38,7 +38,7 @@ class SctOperator:
         magicgui_container=None,
         sc_operators=None,
         img_dataset=None,
-        time_span=None,
+        time_span=(0, None),
         meta=None,
     ):
         self.select_info = []  # [cur_sct, cur_sc, selected_shape_index]
@@ -243,7 +243,6 @@ class SctOperator:
         for key in properties.keys():
             properties[key][new_shape_index] = cur_sc_properties[key][0]
         self.shape_layer.properties = properties
-
         # # Deprecated code below; rollback if required
         # # simply update all the data
         # shape_data = list(self.shape_layer.data)
@@ -626,7 +625,7 @@ class SctOperator:
         self.magicgui_container[9].show()
         # Always show clear sc operators (10th)
         self.magicgui_container[10].show()
-        # Always show add new sc (11th)
+        # Always show add one sc (11th)
         self.magicgui_container[11].show()
 
         if self.mode == self.CONNECT_MODE:
@@ -722,9 +721,9 @@ def create_sct_napari_ui(sct_operator: SctOperator):
         print("clear sc operators fired!")
         _report_func_exception_wrapper(sct_operator.clear_sc_opeartors)()
 
-    @magicgui(call_button="add new sc")
+    @magicgui(call_button="add one sc")
     def add_new_sc():
-        print("add new sc fired!")
+        print("add one sc fired!")
         _report_func_exception_wrapper(sct_operator.add_new_sc)()
 
     @magicgui(
@@ -884,7 +883,7 @@ def create_scs_edit_viewer_by_interval(
                 all_sc_set = set(single_cells)
                 for sc in sct_operator_scs:
                     if sc not in all_sc_set:
-                        main_info("<add new sc>:" + str(sc))
+                        main_info("<add one sc>:" + str(sc))
                         single_cells.append(sc)
                 for sc in single_cells:
                     if sc.timeframe < cur_idx or sc.timeframe > cur_idx + span_interval:
