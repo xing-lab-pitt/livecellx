@@ -7,6 +7,7 @@ from livecell_tracker.preprocess.utils import normalize_img_to_uint8
 from livecell_tracker.core.utils import gray_img_to_rgb, rgb_img_to_gray, label_mask_to_edt_mask
 from livecell_tracker.core import SingleCellTrajectory, SingleCellStatic
 from livecell_tracker.core.parallel import parallelize
+from livecell_tracker.livecell_logger import main_warning, main_info
 
 
 def gen_mp4_from_frames(video_frames, output_file, fps):
@@ -65,6 +66,9 @@ def gen_samples_mp4s(
     helper_input_args = []
     for i, sample in enumerate(sc_samples):
         extra_sample_info = samples_info_list[i]
+        if len(sample) == 0:
+            main_warning(f"No cells in the sample {i} with extra info {extra_sample_info}, skipping...")
+            continue
         if "tid" in extra_sample_info:
             output_file = output_dir / (
                 f"{prefix}_tid-{int(extra_sample_info['tid'])}_{class_label}_sample-{i}_raw_padding-{padding_pixels}.mp4"
@@ -170,6 +174,10 @@ def video_frames_and_masks_from_sample(
         time = sc_times[i]
         scs_at_time = scs_by_time[time]
         sample_scs.append(scs_at_time)
+
+    if len(sample_scs) == 0:
+        main_warning("No cells in the sample, skipping...")
+        return [], []
 
     # get the largest bounding box
     largest_bbox = [np.inf, np.inf, -np.inf, -np.inf]
