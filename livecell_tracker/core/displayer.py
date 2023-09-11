@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from datetime import datetime
-from typing import Optional, Union, Annotated, Callable
+from typing import Optional, Union, Callable
 from livecell_tracker.livecell_logger import main_info, main_warning, main_debug
 from livecell_tracker.core import SingleCellTrajectory, SingleCellStatic
 from livecell_tracker.trajectory.feature_extractors import compute_skimage_regionprops, compute_haralick_features
