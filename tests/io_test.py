@@ -1,5 +1,5 @@
-from livecell_tracker.core.datasets import LiveCellImageDataset
-from livecell_tracker.core import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
+from livecellx.core.datasets import LiveCellImageDataset
+from livecellx.core import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
 from .conftest import TestUtils
 from pathlib import PurePosixPath, PureWindowsPath
 

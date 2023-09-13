@@ -1,11 +1,11 @@
 import unittest
 import numpy as np
-from livecell_tracker.core import (
+from livecellx.core import (
     SingleCellTrajectory,
     SingleCellStatic,
     SingleCellTrajectoryCollection,
 )
-from livecell_tracker.core.datasets import LiveCellImageDataset
+from livecellx.core.datasets import LiveCellImageDataset
 
 
 class TestHelper(unittest.TestCase):

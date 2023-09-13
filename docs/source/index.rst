@@ -1,4 +1,4 @@
-.. livecell_tracker documentation master file, created by
+.. livecellx documentation master file, created by
    sphinx-quickstart on Thu Dec  1 22:22:40 2022.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
@@ -6,7 +6,7 @@
 livecell - Live Cell Tracker in Python
 ======================================
 
-**livecell_tracker** is a Python package for extracting (segmenting and tracking) single-cell trajectories from long live-cell imaging data and computing as well as analyzing single-cell features in latent space.
+**livecellx** is a Python package for extracting (segmenting and tracking) single-cell trajectories from long live-cell imaging data and computing as well as analyzing single-cell features in latent space.
 
 .. image:: https://images.app.goo.gl/zM4hSi3cTZ3xh7MP8
     :alt: livecell title figure

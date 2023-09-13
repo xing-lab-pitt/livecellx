@@ -6,16 +6,16 @@ import os
 from pathlib import Path
 import numpy as np
 from deepdiff import DeepDiff
-from livecell_tracker import sample_data
-from livecell_tracker.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
-from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
-from livecell_tracker.core.datasets import LiveCellImageDataset
-from livecell_tracker.core import (
+from livecellx import sample_data
+from livecellx.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
+from livecellx.segment.utils import prep_scs_from_mask_dataset
+from livecellx.core.datasets import LiveCellImageDataset
+from livecellx.core import (
     SingleCellTrajectory,
     SingleCellStatic,
     SingleCellTrajectoryCollection,
 )
-from livecell_tracker.track.sort_tracker_utils import (
+from livecellx.track.sort_tracker_utils import (
     gen_SORT_detections_input_from_contours,
     update_traj_collection_by_SORT_tracker_detection,
     track_SORT_bbox_from_contours,

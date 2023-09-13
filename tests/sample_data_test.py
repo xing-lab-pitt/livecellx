@@ -2,8 +2,8 @@ import unittest
 import os
 import shutil
 from pathlib import Path
-from livecell_tracker import sample_data
-from livecell_tracker.core.datasets import LiveCellImageDataset
+from livecellx import sample_data
+from livecellx.core.datasets import LiveCellImageDataset
 
 
 class TestTutorialThreeImageSys(unittest.TestCase):

@@ -1,7 +1,7 @@
 Classes
 =======
 
-.. currentmodule:: livecell_tracker
+.. currentmodule:: livecellx
 
 .. autosummary::
     :toctree: classes
