@@ -34,7 +34,7 @@ Getting Started with livecell
     :hidden:
 
     installation
-    api
+    API
     classes
 
 .. toctree::
