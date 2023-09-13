@@ -37,9 +37,9 @@ pygments_style = "sphinx"
 
 
 github_org = "xing-lab-pitt"
-github_code_repo = "livecell-tracker"
+github_code_repo = "livecellx"
 github_ref = "master"
-github_nb_repo = "livecell-tracker-notebooks"
+github_nb_repo = "livecellx-notebooks"
 
 # Add notebooks prolog to Google Colab and nbviewer
 # TODO
@@ -49,7 +49,7 @@ nbsphinx_execute = "never"  # never execute notebooks
 
 # -- Project information -----------------------------------------------------
 
-project = "livecell-tracker"
+project = "livecellx"
 copyright = "2022, Ke Ni, Dante Poe, Yajushi Khurana, Weikang Wang, and Jianhua Xing"
 author = "Ke Ni, Dante Poe, Yajushi Khurana, Weikang Wang, and Jianhua Xing"
 

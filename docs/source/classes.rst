@@ -12,7 +12,7 @@ Classes
     core.datasets.LiveCellImageDataset
     core.datasets.SingleImageDataset
     core.io_utils.LiveCellEncoder
-    core.visualizer.Visualizer
+    plot.visualizer.Visualizer
     core.napari_visualizer.NapariVisualizer
     core.sc_key_manager.SingleCellMetaKeyManager
     core.sc_seg_operator.ScSegOperator
