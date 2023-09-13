@@ -1,9 +1,12 @@
 # %%
 from functools import partial
-from livecell_tracker.external import torch_vae
+from livecellx.external import torch_vae
 
 # %%
-from livecell_tracker.external.torch_vae.models.vanilla_vae import VanillaVAE
+from livecellx.external.torch_vae.models.vanilla_vae import VanillaVAE
+from skimage.measure import regionprops
+from livecellx.segment.utils import prep_scs_from_mask_dataset
+
 import numpy as np
 
 
@@ -13,10 +16,30 @@ import numpy as np
 # %%
 from typing import List, Union
 import torch
-from livecell_tracker.core import SingleCellStatic
+from livecellx.core import SingleCellStatic
 from pathlib import Path
-from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
-from livecell_tracker.preprocess.utils import normalize_img_to_uint8
+from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
+from livecellx.preprocess.utils import normalize_img_to_uint8
+
+
+# %%
+dataset_dir_path = Path("../datasets/test_data_STAV-A549/DIC_data")
+mask_dataset_path = Path("../datasets/test_data_STAV-A549/mask_data")
+mask_dataset = LiveCellImageDataset(mask_dataset_path, ext="png")
+dic_dataset = LiveCellImageDataset(dataset_dir_path, ext="tif")
+
+################### large dataset ###################
+# dataset_dir_path = Path("../datasets/EBSS_Starvation/tif_STAV-A549_VIM_24hours_NoTreat_NA_YL_Ti2e_2022-12-21/XY16/")
+
+# mask_dataset_path = Path(
+#     "../datasets/EBSS_Starvation/tif_STAV-A549_VIM_24hours_NoTreat_NA_YL_Ti2e_2022-12-21/out/XY16/seg"
+# )
+# mask_dataset = LiveCellImageDataset(mask_dataset_path, ext="png")
+# import glob
+
+# time2url = sorted(glob.glob(str((Path(dataset_dir_path) / Path("*_DIC.tif")))))
+# time2url = {i: path for i, path in enumerate(time2url)}
+# dic_dataset = LiveCellImageDataset(time2url=time2url, ext="tif")
 
 
 class SingleCellVaeDataset(torch.utils.data.Dataset):
@@ -52,9 +75,22 @@ class SingleCellVaeDataset(torch.utils.data.Dataset):
         # img = normalize_img_to_uint8(img)
 
         img = img.reshape([1] + list(img.shape))
+        ####### debug ########
+        # from matplotlib import pyplot as plt
+        # plt.imshow(img[0])
+        # plt.savefig("./sample_test_img.png")
+        # plt.clf()
+        # plt.hist(img[0].flatten(), bins=100)
+        # plt.savefig("./sample_test_img_hist.png")
+        ####### end debug ########
         img = torch.from_numpy(img).float()
         if self.transforms:
             img = self.transforms(img)
+
+        # plt.hist(img[0].cpu().numpy().flatten(), bins=100)
+        # plt.savefig("./sample_test_img_hist_transformed.png")
+        # exit(0)
+
         # return {
         #     "input": img,
         #     "img": img,
@@ -67,30 +103,6 @@ class SingleCellVaeDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.scs)
 
-
-# %%
-# dataset_dir_path = Path(
-#     "../datasets/test_data_STAV-A549/DIC_data"
-# )
-# mask_dataset_path = Path("../datasets/test_data_STAV-A549/mask_data")
-# mask_dataset = LiveCellImageDataset(mask_dataset_path, ext="png")
-# dic_dataset = LiveCellImageDataset(dataset_dir_path, ext="tif")
-
-dataset_dir_path = Path("../datasets/EBSS_Starvation/tif_STAV-A549_VIM_24hours_NoTreat_NA_YL_Ti2e_2022-12-21/XY16/")
-
-mask_dataset_path = Path(
-    "../datasets/EBSS_Starvation/tif_STAV-A549_VIM_24hours_NoTreat_NA_YL_Ti2e_2022-12-21/out/XY16/seg"
-)
-mask_dataset = LiveCellImageDataset(mask_dataset_path, ext="png")
-import glob
-
-time2url = sorted(glob.glob(str((Path(dataset_dir_path) / Path("*_DIC.tif")))))
-time2url = {i: path for i, path in enumerate(time2url)}
-dic_dataset = LiveCellImageDataset(time2url=time2url, ext="tif")
-
-# %%
-from skimage.measure import regionprops
-from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
 
 single_cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
 for sc in single_cells:
@@ -146,8 +158,8 @@ class ScVAEDataset(LightningDataModule):
             [
                 transforms.RandomHorizontalFlip(),
                 # transforms.CenterCrop(148),
-                transforms.RandomCrop(self.patch_size, pad_if_needed=True)
-                # transforms.Resize(self.patch_size),
+                # transforms.RandomCrop(self.patch_size, pad_if_needed=True)
+                transforms.Resize((self.patch_size, self.patch_size)),
                 # transforms.ToTensor(),
             ]
         )
@@ -156,8 +168,8 @@ class ScVAEDataset(LightningDataModule):
             [
                 transforms.RandomHorizontalFlip(),
                 # transforms.CenterCrop(148),
-                transforms.RandomCrop(self.patch_size, pad_if_needed=True)
-                # transforms.Resize(self.patch_size),
+                # transforms.RandomCrop(self.patch_size, pad_if_needed=True)
+                transforms.Resize((self.patch_size, self.patch_size)),
                 # transforms.ToTensor(),
             ]
         )
@@ -215,31 +227,31 @@ import yaml
 import argparse
 import numpy as np
 from pathlib import Path
-from livecell_tracker.external.torch_vae.models import *
-from livecell_tracker.external.torch_vae.experiment import VAEXperiment
+from livecellx.external.torch_vae.models import *
+from livecellx.external.torch_vae.experiment import VAEXperiment
 import torch.backends.cudnn as cudnn
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-from livecell_tracker.external.torch_vae.dataset import VAEDataset
+from livecellx.external.torch_vae.dataset import VAEDataset
 from pytorch_lightning.plugins import DDPPlugin
 
 
 config = {
-    "model_params": {"name": "VanillaVAE", "in_channels": 1, "latent_dim": 128},
+    "model_params": {"name": "VanillaVAE", "in_channels": 1, "latent_dim": 64},
     "data_params": {
         "data_path": "Data/",
         "train_batch_size": 64,
         "val_batch_size": 64,
-        "patch_size": 256,
+        "patch_size": 128,
         "num_workers": 0,
     },
     "exp_params": {
         "LR": 0.001,
         "weight_decay": 0.0,
-        "scheduler_gamma": 0.99,
-        "kld_weight": 0.00000025,
+        "scheduler_gamma": 0.999,
+        "kld_weight": 0.0025,
         "manual_seed": 1111,
     },
     "trainer_params": {
@@ -262,7 +274,7 @@ vae_img_shape = (256, 256)
 
 in_channels, latent_dim = 1, config["model_params"]["latent_dim"]
 vae_model = VanillaVAE(
-    in_channels, latent_dim, hidden_dims=list(np.array([32, 64, 128, 256, 512, 1024, 2048])), img_shape=vae_img_shape
+    in_channels, latent_dim, hidden_dims=list(np.array([32, 512])), img_shape=vae_img_shape, conv_feature_dim=524288
 ).cuda()
 experiment = VAEXperiment(vae_model, config["exp_params"]).cuda()
 
