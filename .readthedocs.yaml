@@ -33,4 +33,4 @@ python:
       #         - docs/docs_requirements.txt
       - method: pip
         path: .
-      - requirements: docs/requirements.txt
+      - requirements: docs/docs_requirements.txt
