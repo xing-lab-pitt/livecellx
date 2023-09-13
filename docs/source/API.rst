@@ -2,7 +2,11 @@ API
 ===
 Import livecellx as::
 
-    import livecellx as lct
+    import livecellx as lcx
+    import livecellx.annotation
+    import livecellx.annotation.labelme2coco
+    
+
 
 Annotation
 ~~~~~~~~~~
