@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath(module_path))
 sys.path.insert(0, os.path.abspath("../"))
 sys.path.insert(0, os.path.abspath("../../"))
 
-import livecellx
+# import livecellx
 
 # HERE = Path(__file__).parent
 # sys.path[:0] = [str(HERE.parent)]
