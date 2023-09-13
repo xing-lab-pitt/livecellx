@@ -1,8 +1,8 @@
 #!/bin/bash
 
-source_directory="$1"
-destination_directory="$2"
-total_images="$3"
+source_directory="/home/ken67/LiveCellTracker-dev/datasets/wwk_train/A549_icnn_am_train/normal"
+destination_directory="/home/ken67/LiveCellTracker-dev/datasets/wwk_train/A549_icnn_am_train/normal_val"
+total_images="30"
 
 # Check if all arguments are provided
 if [[ -z "$source_directory" || -z "$destination_directory" || -z "$total_images" ]]; then
