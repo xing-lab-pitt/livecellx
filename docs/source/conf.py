@@ -5,7 +5,6 @@
 # http://www.sphinx-doc.org/en/master/config
 
 # -- Path setup --------------------------------------------------------------
-
 import os
 import sys
 from pathlib import Path
@@ -20,6 +19,7 @@ module_path = os.path.join(os.path.dirname(__file__), "../..")
 sys.path.insert(0, os.path.abspath(module_path))
 sys.path.insert(0, os.path.abspath("../"))
 sys.path.insert(0, os.path.abspath("../../"))
+from source.docs_download_utils import _download_docs_dirs
 
 # import livecellx
 
@@ -39,7 +39,10 @@ pygments_style = "sphinx"
 github_org = "xing-lab-pitt"
 github_code_repo = "livecellx"
 github_ref = "master"
-github_nb_repo = "livecellx-notebooks"
+github_nb_repo = "livecellx_notebooks"
+
+# TODO: download and maintain notebooks from github
+# _download_docs_dirs(repo_url=f"https://github.com/{github_org}/{github_nb_repo}")
 
 # Add notebooks prolog to Google Colab and nbviewer
 # TODO
