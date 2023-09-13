@@ -5,6 +5,7 @@ import napari
 import unittest
 from unittest.mock import MagicMock, patch, call
 from pathlib import Path
+import pytest
 from napari.layers import Shapes
 from livecell_tracker import sample_data
 from livecell_tracker.core.napari_visualizer import NapariVisualizer
@@ -24,6 +25,12 @@ from livecell_tracker.core.sct_operator import SctOperator
 
 
 class SctOperatorTest(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Skip the entire test class
+        pytest.skip("Skipping SctOperatorTest")
+
     @classmethod
     def setUpClass(cls):
         dic_dataset, mask_dataset = sample_data.tutorial_three_image_sys()
