@@ -349,6 +349,12 @@ class SctOperator:
         return shape_layer
 
     def store_shape_layer_info(self, update_slice=None):
+        """
+        Stores the original face colors, properties, single cells, and shape data of the shape layer.
+
+        Args:
+            update_slice: A slice object representing the range of indices to update. If None, all indices are updated.
+        """
         # check if original_face_colors is initialized
         if not hasattr(self, "original_face_colors"):
             self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
