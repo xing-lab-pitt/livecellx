@@ -49,4 +49,13 @@ repository = "https://github.com/xing-lab-pitt/livecellx"
 poetry = "infer_pyproject.cli:main"
 
 [tool.poetry.extras]
-docs = {file = "docs/docs_requirements.txt"}
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+    "nbsphinx",
+    "sphinx_autodoc_typehints",
+    "sphinxcontrib-bibtex",
+    "sphinx-gallery",
+    "furo",
+    "GitPython",
+]
