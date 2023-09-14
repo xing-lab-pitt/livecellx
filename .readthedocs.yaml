@@ -20,7 +20,9 @@ sphinx:
    builder: html
    configuration: docs/source/conf.py
    fail_on_warning: false
-
+   script:
+     - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+     - pip install lap[alldeps]
 # Optionally build your docs in additional formats such as PDF and ePub
 # formats:
 #    - pdf
