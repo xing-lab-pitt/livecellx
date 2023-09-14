@@ -1,6 +1,6 @@
 [build-system]
-build-backend = "flit_core.buildapi"
-requires = ["flit_core >=3.4,<4"]
+build-backend = "hatchling.build"
+requires = ["hatchling", "hatch-vcs"]
 
 [project]
 # name = "livecell-profiler"
@@ -13,28 +13,6 @@ classifiers = ["License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 requires-python = ">=3.8"
 # dynamic = ["dependencies", "version", "description"]
 # dynamic = ["dependencies"]
-
-[tool.flit.module]
-name = "livecellx"
-
-dependencies = [
-    "skimage",
-    "ipympl",
-
-    # labelme2coco requirements below
-    "sahi>=0.8.19",
-    "jsonschema>=2.6.0",
-
-    "Augmentor",
-
-    # note we need to use multitracker in cv2 legacy
-    "opencv-contrib-python",
-
-    # for sort tracker
-    "lap",
-    "filterpy",
-
-]
 
 [project.optional-dependencies]
 docs = [
@@ -60,3 +38,25 @@ repository = "https://github.com/xing-lab-pitt/livecellx"
 
 [project.scripts]
 poetry = "infer_pyproject.cli:main"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+numpy = "*"
+pandas = "*"
+Pillow = "*"
+scikit-image = "*"
+ipympl = "*"
+matplotlib = "*"
+torchmetrics = "0.8.2"
+sahi = ">=0.8.19"
+jsonschema = ">=2.6.0"
+pycocotools = "*"
+pytorch-lightning = "1.5.6"
+Augmentor = "*"
+cellpose = "*"
+opencv-contrib-python = "*"
+filterpy = "*"
+mahotas = "*"
+seaborn = "*"
+umap-learn = "*"
+napari = {extras = ["all"], version = "*"}
