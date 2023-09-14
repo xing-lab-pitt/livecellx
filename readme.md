@@ -3,18 +3,24 @@
 # LivecellX
 [![Supported Python versions](https://img.shields.io/badge/python-3.8%7C3.9%7C3.10-blue)](https://python.org)
 [![Development Status](https://img.shields.io/badge/status-pre--alpha-yellow)](https://en.wikipedia.org/wiki/Software_release_life_cycle#Pre-alpha)
+[![Documentation Status](https://readthedocs.org/projects/livecellx/badge/?version=latest)](https://livecellx.readthedocs.io/en/latest/?badge=latest)
 
-LivecellX is a pure python framework for extracting (segmenting and tracking) sinlge cell trajectories from long live-cell imaging data, and then computing as well as analyzing single cell features in latent space.
+
+Please visit our [readthedocs documentation](https://livecellx.readthedocs.io/en/latest/) for installation instructions and tutorials.
+
 
 **This is a placeholder for LivecellX future releases. Currently this repo showcases a basic use case to segment images, track cells with opencv/SORT/btrack and generate cell features in our CX-A label-free dataset.   
-The majority of our analysis methods/notebooks are in `https://github.com/xing-lab-pitt/xing-vimentin-dic-pipeline` maintained by Xing lab, and being added to this repo. Please check later in April. 2023 for a complete version with our manuscript.**
+The majority of our analysis methods/notebooks are in [our previously developed pipeline repo](https://github.com/xing-lab-pitt/xing-vimentin-dic-pipeline) maintained by Xing lab, and being added to this repo. Please check later in Oct. 2023 for a complete version with our manuscript.**
+
+LivecellX is a pure python framework for extracting (segmenting and tracking) sinlge cell trajectories from long live-cell imaging data, and then computing as well as analyzing single cell features in latent space.
 
 ## Installation
 **General package requirements**  
 
 Note: if you encounter issue related to lap and numpy, please install numpy first and then install lap. If there is any issue with numba and numpy, please follow the error message and resolve numba and numpy version issues. (suggestions: ask chatgpt regarding how to resolve dependency issues)  
 `pip install -r requirements.txt`  
-`pip install -r napari_requirements.txt`
+`pip install -r napari_requirements.txt`  
+`pip install lap[all]`  
 `pip install -e .` 
 (-e option enables you to install an editable version for developing the package or receiving quick code changes from repo by pulling via git)
 
