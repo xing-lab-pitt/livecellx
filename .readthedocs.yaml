@@ -14,16 +14,16 @@ build:
     # nodejs: "19"
     # rust: "1.64"
     # golang: "1.19"
-
+  jobs:
+      post_install: |
+        pip install -r requirements.txt
+        pip install lap[alldeps]
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
    builder: html
    configuration: docs/source/conf.py
    fail_on_warning: false
-   jobs:
-      post_install: |
-        pip install -r requirements.txt
-        pip install lap[alldeps]
+
 # Optionally build your docs in additional formats such as PDF and ePub
 # formats:
 #    - pdf
