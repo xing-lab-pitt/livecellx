@@ -1,3 +1,4 @@
+![](https://github.com/xing-lab-pitt/livecellx/blob/main/docs/source/_static/logo.png)
 
 # LivecellX
 [![Supported Python versions](https://img.shields.io/badge/python-3.8%7C3.9%7C3.10-blue)](https://python.org)
