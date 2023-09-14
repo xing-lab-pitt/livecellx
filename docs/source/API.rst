@@ -9,17 +9,17 @@ Import livecellx as::
     
 
 
-Annotation
-~~~~~~~~~~
+.. Annotation
+.. ~~~~~~~~~~
 
-.. module:: livecellx.annotation
-.. currentmodule:: livecellx
+.. .. module:: livecellx.annotation
+.. .. currentmodule:: livecellx
 
-.. autosummary::
-    :toctree: api
+.. .. autosummary::
+..     :toctree: api
 
-    annotation.labelme2coco.get_coco_from_labelme_folder
-    annotation.labelme2coco.convert
+..     annotation.labelme2coco.get_coco_from_labelme_folder
+..     annotation.labelme2coco.convert
 
 Classification
 ~~~~~~~~~~~~~~
