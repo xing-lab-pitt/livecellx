@@ -10,7 +10,7 @@ description = "live-cell analysis package including instance segmentation and tr
 authors = [{ name = "Ke Ni", email = "ken67@pitt.edu" }]
 readme = "readme.md"
 classifiers = ["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 # dynamic = ["dependencies", "version", "description"]
 # dynamic = ["dependencies"]
 
@@ -38,9 +38,9 @@ dependencies = [
 
 
 [project.urls]
-homepage = "https://github.com/xing-lab-pitt/LiveCellTracker-dev"
-documentation = "https://github.com/xing-lab-pitt/LiveCellTracker-dev"
-repository = "https://github.com/xing-lab-pitt/LiveCellTracker-dev"
+homepage = "https://github.com/xing-lab-pitt/livecellx"
+documentation = "https://github.com/xing-lab-pitt/livecellx"
+repository = "https://github.com/xing-lab-pitt/livecellx"
 
 [project.scripts]
 poetry = "infer_pyproject.cli:main"
