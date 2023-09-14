@@ -1,6 +1,6 @@
 [build-system]
-build-backend = "hatchling.build"
-requires = ["hatchling", "hatch-vcs"]
+requires = ["flit"]
+build-backend = "flit.buildapi"
 
 [project]
 # name = "livecell-profiler"
