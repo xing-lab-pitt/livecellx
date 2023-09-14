@@ -1,3 +1,6 @@
+docs/source/api
+docs/source/classes
+
 *.mp4
 *.npy
 **/lightning_logs/**

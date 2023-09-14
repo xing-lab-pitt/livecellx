@@ -10,6 +10,7 @@ Install dependencies by running::
 
     pip install -r requirements.txt
     pip install -r napari_requirements.txt 
+    pip install lap[alldeps]
     pip install .
 
 Alternatively, to install an editable version and develop the package, run::

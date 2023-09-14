@@ -3,15 +3,13 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-livecell - Live Cell Tracker in Python
+LivecellX
 ======================================
+**livecellx** is an end-to-end system for helping users extracting single-cell trajectories from long live-cell imaging data and computing as well as analyzing single-cell features in latent space.
 
-**livecellx** is a Python package for extracting (segmenting and tracking) single-cell trajectories from long live-cell imaging data and computing as well as analyzing single-cell features in latent space.
 
-.. image:: https://images.app.goo.gl/zM4hSi3cTZ3xh7MP8
-    :alt: livecell title figure
-    :width: 400px
-    :align: center
+**[More docs Coming soon!!! readthedocs website still underconstruction, suggestions welcome!]**
+
 
 Manuscript
 ----------
@@ -19,8 +17,13 @@ Please see our manuscript [insert citation here] to learn more.
 
 Key Features
 ------------
-- Segment and track cells in live-cell imaging data using OpenCV, SORT, or btrack.
-- Generate cell features in our CX-A label-free dataset.
+
+- Load large livecell imaging datasets on disk
+- Segment and track cells in live-cell imaging data 
+    - with any popular tools such as OpenCV, SORT, or btrack.
+    - with our own deep learning-based segmentation model
+- Correct single cell segmentation on single-cell level in our Napari UI operator
+- Generate cell features
 - Analyze and visualize single-cell trajectories.
 
 Getting Started with livecell
