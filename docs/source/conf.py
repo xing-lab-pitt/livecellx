@@ -158,7 +158,7 @@ html_show_sphinx = False
 html_static_path = ["_static"]
 html_css_files = ["css/custom.css"]
 # html_logo = "_static/logo.png"
-html_logo = "_static/logo_with_word.png"
+html_logo = "_static/logo.png"
 
 
 autodoc_member_order = "groupwise"
