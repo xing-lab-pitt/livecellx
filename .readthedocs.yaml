@@ -21,9 +21,8 @@ sphinx:
    configuration: docs/source/conf.py
    fail_on_warning: false
    jobs:
-       post_install:
-         - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-         - pip install lap[alldeps]
+      post_install:
+        - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi; pip install lap[alldeps]
 # Optionally build your docs in additional formats such as PDF and ePub
 # formats:
 #    - pdf
