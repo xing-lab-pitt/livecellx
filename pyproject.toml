@@ -47,3 +47,6 @@ repository = "https://github.com/xing-lab-pitt/livecellx"
 
 [project.scripts]
 poetry = "infer_pyproject.cli:main"
+
+[tool.poetry.extras]
+docs = {file = "docs/docs_requirements.txt"}
