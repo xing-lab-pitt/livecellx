@@ -22,7 +22,8 @@ sphinx:
    fail_on_warning: false
    jobs:
       post_install:
-        - pip install -r requirements.txt; pip install lap[alldeps]
+        - pip install -r requirements.txt
+        - pip install lap[alldeps]
 # Optionally build your docs in additional formats such as PDF and ePub
 # formats:
 #    - pdf
