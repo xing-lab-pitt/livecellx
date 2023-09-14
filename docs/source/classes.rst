@@ -7,6 +7,7 @@ Import livecellx as::
     import livecellx.annotation
     import livecellx.annotation.labelme2coco
 
+.. module:: livecellx.core
 .. currentmodule:: livecellx
 
 .. autosummary::
@@ -18,7 +19,6 @@ Import livecellx as::
     core.datasets.LiveCellImageDataset
     core.datasets.SingleImageDataset
     core.io_utils.LiveCellEncoder
-    plot.visualizer.Visualizer
     core.napari_visualizer.NapariVisualizer
     core.sc_key_manager.SingleCellMetaKeyManager
     core.sc_seg_operator.ScSegOperator
