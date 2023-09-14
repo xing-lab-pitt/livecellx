@@ -15,9 +15,9 @@ build:
     # rust: "1.64"
     # golang: "1.19"
   jobs:
-      post_install: |
-        pip install -r requirements.txt
-        pip install lap[alldeps]
+      post_install:
+        - pip install -r requirements.txt
+        - pip install lap[alldeps]
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
    builder: html
