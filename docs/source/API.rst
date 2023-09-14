@@ -3,6 +3,7 @@ API
 Import livecellx as::
 
     import livecellx as lcx
+    import livecellx
     import livecellx.annotation
     import livecellx.annotation.labelme2coco
     
