@@ -780,7 +780,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
 
 
 def create_scts_operator_viewer(
-    sctc: SingleCellTrajectoryCollection, img_dataset=None, viewer=None, time_span=None
+    sctc: SingleCellTrajectoryCollection, img_dataset=None, viewer=None, time_span=None, contour_sample_num=20
 ) -> SctOperator:
     import napari
     from livecellx.core.napari_visualizer import NapariVisualizer
@@ -809,7 +809,7 @@ def create_scts_operator_viewer(
         else:
             viewer = napari.Viewer()
 
-    shape_layer = NapariVisualizer.gen_trajectories_shapes(sctc, viewer, contour_sample_num=20)
+    shape_layer = NapariVisualizer.gen_trajectories_shapes(sctc, viewer, contour_sample_num=contour_sample_num)
     shape_layer.mode = "select"
     sct_operator = SctOperator(sctc, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
     create_sct_napari_ui(sct_operator)
@@ -817,7 +817,7 @@ def create_scts_operator_viewer(
 
 
 def create_scs_edit_viewer(
-    single_cells: List[SingleCellStatic], img_dataset=None, viewer=None, time_span=None
+    single_cells: List[SingleCellStatic], img_dataset=None, viewer=None, time_span=None, contour_sample_num=20
 ) -> SctOperator:
     """
     Creates a viewer for editing SingleCellStatic objects.
@@ -841,7 +841,9 @@ def create_scs_edit_viewer(
     temp_sc_trajs_for_correct = create_sctc_from_scs(single_cells)
 
     # Create an SctOperator instance for editing the SingleCellStatic objects
-    sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer, time_span)
+    sct_operator = create_scts_operator_viewer(
+        temp_sc_trajs_for_correct, img_dataset, viewer, time_span, contour_sample_num=contour_sample_num
+    )
     return sct_operator
 
 
@@ -855,12 +857,21 @@ def _get_viewer_sct_operator(viewer, points_data_layer_key="_lcx_sct_cur_idx"):
 
 
 def create_scs_edit_viewer_by_interval(
-    single_cells, img_dataset: LiveCellImageDataset, span_interval=10, viewer=None, clear_prev_batch=True
+    single_cells,
+    img_dataset: LiveCellImageDataset,
+    span_interval=10,
+    viewer=None,
+    clear_prev_batch=True,
+    contour_sample_num=30,
 ):
     # TODO: a potential bug is that the slice index is not the same concept as the time. A solution is to add time frame to shape properties
     # Here for now we assume indices represents timeframes
     sct_operator = create_scs_edit_viewer(
-        single_cells, img_dataset=img_dataset, viewer=viewer, time_span=(0, span_interval)
+        single_cells,
+        img_dataset=img_dataset,
+        viewer=viewer,
+        time_span=(0, span_interval),
+        contour_sample_num=contour_sample_num,
     )
     viewer = sct_operator.viewer
     tmp_points_data_layer_key = "_lcx_sct_cur_idx"
@@ -912,7 +923,7 @@ def create_scs_edit_viewer_by_interval(
             temp_sc_trajs = create_sctc_from_scs(single_cells)
             temp_sc_trajs = filter_sctc_by_time_span(temp_sc_trajs, cur_span)
             if len(temp_sc_trajs) != 0:
-                sct_operator.setup_from_sctc(temp_sc_trajs)
+                sct_operator.setup_from_sctc(temp_sc_trajs, contour_sample_num=contour_sample_num)
             else:
                 sct_operator.shape_layer.data = []
             points_layer.metadata["cur_sct_operator"] = sct_operator

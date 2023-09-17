@@ -630,6 +630,8 @@ class SingleCellStatic:
         return self.get_napari_shape_vec(coords)
 
     def get_napari_shape_contour_vec(self, contour_sample_num: float = np.inf):
+        if contour_sample_num is None:
+            contour_sample_num = np.inf
         contour = self.contour
         if len(contour) == 0:
             return []

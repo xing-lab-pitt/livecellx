@@ -199,21 +199,6 @@ def process_scs_from_one_label_mask(label_mask_dataset, img_dataset, time, bg_va
     return _scs
 
 
-def process_mask_wrapper(args):
-    return process_scs_from_one_label_mask(*args)
-
-
-def prep_scs_from_mask_dataset(mask_dataset, dic_dataset, cores=None):
-    scs = []
-    inputs = [(mask_dataset, dic_dataset, time) for time in mask_dataset.time2url.keys()]
-    pool = Pool(processes=cores)
-    for _scs in tqdm(pool.imap_unordered(process_mask_wrapper, inputs), total=len(inputs)):
-        scs.extend(_scs)
-    pool.close()
-    pool.join()
-    return scs
-
-
 def judge_connected_bfs(mask: np.ndarray, label1: int, label2: int) -> Tuple[bool, int]:
     def _is_valid(x: int, y: int, rows: int, cols: int) -> bool:
         return 0 <= x < rows and 0 <= y < cols

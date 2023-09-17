@@ -23,6 +23,8 @@ from torch.nn import init
 from torch.utils.data import DataLoader, random_split
 import uuid
 
+from livecellx.livecell_logger import main_debug
+
 
 def read_img_default(url: str, **kwargs) -> np.ndarray:
     img = Image.open(url)
@@ -218,7 +220,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         if not path.parent.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
         if (not overwrite) and os.path.exists(path):
-            print(">>> [LiveCellDataset] skip writing to an existing path: %s" % (path))
+            main_debug("[LiveCellDataset] skip writing to an existing path: %s" % (path))
             return
         with open(path, "w+") as f:
             json.dump(self.to_json_dict(), f)
