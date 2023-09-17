@@ -5,7 +5,7 @@ from livecellx.external import torch_vae
 # %%
 from livecellx.external.torch_vae.models.vanilla_vae import VanillaVAE
 from skimage.measure import regionprops
-from livecellx.segment.utils import prep_scs_from_mask_dataset
+from livecellx.core.io_sc import prep_scs_from_mask_dataset
 
 import numpy as np
 

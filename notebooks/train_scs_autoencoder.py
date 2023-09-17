@@ -11,7 +11,7 @@ from skimage.measure import regionprops
 from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecellx.preprocess.utils import normalize_img_to_uint8
 
-from livecellx.segment.utils import prep_scs_from_mask_dataset
+from livecellx.core.io_sc import prep_scs_from_mask_dataset
 from livecellx.model_zoo.autoencoder.autoencoder import Autoencoder
 
 # dataset_dir_path = Path("../datasets/test_data_STAV-A549/DIC_data")

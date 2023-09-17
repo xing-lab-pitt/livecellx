@@ -9,7 +9,7 @@ import pytest
 from napari.layers import Shapes
 from livecellx import sample_data
 from livecellx.core.napari_visualizer import NapariVisualizer
-from livecellx.segment.utils import prep_scs_from_mask_dataset
+from livecellx.core.io_sc import prep_scs_from_mask_dataset
 from livecellx.core import (
     SingleCellTrajectory,
     SingleCellStatic,

@@ -21,7 +21,7 @@ from livecellx import sample_data
 from livecellx import core
 from livecellx.core import datasets, pl_utils
 from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
-from livecellx.segment.utils import prep_scs_from_mask_dataset
+from livecellx.core.io_sc import prep_scs_from_mask_dataset
 from livecellx.preprocess.correct_bg import correct_background_bisplrep, correct_background_median_gamma
 from livecellx.preprocess.utils import normalize_img_to_uint8
 from livecellx.trajectory.feature_extractors import compute_skimage_regionprops
