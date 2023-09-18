@@ -116,7 +116,7 @@ Track
 
     track.classify_utils.video_frames_and_masks_from_sample
     track.classify_utils.combine_video_frames_and_masks
-    track.sort_tracker.associate_detections_to_trackers
+    track.sort_tracker.associate_detections_with_trackers
 
 Trajectory
 ~~~~~~~~~~

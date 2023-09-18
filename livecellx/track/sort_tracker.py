@@ -180,7 +180,7 @@ class KalmanBoxTracker(object):
         return self.origin_bbox
 
 
-def associate_detections_to_trackers(detections, trackers, iou_threshold=0.3):
+def associate_detections_with_trackers(detections, trackers, iou_threshold=0.3):
     """
     Assigns detections to tracked object (both represented as bounding boxes)
 
@@ -260,7 +260,7 @@ class Sort(object):
         trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
         for t in reversed(to_del):
             self.trackers.pop(t)
-        matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks, self.iou_threshold)
+        matched, unmatched_dets, unmatched_trks = associate_detections_with_trackers(dets, trks, self.iou_threshold)
 
         # update matched trackers with assigned detections
         for m in matched:
