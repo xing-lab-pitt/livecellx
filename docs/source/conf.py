@@ -5,7 +5,6 @@
 # http://www.sphinx-doc.org/en/master/config
 
 # -- Path setup --------------------------------------------------------------
-
 import os
 import sys
 from pathlib import Path
@@ -20,8 +19,9 @@ module_path = os.path.join(os.path.dirname(__file__), "../..")
 sys.path.insert(0, os.path.abspath(module_path))
 sys.path.insert(0, os.path.abspath("../"))
 sys.path.insert(0, os.path.abspath("../../"))
+from source.docs_download_utils import _download_docs_dirs
 
-import livecell_tracker
+# import livecellx
 
 # HERE = Path(__file__).parent
 # sys.path[:0] = [str(HERE.parent)]
@@ -37,9 +37,12 @@ pygments_style = "sphinx"
 
 
 github_org = "xing-lab-pitt"
-github_code_repo = "livecell-tracker"
+github_code_repo = "livecellx"
 github_ref = "master"
-github_nb_repo = "livecell-tracker-notebooks"
+github_nb_repo = "livecellx_notebooks"
+
+# TODO: download and maintain notebooks from github
+# _download_docs_dirs(repo_url=f"https://github.com/{github_org}/{github_nb_repo}")
 
 # Add notebooks prolog to Google Colab and nbviewer
 # TODO
@@ -49,7 +52,7 @@ nbsphinx_execute = "never"  # never execute notebooks
 
 # -- Project information -----------------------------------------------------
 
-project = "livecell-tracker"
+project = "livecellx"
 copyright = "2022, Ke Ni, Dante Poe, Yajushi Khurana, Weikang Wang, and Jianhua Xing"
 author = "Ke Ni, Dante Poe, Yajushi Khurana, Weikang Wang, and Jianhua Xing"
 
@@ -155,7 +158,7 @@ html_show_sphinx = False
 html_static_path = ["_static"]
 html_css_files = ["css/custom.css"]
 # html_logo = "_static/logo.png"
-html_logo = "_static/logo_with_word.png"
+html_logo = "_static/logo.png"
 
 
 autodoc_member_order = "groupwise"

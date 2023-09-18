@@ -10,23 +10,23 @@ import os, cv2
 import os.path
 import pandas as pd
 
-# from livecell_tracker import segment
-from livecell_tracker.track.sort_tracker_utils import (
+# from livecellx import segment
+from livecellx.track.sort_tracker_utils import (
     gen_SORT_detections_input_from_contours,
     update_traj_collection_by_SORT_tracker_detection,
     track_SORT_bbox_from_contours,
     track_SORT_bbox_from_scs,
 )
-from livecell_tracker import sample_data
-from livecell_tracker import core
-from livecell_tracker.core import datasets, pl_utils
-from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
-from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
-from livecell_tracker.preprocess.correct_bg import correct_background_bisplrep, correct_background_median_gamma
-from livecell_tracker.preprocess.utils import normalize_img_to_uint8
-from livecell_tracker.trajectory.feature_extractors import compute_skimage_regionprops
+from livecellx import sample_data
+from livecellx import core
+from livecellx.core import datasets, pl_utils
+from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
+from livecellx.core.io_sc import prep_scs_from_mask_dataset
+from livecellx.preprocess.correct_bg import correct_background_bisplrep, correct_background_median_gamma
+from livecellx.preprocess.utils import normalize_img_to_uint8
+from livecellx.trajectory.feature_extractors import compute_skimage_regionprops
 
-from livecell_tracker.core import SingleCellTrajectory, SingleCellStatic, SingleCellTrajectoryCollection
+from livecellx.core import SingleCellTrajectory, SingleCellStatic, SingleCellTrajectoryCollection
 
 
 import pytest
