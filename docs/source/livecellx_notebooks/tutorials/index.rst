@@ -1,7 +1,7 @@
 Livecellx Tutorials
 ====================
 
-This section contains various tutorials showcasing live cell image analysis with :mod:`livecell_tracker`.
+This section contains various tutorials showcasing live cell image analysis with :mod:`livecellx`.
 
 .. toctree::
     :maxdepth: 1

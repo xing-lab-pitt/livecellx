@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
-from livecell_tracker.trajectory.contour_utils import get_cellTool_contour_points
-from livecell_tracker.core import (
+from livecellx.trajectory.contour_utils import get_cellTool_contour_points
+from livecellx.core import (
     SingleCellTrajectory,
     SingleCellStatic,
     SingleCellTrajectoryCollection,

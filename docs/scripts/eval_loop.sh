@@ -6,7 +6,7 @@ save_dir="./eval_results_out="$out_threshold"_v1-viz_lab3/"
 
 for modelVer in $(seq 88 100)
 do
-python ../livecell_tracker/model_zoo/segmentation/eval_csn.py \
+python ../livecellx/model_zoo/segmentation/eval_csn.py \
     --name="csn_model$modelVer" \
     --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" \
     --test_dir="./notebook_results/a549_ccp_vim/test_data_v4"\
@@ -19,7 +19,7 @@ done
 
 # for modelVer in $(seq 76 87)
 # do
-# python ../livecell_tracker/model_zoo/segmentation/eval_csn.py \
+# python ../livecellx/model_zoo/segmentation/eval_csn.py \
 #     --name="csn_model$modelVer" \
 #     --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" \
 #     --test_dir="./notebook_results/a549_ccp_vim/test_data_v4"\

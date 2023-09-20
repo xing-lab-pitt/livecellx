@@ -3,7 +3,7 @@ import time
 
 import numpy as np
 import pytest
-import livecell_tracker.track
+import livecellx.track
 
 
 def test_dataset_path(img_path):

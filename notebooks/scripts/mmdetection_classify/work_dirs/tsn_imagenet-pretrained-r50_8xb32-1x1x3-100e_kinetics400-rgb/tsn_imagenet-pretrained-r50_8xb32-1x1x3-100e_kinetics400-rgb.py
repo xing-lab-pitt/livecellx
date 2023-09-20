@@ -19,10 +19,10 @@ model = dict(
     train_cfg=None,
     test_cfg=None,
 )
-train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=100, val_begin=1, val_interval=1)
+train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=500, val_begin=1, val_interval=1)
 val_cfg = dict(type="ValLoop")
 test_cfg = dict(type="TestLoop")
-param_scheduler = [dict(type="MultiStepLR", begin=0, end=100, by_epoch=True, milestones=[40, 80], gamma=0.1)]
+param_scheduler = [dict(type="MultiStepLR", begin=0, end=1000, by_epoch=True, milestones=[40, 80], gamma=0.1)]
 optim_wrapper = dict(
     optimizer=dict(type="SGD", lr=0.01, momentum=0.9, weight_decay=0.0001), clip_grad=dict(max_norm=40, norm_type=2)
 )
@@ -32,7 +32,7 @@ default_hooks = dict(
     timer=dict(type="IterTimerHook"),
     logger=dict(type="LoggerHook", interval=20, ignore_last=False),
     param_scheduler=dict(type="ParamSchedulerHook"),
-    checkpoint=dict(type="CheckpointHook", interval=3, save_best="auto", max_keep_ckpts=3),
+    checkpoint=dict(type="CheckpointHook", interval=50, save_best="auto", max_keep_ckpts=10),
     sampler_seed=dict(type="DistSamplerSeedHook"),
     sync_buffers=dict(type="SyncBuffersHook"),
 )
@@ -45,12 +45,20 @@ visualizer = dict(type="ActionVisualizer", vis_backends=[dict(type="LocalVisBack
 log_level = "INFO"
 load_from = "https://download.openmmlab.com/mmaction/v1.0/recognition/tsn/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb_20220906-cd10898e.pth"
 resume = False
+ver = "10-drop-div"
+frame_type = "combined"
+CLIP_LEN = 1
+TRAIN_CLIP_NUM = 3
+VAL_CLIP_NUM = 3
+data_dir = "../../notebook_results/mmaction_train_data_v10-drop-div/"
 dataset_type = "VideoDataset"
-data_root = "../../notebook_results/mmaction_train_data/videos"
-data_root_val = "../../notebook_results/mmaction_train_data/videos"
-ann_file_train = "../../notebook_results/mmaction_train_data/train_data.csv"
-ann_file_val = "../../notebook_results/mmaction_train_data/test_data.csv"
+data_root = "../../notebook_results/mmaction_train_data_v10-drop-div/videos"
+data_root_val = "../../notebook_results/mmaction_train_data_v10-drop-div/videos"
+ann_file_train = "../../notebook_results/mmaction_train_data_v10-drop-div/mmaction_train_data_combined.txt"
+ann_file_val = "../../notebook_results/mmaction_train_data_v10-drop-div/mmaction_test_data_combined.txt"
 file_client_args = dict(io_backend="disk")
+work_dirs_test = "./work_dirs_test"
+log_config = dict(interval=10, hooks=[dict(type="TextLoggerHook"), dict(type="TensorboardLoggerHook")])
 train_pipeline = [
     dict(type="DecordInit", io_backend="disk"),
     dict(type="SampleFrames", clip_len=1, frame_interval=1, num_clips=3),
@@ -73,7 +81,7 @@ val_pipeline = [
 ]
 test_pipeline = [
     dict(type="DecordInit", io_backend="disk"),
-    dict(type="SampleFrames", clip_len=1, frame_interval=1, num_clips=25, test_mode=True),
+    dict(type="SampleFrames", clip_len=1, frame_interval=1, num_clips=3, test_mode=True),
     dict(type="DecordDecode"),
     dict(type="Resize", scale=(-1, 256)),
     dict(type="TenCrop", crop_size=224),
@@ -81,14 +89,14 @@ test_pipeline = [
     dict(type="PackActionInputs"),
 ]
 train_dataloader = dict(
-    batch_size=32,
+    batch_size=4,
     num_workers=8,
     persistent_workers=True,
     sampler=dict(type="DefaultSampler", shuffle=True),
     dataset=dict(
         type="VideoDataset",
-        ann_file="../../notebook_results/mmaction_train_data/train_data.csv",
-        data_prefix=dict(video="../../notebook_results/mmaction_train_data/videos"),
+        ann_file="../../notebook_results/mmaction_train_data_v10-drop-div/mmaction_train_data_combined.txt",
+        data_prefix=dict(video="../../notebook_results/mmaction_train_data_v10-drop-div/videos"),
         pipeline=[
             dict(type="DecordInit", io_backend="disk"),
             dict(type="SampleFrames", clip_len=1, frame_interval=1, num_clips=3),
@@ -109,14 +117,14 @@ train_dataloader = dict(
     ),
 )
 val_dataloader = dict(
-    batch_size=32,
+    batch_size=4,
     num_workers=8,
     persistent_workers=True,
     sampler=dict(type="DefaultSampler", shuffle=False),
     dataset=dict(
         type="VideoDataset",
-        ann_file="../../notebook_results/mmaction_train_data/test_data.csv",
-        data_prefix=dict(video="../../notebook_results/mmaction_train_data/videos"),
+        ann_file="../../notebook_results/mmaction_train_data_v10-drop-div/mmaction_test_data_combined.txt",
+        data_prefix=dict(video="../../notebook_results/mmaction_train_data_v10-drop-div/videos"),
         pipeline=[
             dict(type="DecordInit", io_backend="disk"),
             dict(type="SampleFrames", clip_len=1, frame_interval=1, num_clips=3, test_mode=True),
@@ -136,11 +144,11 @@ test_dataloader = dict(
     sampler=dict(type="DefaultSampler", shuffle=False),
     dataset=dict(
         type="VideoDataset",
-        ann_file="../../notebook_results/mmaction_train_data/test_data.csv",
-        data_prefix=dict(video="../../notebook_results/mmaction_train_data/videos"),
+        ann_file="../../notebook_results/mmaction_train_data_v10-drop-div/mmaction_test_data_combined.txt",
+        data_prefix=dict(video="../../notebook_results/mmaction_train_data_v10-drop-div/videos"),
         pipeline=[
             dict(type="DecordInit", io_backend="disk"),
-            dict(type="SampleFrames", clip_len=1, frame_interval=1, num_clips=25, test_mode=True),
+            dict(type="SampleFrames", clip_len=1, frame_interval=1, num_clips=3, test_mode=True),
             dict(type="DecordDecode"),
             dict(type="Resize", scale=(-1, 256)),
             dict(type="TenCrop", crop_size=224),
@@ -154,5 +162,5 @@ val_evaluator = dict(type="AccMetric")
 test_evaluator = dict(type="AccMetric")
 auto_scale_lr = dict(enable=False, base_batch_size=256)
 launcher = "none"
-work_dir = "./work_dirs\\tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb"
+work_dir = "./work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb"
 randomness = dict(seed=None, diff_rank_seed=False, deterministic=False)

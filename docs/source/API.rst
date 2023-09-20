@@ -1,14 +1,19 @@
 API
 ===
-Import livecell_tracker as::
+Import livecellx as::
 
-    import livecell_tracker as lct
+    import livecellx as lcx
+    import livecellx
+    import livecellx.annotation
+    import livecellx.annotation.labelme2coco
+    
+
 
 Annotation
 ~~~~~~~~~~
 
-.. module:: livecell_tracker.annotation
-.. currentmodule:: livecell_tracker
+.. module:: livecellx.annotation
+.. currentmodule:: livecellx
 
 .. autosummary::
     :toctree: api
@@ -19,8 +24,8 @@ Annotation
 Classification
 ~~~~~~~~~~~~~~
 
-.. module:: livecell_tracker.classification
-.. currentmodule:: livecell_tracker
+.. module:: livecellx.classification
+.. currentmodule:: livecellx
 
 .. autosummary::
     :toctree: api
@@ -28,8 +33,8 @@ Classification
 Core
 ~~~~
 
-.. module:: livecell_tracker.core
-.. currentmodule:: livecell_tracker
+.. module:: livecellx.core
+.. currentmodule:: livecellx
 
 .. autosummary::
     :toctree: api
@@ -50,8 +55,8 @@ Core
 Model_zoo
 ~~~~~~~~~
 
-.. module:: livecell_tracker.model_zoo
-.. currentmodule:: livecell_tracker
+.. module:: livecellx.model_zoo
+.. currentmodule:: livecellx
 
 .. autosummary::
     :toctree: api
@@ -59,8 +64,8 @@ Model_zoo
 Preprocess
 ~~~~~~~~~~
 
-.. module:: livecell_tracker.preprocess
-.. currentmodule:: livecell_tracker
+.. module:: livecellx.preprocess
+.. currentmodule:: livecellx
 
 .. autosummary::
     :toctree: api
@@ -68,8 +73,8 @@ Preprocess
 Segment
 ~~~~~~~
 
-.. module:: livecell_tracker.segment
-.. currentmodule:: livecell_tracker
+.. module:: livecellx.segment
+.. currentmodule:: livecellx
 
 .. autosummary::
     :toctree: api
@@ -85,8 +90,8 @@ Segment
 Segment Utils
 ~~~~~~~~~~~~~
 
-.. module:: livecell_tracker.segment.utils
-.. currentmodule:: livecell_tracker
+.. module:: livecellx.segment.utils
+.. currentmodule:: livecellx
 
 .. autosummary::
     :toctree: api
@@ -103,21 +108,21 @@ Segment Utils
 Track
 ~~~~~
 
-.. module:: livecell_tracker.track
-.. currentmodule:: livecell_tracker
+.. module:: livecellx.track
+.. currentmodule:: livecellx
 
 .. autosummary::
     :toctree: api
 
     track.classify_utils.video_frames_and_masks_from_sample
     track.classify_utils.combine_video_frames_and_masks
-    track.sort_tracker.associate_detections_to_trackers
+    track.sort_tracker.associate_detections_with_trackers
 
 Trajectory
 ~~~~~~~~~~
 
-.. module:: livecell_tracker.trajectory
-.. currentmodule:: livecell_tracker
+.. module:: livecellx.trajectory
+.. currentmodule:: livecellx
 
 .. autosummary::
     :toctree: api
@@ -130,8 +135,8 @@ Trajectory
 Contour
 ~~~~~~~~
 
-.. module:: livecell_tracker.trajectory.contour
-.. currentmodule:: livecell_tracker
+.. module:: livecellx.trajectory.contour
+.. currentmodule:: livecellx
 
 .. autosummary::
     :toctree: api

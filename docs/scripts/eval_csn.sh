@@ -4,7 +4,7 @@ eval_out_dir="./eval_results/"
 mkdir -p $eval_out_dir
 
 modelVer=78
-python ../livecell_tracker/model_zoo/segmentation/eval_csn.py \
+python ../livecellx/model_zoo/segmentation/eval_csn.py \
     --name="csn_model$modelVer" \
     --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" \
     --test_dir="./notebook_results/a549_ccp_vim/test_data_v4"\
@@ -16,7 +16,7 @@ python ../livecell_tracker/model_zoo/segmentation/eval_csn.py \
 
 # for modelVer in $(seq 75 85)
 # do
-# python ../livecell_tracker/model_zoo/segmentation/eval_csn.py \
+# python ../livecellx/model_zoo/segmentation/eval_csn.py \
 #     --name="csn_model$modelVer" \
 #     --train_dir="./notebook_results/a549_ccp_vim/train_data_v4" \
 #     --test_dir="./notebook_results/a549_ccp_vim/test_data_v4"\

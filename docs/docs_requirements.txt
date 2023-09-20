@@ -1,6 +1,8 @@
 sphinx
+sphinx_rtd_theme
 nbsphinx
 sphinx_autodoc_typehints
 sphinxcontrib-bibtex
 sphinx-gallery
 furo
+GitPython

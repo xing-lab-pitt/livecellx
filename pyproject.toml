@@ -10,37 +10,52 @@ description = "live-cell analysis package including instance segmentation and tr
 authors = [{ name = "Ke Ni", email = "ken67@pitt.edu" }]
 readme = "readme.md"
 classifiers = ["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 # dynamic = ["dependencies", "version", "description"]
 # dynamic = ["dependencies"]
 
 [tool.flit.module]
-name = "livecell_tracker"
+name = "livecellx"
 
 dependencies = [
-    "skimage",
+    "numpy",
+    "pandas",
+    "Pillow",
+    "scikit-image",
     "ipympl",
-
-    # labelme2coco requirements below
+    "matplotlib",
+    "torchmetrics==0.8.2",
     "sahi>=0.8.19",
     "jsonschema>=2.6.0",
-
+    "pycocotools",
+    "pytorch-lightning==1.5.6",
     "Augmentor",
-
-    # note we need to use multitracker in cv2 legacy
+    "cellpose",
     "opencv-contrib-python",
-
-    # for sort tracker
-    "lap",
     "filterpy",
-
+    "mahotas",
+    "seaborn",
+    "umap-learn",
+    "napari[all]"
 ]
 
 
 [project.urls]
-homepage = "https://github.com/xing-lab-pitt/LiveCellTracker-dev"
-documentation = "https://github.com/xing-lab-pitt/LiveCellTracker-dev"
-repository = "https://github.com/xing-lab-pitt/LiveCellTracker-dev"
+homepage = "https://github.com/xing-lab-pitt/livecellx"
+documentation = "https://github.com/xing-lab-pitt/livecellx"
+repository = "https://github.com/xing-lab-pitt/livecellx"
 
 [project.scripts]
 poetry = "infer_pyproject.cli:main"
+
+[project.optional-dependencies]
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+    "nbsphinx",
+    "sphinx_autodoc_typehints",
+    "sphinxcontrib-bibtex",
+    "sphinx-gallery",
+    "furo",
+    "GitPython",
+]
