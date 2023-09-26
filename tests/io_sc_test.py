@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 from livecellx import sample_data
 from livecellx.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
-from livecellx.segment.utils import prep_scs_from_mask_dataset
+from livecellx.core.io_sc import prep_scs_from_mask_dataset
 from livecellx.core.datasets import LiveCellImageDataset
 from livecellx.core import (
     SingleCellTrajectory,

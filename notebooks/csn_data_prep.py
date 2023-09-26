@@ -198,7 +198,7 @@ if __name__ == "__main__":
     from skimage.measure import regionprops, find_contours
     from livecellx.segment.ou_simulator import find_contours_opencv
 
-    from livecellx.segment.utils import prep_scs_from_mask_dataset
+    from livecellx.core.io_sc import prep_scs_from_mask_dataset
 
     print("<start converting label masks to single cell objects>")
     single_cells = prep_scs_from_mask_dataset(label_mask_dataset, dic_dataset, cores=None)

@@ -2,7 +2,7 @@ import unittest
 
 from livecellx import sample_data
 from livecellx.core.single_cell import create_sctc_from_scs, filter_sctc_by_time_span
-from livecellx.segment.utils import prep_scs_from_mask_dataset
+from livecellx.core.io_sc import prep_scs_from_mask_dataset
 from livecellx.core import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
 from livecellx.track.sort_tracker_utils import (
     gen_SORT_detections_input_from_contours,

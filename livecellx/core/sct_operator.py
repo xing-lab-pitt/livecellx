@@ -40,6 +40,7 @@ class SctOperator:
         img_dataset=None,
         time_span=(0, None),
         meta=None,
+        uns=None,
     ):
         self.select_info = []  # [cur_sct, cur_sc, selected_shape_index]
         self.operator = operator
@@ -59,6 +60,11 @@ class SctOperator:
             self.meta = {}
         else:
             self.meta = meta
+
+        if uns is None:
+            self.uns = {}
+        else:
+            self.uns = uns
 
     def remove_sc_operator(self, sc_operator):
         self.sc_operators.remove(sc_operator)
@@ -348,9 +354,19 @@ class SctOperator:
         self.traj_collection = sctc
         return shape_layer
 
+    def setup_by_timespan(self, span: tuple, contour_sample_num=20):
+        tmp_sctc = filter_sctc_by_time_span(self.traj_collection, span)
+        if self.shape_layer is not None:
+            self.remove_shape_layer()
+        shape_layer = NapariVisualizer.gen_trajectories_shapes(
+            tmp_sctc, self.viewer, contour_sample_num=contour_sample_num
+        )
+        self.setup_shape_layer(shape_layer)
+        return shape_layer
+
     def store_shape_layer_info(self, update_slice=None):
         """
-        Stores the original face colors, properties, single cells, and shape data of the shape layer.
+        Stores the original face colors, properties, single cells, and shape data of the shape layer. Note that the single cell objects are copied as reference.
 
         Args:
             update_slice: A slice object representing the range of indices to update. If None, all indices are updated.
@@ -780,7 +796,7 @@ def create_sct_napari_ui(sct_operator: SctOperator):
 
 
 def create_scts_operator_viewer(
-    sctc: SingleCellTrajectoryCollection, img_dataset=None, viewer=None, time_span=None
+    sctc: SingleCellTrajectoryCollection, img_dataset=None, viewer=None, time_span=None, contour_sample_num=20
 ) -> SctOperator:
     import napari
     from livecellx.core.napari_visualizer import NapariVisualizer
@@ -809,7 +825,7 @@ def create_scts_operator_viewer(
         else:
             viewer = napari.Viewer()
 
-    shape_layer = NapariVisualizer.gen_trajectories_shapes(sctc, viewer, contour_sample_num=20)
+    shape_layer = NapariVisualizer.gen_trajectories_shapes(sctc, viewer, contour_sample_num=contour_sample_num)
     shape_layer.mode = "select"
     sct_operator = SctOperator(sctc, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
     create_sct_napari_ui(sct_operator)
@@ -817,7 +833,7 @@ def create_scts_operator_viewer(
 
 
 def create_scs_edit_viewer(
-    single_cells: List[SingleCellStatic], img_dataset=None, viewer=None, time_span=None
+    single_cells: List[SingleCellStatic], img_dataset=None, viewer=None, time_span=None, contour_sample_num=20
 ) -> SctOperator:
     """
     Creates a viewer for editing SingleCellStatic objects.
@@ -841,7 +857,9 @@ def create_scs_edit_viewer(
     temp_sc_trajs_for_correct = create_sctc_from_scs(single_cells)
 
     # Create an SctOperator instance for editing the SingleCellStatic objects
-    sct_operator = create_scts_operator_viewer(temp_sc_trajs_for_correct, img_dataset, viewer, time_span)
+    sct_operator = create_scts_operator_viewer(
+        temp_sc_trajs_for_correct, img_dataset, viewer, time_span, contour_sample_num=contour_sample_num
+    )
     return sct_operator
 
 
@@ -855,12 +873,24 @@ def _get_viewer_sct_operator(viewer, points_data_layer_key="_lcx_sct_cur_idx"):
 
 
 def create_scs_edit_viewer_by_interval(
-    single_cells, img_dataset: LiveCellImageDataset, span_interval=10, viewer=None, clear_prev_batch=True
+    single_cells,
+    img_dataset: LiveCellImageDataset,
+    span_interval=10,
+    viewer=None,
+    clear_prev_batch=True,
+    contour_sample_num=30,
 ):
+    """
+    Creates a viewer and an sct_operator for editing SingleCellStatic objects.
+    """
     # TODO: a potential bug is that the slice index is not the same concept as the time. A solution is to add time frame to shape properties
     # Here for now we assume indices represents timeframes
     sct_operator = create_scs_edit_viewer(
-        single_cells, img_dataset=img_dataset, viewer=viewer, time_span=(0, span_interval)
+        single_cells,
+        img_dataset=img_dataset,
+        viewer=viewer,
+        time_span=(0, span_interval),
+        contour_sample_num=contour_sample_num,
     )
     viewer = sct_operator.viewer
     tmp_points_data_layer_key = "_lcx_sct_cur_idx"
@@ -909,10 +939,10 @@ def create_scs_edit_viewer_by_interval(
             if clear_prev_batch:
                 # TODO: shapes may be invisible, though select is sc/sct based and should be fine
                 sct_operator.clear_selection()
-            temp_sc_trajs = create_sctc_from_scs(single_cells)
-            temp_sc_trajs = filter_sctc_by_time_span(temp_sc_trajs, cur_span)
+            all_sc_trajs = create_sctc_from_scs(single_cells)
+            temp_sc_trajs = filter_sctc_by_time_span(all_sc_trajs, cur_span)
             if len(temp_sc_trajs) != 0:
-                sct_operator.setup_from_sctc(temp_sc_trajs)
+                sct_operator.setup_from_sctc(temp_sc_trajs, contour_sample_num=contour_sample_num)
             else:
                 sct_operator.shape_layer.data = []
             points_layer.metadata["cur_sct_operator"] = sct_operator
@@ -939,3 +969,78 @@ def create_scs_edit_viewer_by_interval(
         _move_span(viewer, cur_step - cur_idx)
 
     return viewer
+
+
+def create_sctc_edit_viewer_by_interval(
+    sctc: SingleCellTrajectoryCollection,
+    img_dataset: LiveCellImageDataset,
+    span_interval=10,
+    viewer=None,
+    clear_prev_batch=True,
+    contour_sample_num=30,
+    uns_cur_idx_key="_lcx_sctc_cur_idx",
+):
+    """
+    Creates a viewer and an sct_operator for editing SingleCellStatic objects.
+    """
+    # TODO: a potential bug is that the slice index is not the same concept as the time. A solution is to add time frame to shape properties
+    # Here for now we assume indices represents timeframes
+    sct_operator = create_scts_operator_viewer(
+        sctc,
+        img_dataset=img_dataset,
+        viewer=viewer,
+        contour_sample_num=contour_sample_num,
+    )
+
+    viewer = sct_operator.viewer
+    max_time = max(img_dataset.times)
+    cur_index = 0
+
+    sct_operator.uns[uns_cur_idx_key] = cur_index
+
+    def _get_cur_idx(sct_operator):
+        cur_idx = sct_operator.uns[uns_cur_idx_key]
+        return cur_idx
+
+    def _move_span(viewer, offset):
+        try:
+            cur_idx = _get_cur_idx(sct_operator)
+            cur_idx += offset
+            cur_idx = min(cur_idx, max_time)  # (max_time - span_interval) is acceptable as well here
+            cur_idx = max(cur_idx, 0)
+            cur_span = (cur_idx, cur_idx + span_interval)
+            sct_operator.uns[uns_cur_idx_key] = cur_idx
+            # if clear_prev_batch:
+            #     sct_operator.close()
+            # sct_operator = create_scs_edit_viewer(single_cells, img_dataset = dic_dataset, viewer = viewer, time_span=cur_span)
+            if clear_prev_batch:
+                # TODO: shapes may be invisible, though select is sc/sct based and should be fine
+                sct_operator.clear_selection()
+            sct_operator.setup_by_timespan(cur_span, contour_sample_num=contour_sample_num)
+            viewer.dims.set_point(0, cur_idx)
+        except Exception as e:
+            print("Error:", e)
+            print("Failed to load next span. Please try again.")
+            import traceback
+
+            traceback.print_exc()
+
+    @viewer.bind_key("n")
+    def next_span(viewer):
+        print(">>> debug: next_span")
+        _move_span(viewer, span_interval + 1)
+
+    @viewer.bind_key("b")
+    def prev_span(viewer):
+        print(">>> debug: prev_span")
+        _move_span(viewer, -span_interval - 1)
+
+    @viewer.bind_key("m")
+    def load_from_cur_step(viewer):
+        print(">>> debug: cur_idx span")
+        cur_step = viewer.dims.point[0]
+        cur_idx = _get_cur_idx(sct_operator)
+        _move_span(viewer, cur_step - cur_idx)
+
+    load_from_cur_step(viewer)
+    return sct_operator
