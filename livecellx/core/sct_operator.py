@@ -872,6 +872,7 @@ def _get_viewer_sct_operator(viewer, points_data_layer_key="_lcx_sct_cur_idx"):
     return sct_operator
 
 
+# TODO: discuss the following to-be-deprecated API
 def create_scs_edit_viewer_by_interval(
     single_cells,
     img_dataset: LiveCellImageDataset,

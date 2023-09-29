@@ -615,8 +615,6 @@ class SingleCellStatic:
                 res_series = tmp_series
             else:
                 res_series = pd.concat([res_series, tmp_series])
-        # add time frame information
-        res_series["t"] = self.timeframe
         return res_series
 
     def get_napari_shape_vec(self, coords):
