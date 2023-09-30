@@ -615,6 +615,8 @@ class SingleCellStatic:
                 res_series = tmp_series
             else:
                 res_series = pd.concat([res_series, tmp_series])
+        # add time frame information
+        res_series["t"] = self.timeframe
         return res_series
 
     def get_napari_shape_vec(self, coords):
@@ -953,7 +955,8 @@ class SingleCellTrajectory:
                 raise Warning(f"mask_dataset_json_path {mask_dataset_json_path} does not exist")
 
         if self.img_dataset is None:
-            raise ValueError("img_dataset is None after attempting to load it")
+            main_warning("[SCT loading] img_dataset is None after attempting to load it")
+            # raise ValueError("img_dataset is None after attempting to load it")
 
         self.img_total_timeframe = len(self.img_dataset) if self.img_dataset is not None else 0
         self.timeframe_to_single_cell = {}
