@@ -57,21 +57,22 @@ def plot_avg_acc(log_file_path, epoch_num, out_dir: Path = Path("result_plots/")
     plt.close()
 
 
-def show_results_v10_st():
+def show_result_plots():
     paths = [
-        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-combined-clipLen=1-trainClipNum=3-valClipNum=3/20230811_130716/20230811_130716.log",
-        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-combined-clipLen=2-trainClipNum=3-valClipNum=3/20230717_030248/20230717_030248.log",
-        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-combined-clipLen=3-trainClipNum=3-valClipNum=3/20230719_181939/20230719_181939.log",
-        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-video-clipLen=1-trainClipNum=3-valClipNum=3/20230811_124019/20230811_124019.log",
-        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-video-clipLen=2-trainClipNum=3-valClipNum=3/20230811_124027/20230811_124027.log",
-        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-video-clipLen=3-trainClipNum=3-valClipNum=3/20230721_045839/20230721_045839.log",
-        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v11-drop-div-combined-clipLen=3-trainClipNum=3-valClipNum=3/20230901_033504/20230901_033504.log",
-        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v11-drop-div-video-clipLen=3-trainClipNum=3-valClipNum=3/20230901_033551/20230901_033551.log",
-        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v11-st-combined-clipLen=3-trainClipNum=3-valClipNum=3/20230909_200322/20230909_200322.log",
-        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v11-st-video-clipLen=3-trainClipNum=3-valClipNum=3/20230901_033807/20230901_033807.log",
-        #  r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v12-st-combined-clipLen=2-trainClipNum=3-valClipNum=3/20230928_023147/20230928_023147.log"
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-combined-clipLen=1-trainClipNum=3-valClipNum=3/20230811_130716/20230811_130716.log",
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-combined-clipLen=2-trainClipNum=3-valClipNum=3/20230717_030248/20230717_030248.log",
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-combined-clipLen=3-trainClipNum=3-valClipNum=3/20230719_181939/20230719_181939.log",
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-video-clipLen=1-trainClipNum=3-valClipNum=3/20230811_124019/20230811_124019.log",
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-video-clipLen=2-trainClipNum=3-valClipNum=3/20230811_124027/20230811_124027.log",
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-video-clipLen=3-trainClipNum=3-valClipNum=3/20230721_045839/20230721_045839.log",
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v11-drop-div-combined-clipLen=3-trainClipNum=3-valClipNum=3/20230901_033504/20230901_033504.log",
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v11-drop-div-video-clipLen=3-trainClipNum=3-valClipNum=3/20230901_033551/20230901_033551.log",
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v11-st-combined-clipLen=3-trainClipNum=3-valClipNum=3/20230909_200322/20230909_200322.log",
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v11-st-video-clipLen=3-trainClipNum=3-valClipNum=3/20230901_033807/20230901_033807.log",
+        #  r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v12-st-combined-clipLen=2-trainClipNum=3-valClipNum=3/20230928_023147/20230928_023147.log",
+        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v12-st-video-clipLen=2-trainClipNum=3-valClipNum=3/20230928_023147/20230928_023147.log"
     ]
-    epoch = 200
+    epoch = 30
     for path in paths:
         print(">>> path:", path)
         get_avg_acc(path, epoch)
@@ -80,6 +81,9 @@ def show_results_v10_st():
 
 
 if __name__ == "__main__":
+    # show_result_plots()
+    # exit(0)
+
     parser = argparse.ArgumentParser(description="Calculate average accuracy for a given epoch from log file")
     parser.add_argument("log_file_path", type=str, help="path to the log file")
     parser.add_argument("epoch_num", type=int, help="epoch number for which to calculate average accuracy", default=-1)
@@ -91,6 +95,3 @@ if __name__ == "__main__":
 
     get_avg_acc(args.log_file_path, args.epoch_num)
     plot_avg_acc(args.log_file_path, args.epoch_num)
-    # show_results_v10_st()
-
-    show_results_v10_st()
