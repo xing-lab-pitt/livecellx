@@ -35,7 +35,7 @@ class NapariVisualizer:
         contour_sample_num=100,
         viewer_kwargs=None,
         text_parameters={
-            "string": "{track_id}\n{status}",
+            "string": "{track_id:d}\n{status}",
             "size": 12,
             "color": "white",
             "anchor": "center",
