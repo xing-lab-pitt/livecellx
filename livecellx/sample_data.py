@@ -13,6 +13,9 @@ DEFAULT_DATA_DIR = Path("./datasets")
 def extract_zip_data(filepath, dest):
     with zipfile.ZipFile(filepath, "r") as zip_ref:
         main_info("Extracting data to " + str(dest))
+        dest = Path(dest)
+        if not os.path.exists(dest):
+            os.mkdir(dest, parents=True)
         zip_ref.extractall(dest)
 
 
