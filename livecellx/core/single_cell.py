@@ -313,7 +313,6 @@ class SingleCellStatic:
 
     def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
         """returns a dict that can be converted to json"""
-
         # TODO: add arg to let users define their own json dataset paths
         if self.img_dataset is not None:
             self.meta[SCKM.JSON_IMG_DATASET_PATH] = str(
@@ -361,6 +360,10 @@ class SingleCellStatic:
         self.timeframe = json_dict["timeframe"]
         self.bbox = np.array(json_dict["bbox"], dtype=float)
         self.feature_dict = json_dict["feature_dict"]
+        # convert dictionary feature to series
+        for key in self.feature_dict:
+            if isinstance(self.feature_dict[key], dict):
+                self.feature_dict[key] = pd.Series(self.feature_dict[key])
         self.contour = np.array(json_dict["contour"], dtype=float)
         self.id = json_dict["id"]
 
@@ -465,13 +468,17 @@ class SingleCellStatic:
         with open(path, "w+") as f:
             # json.dump([sc.to_json_dict() for sc in single_cells], f)
             try:
-                json.dump(all_sc_jsons, f)
+                json.dump(all_sc_jsons, f, cls=LiveCellEncoder)
             except TypeError as e:
-                main_exception("sample sc:", all_sc_jsons[0])
+                main_exception("sample sc:" + str(all_sc_jsons[0]))
                 main_exception("Error writing json file. Check that all attributes are serializable.")
                 raise e
 
     def write_json(self, path=None, dataset_json_dir=None):
+        # TODO: discuss with the team
+        # if dataset_json_dir is None:
+        #     dataset_json_dir = os.path.dirname(path)
+
         json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
 
         if dataset_json_dir is not None:
@@ -610,6 +617,12 @@ class SingleCellStatic:
                 tmp_series = pd.Series(self.feature_dict[feature_name])
             elif isinstance(features, pd.Series):
                 tmp_series = features
+            elif isinstance(features, list):
+                tmp_series = pd.Series(features)
+            else:
+                raise TypeError(
+                    f"feature type:{type(features)} not supported, must be list, numpy array or pandas series"
+                )
             tmp_series = tmp_series.add_prefix(feature_name + "_")
             if res_series is None:
                 res_series = tmp_series
@@ -617,6 +630,7 @@ class SingleCellStatic:
                 res_series = pd.concat([res_series, tmp_series])
         # add time frame information
         res_series["t"] = self.timeframe
+        res_series["sc_id"] = self.id
         return res_series
 
     def get_napari_shape_vec(self, coords):
@@ -955,7 +969,8 @@ class SingleCellTrajectory:
                 raise Warning(f"mask_dataset_json_path {mask_dataset_json_path} does not exist")
 
         if self.img_dataset is None:
-            raise ValueError("img_dataset is None after attempting to load it")
+            main_warning("[SCT loading] img_dataset is None after attempting to load it")
+            # raise ValueError("img_dataset is None after attempting to load it")
 
         self.img_total_timeframe = len(self.img_dataset) if self.img_dataset is not None else 0
         self.timeframe_to_single_cell = {}
@@ -1257,3 +1272,33 @@ def filter_sctc_by_time_span(sctc: SingleCellTrajectoryCollection = None, time_s
         if subsct.num_scs() > 0:
             new_sctc.add_trajectory(subsct)
     return new_sctc
+
+
+def create_sc_table(
+    scs: List[SingleCellStatic], normalize_features=True, add_time=False, add_sc_id=False, meta_keys=[]
+):
+    import pandas as pd
+    import numpy as np
+
+    df = pd.DataFrame([sc.get_feature_pd_series() for sc in scs])
+    if normalize_features:
+        for col in df.columns:
+            if col == "sc_id":
+                continue
+            df[col] = df[col] - df[col].mean()
+            col_std = df[col].std()
+            if col_std != 0 and not np.isnan(col_std):
+                df[col] /= col_std
+    # remove column t from df
+    if not add_time:
+        df.drop("t", axis=1, inplace=True)
+    if not add_sc_id:
+        df.drop("sc_id", axis=1, inplace=True)
+
+    # add meta information
+    for key in meta_keys:
+        if key in df.columns:
+            main_warning(f"meta key {key} conflicts with feature key {key}, skipping")
+            continue
+        df[key] = [sc.meta[key] for sc in scs]
+    return df

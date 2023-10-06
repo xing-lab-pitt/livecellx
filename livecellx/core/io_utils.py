@@ -3,12 +3,15 @@ import glob
 import numpy as np
 import json
 from json import JSONEncoder
+import pandas as pd
 
 
 class LiveCellEncoder(JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
+        elif isinstance(obj, pd.Series):
+            return json.loads(obj.to_json())  # loads for converting string to list
         return JSONEncoder.default(self, obj)
 
 

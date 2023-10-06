@@ -1,44 +1,51 @@
-<img src="https://github.com/xing-lab-pitt/livecellx/blob/main/docs/source/_static/left-logo.png" alt="" height="200"/>
+
+<img src="https://github.com/xing-lab-pitt/livecellx/blob/main/docs/source/_static/left-logo.png" alt="" height="250"/>
 
 # LivecellX
+
 [![Supported Python versions](https://img.shields.io/badge/python-3.8%7C3.9%7C3.10-blue)](https://python.org)
 [![Development Status](https://img.shields.io/badge/status-pre--alpha-yellow)](https://en.wikipedia.org/wiki/Software_release_life_cycle#Pre-alpha)
 [![Documentation Status](https://readthedocs.org/projects/livecellx/badge/?version=latest)](https://livecellx.readthedocs.io/en/latest/?badge=latest)
 
+LivecellX is a comprehensive Python framework designed for segmenting, tracking, and analyzing single-cell trajectories in long-term live-cell imaging datasets.
 
-Please visit our [readthedocs documentation](https://livecellx.readthedocs.io/en/latest/) for installation instructions and tutorials.
+For more information, installation instructions, and tutorials, please visit our [official documentation](https://livecellx.readthedocs.io/en/latest/).
 
-
-**This is a placeholder for LivecellX future releases. Currently this repo showcases a basic use case to segment images, track cells with opencv/SORT/btrack and generate cell features in our CX-A label-free dataset.   
-The majority of our analysis methods/notebooks are in [our previously developed pipeline repo](https://github.com/xing-lab-pitt/xing-vimentin-dic-pipeline) maintained by Xing lab, and being added to this repo. Please check later in Oct. 2023 for a complete version with our manuscript.**
-
-LivecellX is a pure python framework for extracting (segmenting and tracking) sinlge cell trajectories from long live-cell imaging data, and then computing as well as analyzing single cell features in latent space.
+> **Note:** This repository is in a pre-alpha stage. While it currently showcases basic use-cases like image segmentation and cell tracking, our complete version is slated for release in October 2023 alongside our manuscript. In the meantime, you may explore our [previous pipeline repository](https://github.com/xing-lab-pitt/xing-vimentin-dic-pipeline) maintained by Xing Lab.
 
 ## Installation
-**General package requirements**  
 
-Note: if you encounter issue related to lap and numpy, please install numpy first and then install lap. If there is any issue with numba and numpy, please follow the error message and resolve numba and numpy version issues. (suggestions: ask chatgpt regarding how to resolve dependency issues)  
-`pip install -r requirements.txt`  
-`pip install -r napari_requirements.txt`  
-`pip install lap[all]`  
-`pip install -e .` 
-(-e option enables you to install an editable version for developing the package or receiving quick code changes from repo by pulling via git)
+### General Requirements
 
+If you encounter issues related to `lap` and `numpy`, or `numba` and `numpy`, please install `numpy` first, then `lap`. Follow the error messages to resolve any version conflicts between `numba` and `numpy`.
 
-**Pytorch (including torchvision)**  
+```bash
+pip install -r requirements.txt
+pip install -r napari_requirements.txt
+pip install lap[all]
+pip install -e .  # -e option allows for an editable installation, useful for development
+```
+
+#### **Pytorch and torchvision**  
 Please refer to [Pytorch Official Website](https://pytorch.org/get-started/locally) to receive most recent installation instructions. Here we simply provide two examples used in our cases.  
 
 Install via pip:  
-`conda install pytorch torchvision -c pytorch`  
+```bash
+conda install pytorch torchvision -c pytorch
+```
 
 On our 2080Ti/3090 workstations and CUDA 11.7:  
-`conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia`
+```bash
+conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
+```
 
 check if you are using cuda (refer to pytorch docs for TPU or other devices):
-`torch.cuda.is_available(), torch.cuda.current_device(), torch.cuda.device_count()`
+```bash
+torch.cuda.is_available(), torch.cuda.current_device(), torch.cuda.device_count()
+``````
 
 
-**Detectron2 (optional)**  
+#### **Detectron2 (optional)**  
 
 Please refer to latest detectron2 documentation to install detectron2 for segmentation if you cannot build from source with the following commands.  
 
@@ -53,8 +60,10 @@ git clone https://github.com/facebookresearch/detectron2.git
 python -m pip install -e detectron2
 ```
 
-**For {avi, mp4} movie generation**
-`conda install -c conda-forge ffmpeg`
+**For {avi, mp4} movie generation, ffmpeg is required. Conda installation cmd we used shown below. For other installation methods, please refer to the ffmpeg official website.**
+```bash
+conda install -c conda-forge ffmpeg
+```
 
 ## Precommit [Dev]  
 `pip install pre-commit`  
