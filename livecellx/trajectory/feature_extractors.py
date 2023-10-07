@@ -1,4 +1,4 @@
-from typing import Union
+from typing import List, Union, Tuple
 from typing import Dict
 import skimage
 import skimage.measure
@@ -7,6 +7,44 @@ import numpy as np
 import pandas as pd
 
 from livecellx.core.single_cell import SingleCellStatic
+from livecellx.preprocess.utils import normalize_img_to_uint8
+from livecellx.core.parallel import parallelize
+
+
+def _compute_feature_wrapper(sc, func, params=dict()):
+    features = func(sc=sc, **params)
+    return features, sc
+
+
+def parallelize_compute_features(
+    scs: List[SingleCellStatic], func: callable, params: dict, cores=None
+) -> Tuple[List, List]:
+    """
+    Compute features in parallel for a list of SingleCellStatic objects.
+
+    Args:
+        scs (List[SingleCellStatic]): List of SingleCellStatic objects to compute features for.
+        func (callable): Function to use for feature computation.
+        params (dict): Dictionary of parameters to pass to the feature computation function.
+        cores (int, optional): Number of CPU cores to use for parallelization. Defaults to None.
+
+    Returns:
+        Tuple[List, List]: Tuple containing a list of computed features and a list of corresponding SingleCellStatic objects.
+    """
+    inputs = []
+    for sc in scs:
+        inputs.append({"sc": sc, "func": func, "params": params})
+
+    outputs = parallelize(_compute_feature_wrapper, inputs, cores=cores)
+    features = [output[0] for output in outputs]
+    unordered_res_scs = [output[1] for output in outputs]
+    sc_id_to_sc = {sc.id: sc for sc in unordered_res_scs}
+    # reorder res_scs according sc_id in original scs
+    res_scs = []
+    for sc in scs:
+        sc_id = sc.id
+        res_scs.append(sc_id_to_sc[sc_id])
+    return features, res_scs
 
 
 def compute_haralick_features(
