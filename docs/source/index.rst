@@ -39,6 +39,8 @@ Getting Started with livecell
     installation
     API
     classes
+    quick_start_guide
+
 
 .. toctree::
     :caption: Gallery
