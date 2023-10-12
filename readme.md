@@ -7,7 +7,7 @@
 [![Development Status](https://img.shields.io/badge/status-pre--alpha-yellow)](https://en.wikipedia.org/wiki/Software_release_life_cycle#Pre-alpha)
 [![Documentation Status](https://readthedocs.org/projects/livecellx/badge/?version=latest)](https://livecellx.readthedocs.io/en/latest/?badge=latest)
 
-LivecellX is a comprehensive Python framework designed for segmenting, tracking, and analyzing single-cell trajectories in long-term live-cell imaging datasets.
+LivecellX is a comprehensive deep learning framework for Python, designed specifically for segmenting, tracking, and analyzing single-cell trajectories in long-term live-cell imaging datasets. We address incorrect segmentation cases, particularly over-segmentation and under-segmentation, using a correction module that follows a whole-image level segmentation provided by deep learning segmentation methods. This framework simplifies the data collection process through active learning and a human-in-the-loop approach. Furthermore, we showcase the ease with which cell events can be detected and analyzed, particularly through a mitosis detection task. To the best of our knowledge, we are providing the community with the first mitosis trajectory dataset suitable for deep learning training. Our framework achieves near-perfect detection accuracy, exceeding 99%. You can follow our Jupyter notebooks in ./notebooks to reproduce our results. 
 
 For more information, installation instructions, and tutorials, please visit our [official documentation](https://livecellx.readthedocs.io/en/latest/).
 
@@ -22,7 +22,6 @@ If you encounter issues related to `lap` and `numpy`, or `numba` and `numpy`, pl
 ```bash
 pip install -r requirements.txt
 pip install -r napari_requirements.txt
-pip install lap[all]
 pip install -e .  # -e option allows for an editable installation, useful for development
 ```
 
