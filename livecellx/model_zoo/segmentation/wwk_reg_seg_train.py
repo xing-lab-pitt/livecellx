@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 from torchvision.datasets import ImageFolder
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
 from livecellx.model_zoo.segmentation.wwk_reg_seg_model import RegSegModel
 from PIL import Image
 import numpy as np
@@ -17,6 +18,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--raw_dir", type=str, required=True, help="Path to the directory containing the raw images")
 parser.add_argument("--mask_dir", type=str, required=True, help="Path to the directory containing the EDT masks")
 parser.add_argument("--ckpt_path", type=str, default=None, help="Path to checkpoint file")
+parser.add_argument("--model_name", type=str, default=None, help="Name of the model")
 args = parser.parse_args()
 
 print("Command line arguments:")
@@ -92,6 +94,8 @@ val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=False)
 # Define the PyTorch Lightning module and trainer
 model = RegSegModel()
 
+logger = TensorBoardLogger(save_dir=".", name="wwk_model_train_logs", version=args.model_name)
+
 checkpoint_callback = ModelCheckpoint(monitor="val_iou", mode="max", save_top_k=5, save_last=True)
 
 trainer = Trainer(
@@ -100,6 +104,7 @@ trainer = Trainer(
     val_check_interval=100,
     checkpoint_callback=checkpoint_callback,
     resume_from_checkpoint=args.ckpt_path,
+    logger=logger,
 )
 
 # Train the model
