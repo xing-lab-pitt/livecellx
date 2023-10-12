@@ -86,16 +86,6 @@ Segment
     segment.ou_simulator.gen_gauss_sc_bg
     segment.ou_simulator.gen_sc_bg_crop
     segment.ou_simulator.move_two_scs
-
-Segment Utils
-~~~~~~~~~~~~~
-
-.. module:: livecellx.segment.utils
-.. currentmodule:: livecellx
-
-.. autosummary::
-    :toctree: api
-
     segment.utils.get_contours_from_pred_masks
     segment.utils.match_mask_labels_by_iou
     segment.utils.filter_labels_match_map
