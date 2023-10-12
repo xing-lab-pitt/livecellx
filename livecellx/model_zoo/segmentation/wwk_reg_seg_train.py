@@ -25,13 +25,6 @@ print("Command line arguments:")
 for arg in vars(args):
     print(f"{arg}: {getattr(args, arg)}")
 
-# Define the transforms for the raw images and masks
-raw_transforms = transforms.Compose(
-    [transforms.Resize((256, 256)), transforms.ToTensor(), transforms.Normalize(mean=[0.5], std=[0.5])]
-)
-
-mask_transforms = transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()])
-
 
 class RawAndEdtMaskDataset(Dataset):
     def __init__(self, raw_dir, mask_dir, transform=None):
@@ -70,7 +63,15 @@ class RawAndEdtMaskDataset(Dataset):
 raw_dataset = RawAndEdtMaskDataset(
     args.raw_dir,
     args.mask_dir,
-    transform=transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()]),
+    transform=transforms.Compose(
+        [
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomRotation(30),
+            transforms.RandomResizedCrop((256, 256), scale=(0.5, 1.5)),
+            transforms.ToTensor(),
+        ]
+    ),
 )
 
 train_dataset, val_dataset = torch.utils.data.random_split(
@@ -102,9 +103,9 @@ trainer = Trainer(
     gpus=1,
     max_epochs=10000,
     val_check_interval=100,
-    checkpoint_callback=checkpoint_callback,
     resume_from_checkpoint=args.ckpt_path,
     logger=logger,
+    callbacks=[checkpoint_callback],
 )
 
 # Train the model
