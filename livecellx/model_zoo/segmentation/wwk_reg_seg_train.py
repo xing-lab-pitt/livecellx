@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 from torchvision.datasets import ImageFolder
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
 from livecellx.model_zoo.segmentation.wwk_reg_seg_model import RegSegModel
 from PIL import Image
 import numpy as np
@@ -17,18 +18,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--raw_dir", type=str, required=True, help="Path to the directory containing the raw images")
 parser.add_argument("--mask_dir", type=str, required=True, help="Path to the directory containing the EDT masks")
 parser.add_argument("--ckpt_path", type=str, default=None, help="Path to checkpoint file")
+parser.add_argument("--model_name", type=str, default=None, help="Name of the model")
 args = parser.parse_args()
 
 print("Command line arguments:")
 for arg in vars(args):
     print(f"{arg}: {getattr(args, arg)}")
-
-# Define the transforms for the raw images and masks
-raw_transforms = transforms.Compose(
-    [transforms.Resize((256, 256)), transforms.ToTensor(), transforms.Normalize(mean=[0.5], std=[0.5])]
-)
-
-mask_transforms = transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()])
 
 
 class RawAndEdtMaskDataset(Dataset):
@@ -68,7 +63,15 @@ class RawAndEdtMaskDataset(Dataset):
 raw_dataset = RawAndEdtMaskDataset(
     args.raw_dir,
     args.mask_dir,
-    transform=transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()]),
+    transform=transforms.Compose(
+        [
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomRotation(30),
+            transforms.RandomResizedCrop((256, 256), scale=(0.5, 1.5)),
+            transforms.ToTensor(),
+        ]
+    ),
 )
 
 train_dataset, val_dataset = torch.utils.data.random_split(
@@ -92,14 +95,17 @@ val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=False)
 # Define the PyTorch Lightning module and trainer
 model = RegSegModel()
 
+logger = TensorBoardLogger(save_dir=".", name="wwk_model_train_logs", version=args.model_name)
+
 checkpoint_callback = ModelCheckpoint(monitor="val_iou", mode="max", save_top_k=5, save_last=True)
 
 trainer = Trainer(
     gpus=1,
     max_epochs=10000,
     val_check_interval=100,
-    checkpoint_callback=checkpoint_callback,
     resume_from_checkpoint=args.ckpt_path,
+    logger=logger,
+    callbacks=[checkpoint_callback],
 )
 
 # Train the model
