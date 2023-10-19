@@ -4,4 +4,9 @@
 folder="./raw-zips"
 
 # Rename all files in the folder that contain " (1)" and replace it with "-test"
-rename 's/ \(1\)/-test/' "$folder"/*" (1)"*
+
+# for windows
+# rename 's/ \(1\)/-test/' "$folder"/*" (1)"*
+
+# for linux-like
+rename 's/\.zip\.1$/-test.zip/' "$folder"/*.zip.1
