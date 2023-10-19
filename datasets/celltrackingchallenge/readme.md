@@ -1,0 +1,2 @@
+Please download the dataset from http://celltrackingchallenge.net/2d-datasets/  
+Somehow the training and testing datasets from the paper above are with the same name. Thus on windows we first replace (1) by -test as shown in rename.sh and then unzip all the files for further processing.
