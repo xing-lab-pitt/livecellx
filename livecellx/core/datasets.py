@@ -127,6 +127,20 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         if name is None:
             self.name = str(uuid.uuid4())
 
+    def reindex_time2url_sequential(self):
+        """Reindex the time2url dictionary"""
+        cur_idx = 0
+        new_time2url = {}
+        for time in self.times:
+            new_time2url[cur_idx] = self.time2url[time]
+            cur_idx += 1
+        self.update_time2url(new_time2url)
+
+    def update_time2url(self, time2url: dict):
+        self.time2url = time2url
+        self.times = list(self.time2url.keys())
+        print("%d %s img file paths loaded;" % (len(self.time2url), self.ext))
+
     def update_time2url_from_dir_path(self):
         """Update the time2url dictionary from the directory path"""
         if self.data_dir_path is None:
@@ -135,8 +149,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         assert self.ext, "ext must be specified"
         self.time2url = sorted(glob.glob(str((Path(self.data_dir_path) / Path("*.%s" % (self.ext))))))
         self.time2url = {i: path for i, path in enumerate(self.time2url)}
-        self.times = list(self.time2url.keys())
-        print("%d %s img file paths loaded;" % (len(self.time2url), self.ext))
+        self.update_time2url(self.time2url)
         return self.time2url
 
     def __len__(self):
