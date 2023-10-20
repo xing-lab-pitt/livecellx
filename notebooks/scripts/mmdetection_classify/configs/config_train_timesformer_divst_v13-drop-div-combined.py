@@ -46,7 +46,7 @@ ann_file_train = data_dir + "mmaction_train_data_" + frame_type + ".txt"
 ann_file_val = data_dir + "mmaction_test_data_" + frame_type + ".txt"
 ann_file_test = data_dir + "mmaction_test_data_" + frame_type + ".txt"
 
-work_dir = "./work_dirs/timesformer-default-divst-ver" + ver
+work_dir = f"./work_dirs/timesformer-default-divst-v{ver}-{frame_type}"
 
 file_client_args = dict(io_backend="disk")
 
@@ -79,7 +79,7 @@ test_pipeline = [
     dict(type="PackActionInputs"),
 ]
 train_dataloader = dict(
-    batch_size=16,
+    batch_size=8,
     num_workers=16,
     persistent_workers=True,
     sampler=dict(type="DefaultSampler", shuffle=True),
@@ -88,7 +88,7 @@ train_dataloader = dict(
     ),
 )
 val_dataloader = dict(
-    batch_size=16,
+    batch_size=8,
     num_workers=16,
     persistent_workers=True,
     sampler=dict(type="DefaultSampler", shuffle=False),
