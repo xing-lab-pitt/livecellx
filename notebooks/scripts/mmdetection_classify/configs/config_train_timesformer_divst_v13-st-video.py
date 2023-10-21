@@ -33,8 +33,8 @@ model = dict(
 # ann_file_test = 'data/kinetics400/kinetics400_val_list_videos.txt'
 
 ver = "13-st"
-frame_type = "combined"
-# frame_type = "video"
+# frame_type = "combined"
+frame_type = "video"
 
 data_dir = "../../notebook_results/mmaction_train_data_v" + str(ver) + "/"
 dataset_type = "VideoDataset"
