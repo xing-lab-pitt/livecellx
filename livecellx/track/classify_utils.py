@@ -28,7 +28,7 @@ def load_class2samples_from_json_dir(
     return class2samples
 
 
-def load_all_json_dirs(sample_json_dirs: Path) -> tuple:
+def load_all_json_dirs(sample_json_dirs: Path) -> tuple[dict[str, list[SingleCellStatic]], dict[str, list[dict]]]:
     all_class2samples = {}
     all_class2sample_extra_info = {}
     for sample_json_dir in sample_json_dirs:

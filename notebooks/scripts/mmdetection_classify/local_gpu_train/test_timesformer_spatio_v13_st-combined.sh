@@ -1,0 +1,3 @@
+python test.py /home/ken67/livecellx/notebooks/scripts/mmdetection_classify/work_dirs/timesformer-default-divst-v13-st-combined-attention-space_only/test-random-crop-config.py\
+        /home/ken67/livecellx/notebooks/scripts/mmdetection_classify/work_dirs/timesformer-default-divst-v13-st-combined-attention-space_only/best_acc_top1_epoch_6.pth\
+        --dump ./test_results/timesformer-default-divst-v13-st-combined-attention-space_only.pkl

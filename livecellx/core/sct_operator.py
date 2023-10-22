@@ -980,6 +980,7 @@ def create_sctc_edit_viewer_by_interval(
     clear_prev_batch=True,
     contour_sample_num=30,
     uns_cur_idx_key="_lcx_sctc_cur_idx",
+    init_time=0,
 ):
     """
     Creates a viewer and an sct_operator for editing SingleCellStatic objects.
@@ -1037,11 +1038,12 @@ def create_sctc_edit_viewer_by_interval(
         _move_span(viewer, -span_interval - 1)
 
     @viewer.bind_key("m")
-    def load_from_cur_step(viewer):
+    def load_from_cur_step(viewer, cur_step=None):
         print(">>> debug: cur_idx span")
-        cur_step = viewer.dims.point[0]
+        if cur_step is None:
+            cur_step = viewer.dims.point[0]
         cur_idx = _get_cur_idx(sct_operator)
         _move_span(viewer, cur_step - cur_idx)
 
-    load_from_cur_step(viewer)
+    load_from_cur_step(viewer, cur_step=init_time)
     return sct_operator

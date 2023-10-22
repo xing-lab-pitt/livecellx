@@ -137,12 +137,18 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         self.update_time2url(new_time2url)
 
     def update_time2url(self, time2url: dict):
+        """Update the time2url dictionary"""
         self.time2url = time2url
         self.times = list(self.time2url.keys())
         print("%d %s img file paths loaded;" % (len(self.time2url), self.ext))
 
     def update_time2url_from_dir_path(self):
-        """Update the time2url dictionary from the directory path"""
+        """
+        Updates the time2url dictionary with the file paths of all files in the specified data directory with the specified extension.
+
+        Returns:
+        time2url (dict): A dictionary mapping time points to file paths.
+        """
         if self.data_dir_path is None:
             self.time2url = {}
             return
@@ -301,31 +307,21 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         """Get an image by time"""
         return self.read_img_url_func(self.time2url[time])
 
-    def get_img_by_url(self, url: str, substr=True, return_path_and_time=False, ignore_missing=False):
-        """Get image by url
+    def get_img_by_url(self, url_str: str, exact_match=False, return_path_and_time=False, ignore_missing=False):
+        """
+        Returns the image corresponding to the given URL string.
 
-        Parameters
-        ----------
-        url : str
-            _description_
-        substr : bool, optional
-            if true, match by substring. (url in _url or _url in url), by default True
-        return_path_and_time : bool, optional
-            if True return paths and time in the return values, , by default False
-        ignore_missing : bool, optional
-            ignore failure of matching and return None(s), by default False
+        Args:
+            url_str (str): The URL string to search for.
+            exact_match (bool): If True, only exact matches will be considered. Otherwise, substring matches will also be considered.
+            return_path_and_time (bool): If True, the function will return a tuple containing the image, URL string, and time. Otherwise, only the image will be returned.
+            ignore_missing (bool): If True, the function will return None if the URL string is not found. Otherwise, a ValueError will be raised.
 
-        Returns
-        -------
-        _type_
-            _description_
+        Returns:
+            If return_path_and_time is True, a tuple containing the image, URL string, and time. Otherwise, only the image will be returned.
 
-        Raises
-        ------
-        ValueError
-            _description_
-        ValueError
-            _description_
+        Raises:
+            ValueError: If the URL string is not found and ignore_missing is False, or if multiple URLs match the given string and exact_match is True.
         """
         found_url = None
         found_time = None
@@ -336,12 +332,12 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         def _cmp_substr(x, y):
             return (x in y) or (y in x)
 
-        cmp_func = _cmp_substr if substr else _cmp_equal
+        cmp_func = _cmp_equal if exact_match else _cmp_substr
 
         for time, full_url in self.time2url.items():
-            if (found_url is not None) and cmp_func(url, full_url):
-                raise ValueError("Duplicate url found: %s" % url)
-            if cmp_func(url, full_url):
+            if (found_url is not None) and cmp_func(url_str, full_url):
+                raise ValueError("Duplicate url found: %s" % url_str)
+            if cmp_func(url_str, full_url):
                 found_url = full_url
                 found_time = time
 
@@ -349,7 +345,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             if ignore_missing:
                 return None, None, None if return_path_and_time else None
             else:
-                raise ValueError("url not found: %s" % url)
+                raise ValueError("url not found: %s" % url_str)
 
         if return_path_and_time:
             return self.get_img_by_time(found_time), found_url, found_time
