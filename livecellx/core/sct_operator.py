@@ -1,4 +1,5 @@
 import copy
+import datetime
 from functools import partial
 from typing import List, Optional, Union
 import numpy as np
@@ -56,6 +57,7 @@ class SctOperator:
         self.sc_operators = sc_operators
         self.img_dataset = img_dataset
         self.time_span = time_span
+        self.created_objects = []
         if meta is None:
             self.meta = {}
         else:
@@ -589,8 +591,8 @@ class SctOperator:
         # min_time = 0 # TODO: if we regulate that img_dataset is always used, then we can use this line
         cur_time = self.viewer.dims.current_step[0] + min_time
         new_sc = SingleCellStatic(timeframe=cur_time, contour=[], img_dataset=self.img_dataset)
+        new_sc.meta["created_by"] = "sct_operator"
         sc_operator = self.edit_sc(new_sc)
-
         # add a new sct to sctc
         new_sct = SingleCellTrajectory(
             track_id=self.traj_collection._next_track_id(),
@@ -599,6 +601,16 @@ class SctOperator:
         new_sct.add_sc(new_sc.timeframe, new_sc)
         self.traj_collection.add_trajectory(new_sct)
         new_sct.add_sc(new_sc.timeframe, new_sc)
+
+        self.created_objects.append(
+            {
+                "type": "sc",
+                "sc": new_sc,
+                "sct": new_sct,
+                "created_by": "sct_operator",
+                "created_on": str(datetime.datetime.now()),
+            }
+        )
 
         # create a dummy shape for the new sc in the shape layer
         old_layer_properties = self.shape_layer.properties
