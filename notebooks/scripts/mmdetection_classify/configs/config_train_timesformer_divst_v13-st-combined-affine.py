@@ -33,8 +33,8 @@ model = dict(
 # ann_file_test = 'data/kinetics400/kinetics400_val_list_videos.txt'
 
 ver = "13-st"
-# frame_type = "combined"
-frame_type = "video"
+frame_type = "combined"
+# frame_type = "video"
 
 data_dir = "../../notebook_results/mmaction_train_data_v" + str(ver) + "/"
 dataset_type = "VideoDataset"
@@ -56,6 +56,7 @@ train_pipeline = [
     dict(type="DecordDecode"),
     dict(type="RandomRescale", scale_range=(256, 320)),
     dict(type="RandomCrop", size=224),
+    dict(type="RandomAffine"),
     dict(type="Flip", flip_ratio=0.5),
     dict(type="FormatShape", input_format="NCTHW"),
     dict(type="PackActionInputs"),
@@ -65,6 +66,7 @@ val_pipeline = [
     dict(type="SampleFrames", clip_len=8, frame_interval=32, num_clips=1, test_mode=True),
     dict(type="DecordDecode"),
     dict(type="Resize", scale=(-1, 256)),
+    dict(type="RandomAffine"),
     dict(type="CenterCrop", crop_size=224),
     dict(type="FormatShape", input_format="NCTHW"),
     dict(type="PackActionInputs"),

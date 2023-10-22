@@ -33,6 +33,6 @@ nvidia-smi -L
 PYTHON=python
 OUT_DIR=local_outs
 
-export CUDA_VISIBLE_DEVICES=1
-model="timesformer-divst_v13_drop_div-combined"
-nohup $PYTHON train.py "configs/config_train_timesformer_divst_v13-drop-div-combined.py" --resume auto > $OUT_DIR/train_out_model"$model".out 2>&1&
+export CUDA_VISIBLE_DEVICES=0
+model="timesformer-divst_v13_st-video"
+nohup $PYTHON train.py "configs/config_train_timesformer_spatio_v13-st-video.py" --resume auto > $OUT_DIR/train_out_model"$model".out 2>&1&

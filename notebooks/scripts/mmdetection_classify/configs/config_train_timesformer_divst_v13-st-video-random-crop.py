@@ -46,7 +46,7 @@ ann_file_train = data_dir + "mmaction_train_data_" + frame_type + ".txt"
 ann_file_val = data_dir + "mmaction_test_data_" + frame_type + ".txt"
 ann_file_test = data_dir + "mmaction_test_data_" + frame_type + ".txt"
 
-work_dir = f"./work_dirs/timesformer-default-divst-v{ver}-{frame_type}"
+work_dir = f"./work_dirs/timesformer-default-divst-v{ver}-{frame_type}-random-crop"
 
 file_client_args = dict(io_backend="disk")
 
@@ -54,7 +54,7 @@ train_pipeline = [
     dict(type="DecordInit", **file_client_args),
     dict(type="SampleFrames", clip_len=8, frame_interval=32, num_clips=1),
     dict(type="DecordDecode"),
-    dict(type="RandomRescale", scale_range=(256, 320)),
+    dict(type="RandomRescale", scale_range=(400, 600)),
     dict(type="RandomCrop", size=224),
     dict(type="Flip", flip_ratio=0.5),
     dict(type="FormatShape", input_format="NCTHW"),
@@ -64,6 +64,8 @@ val_pipeline = [
     dict(type="DecordInit", **file_client_args),
     dict(type="SampleFrames", clip_len=8, frame_interval=32, num_clips=1, test_mode=True),
     dict(type="DecordDecode"),
+    dict(type="RandomRescale", scale_range=(400, 600)),
+    dict(type="RandomCrop", size=224),
     dict(type="Resize", scale=(-1, 256)),
     dict(type="CenterCrop", crop_size=224),
     dict(type="FormatShape", input_format="NCTHW"),
@@ -73,6 +75,8 @@ test_pipeline = [
     dict(type="DecordInit", **file_client_args),
     dict(type="SampleFrames", clip_len=8, frame_interval=32, num_clips=1, test_mode=True),
     dict(type="DecordDecode"),
+    dict(type="RandomRescale", scale_range=(400, 600)),
+    dict(type="RandomCrop", size=224),
     dict(type="Resize", scale=(-1, 224)),
     dict(type="ThreeCrop", crop_size=224),
     dict(type="FormatShape", input_format="NCTHW"),
@@ -117,7 +121,7 @@ test_dataloader = dict(
 val_evaluator = dict(type="AccMetric")
 test_evaluator = val_evaluator
 
-train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=15, val_begin=1, val_interval=1)
+train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=30, val_begin=1, val_interval=1)
 val_cfg = dict(type="ValLoop")
 test_cfg = dict(type="TestLoop")
 

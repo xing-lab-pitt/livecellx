@@ -1,27 +1,5 @@
 _base_ = ["./default_runtime.py"]
 
-# model settings
-model = dict(
-    type="Recognizer3D",
-    backbone=dict(
-        type="TimeSformer",
-        pretrained="https://download.openmmlab.com/mmaction/recognition/timesformer/vit_base_patch16_224.pth",  # noqa: E251  # noqa: E501
-        num_frames=8,
-        img_size=224,
-        patch_size=16,
-        embed_dims=768,
-        in_channels=3,
-        dropout_ratio=0.0,
-        transformer_layers=None,
-        attention_type="divided_space_time",
-        norm_cfg=dict(type="LN", eps=1e-6),
-    ),
-    cls_head=dict(type="TimeSformerHead", num_classes=400, in_channels=768, average_clips="prob"),
-    data_preprocessor=dict(
-        type="ActionDataPreprocessor", mean=[127.5, 127.5, 127.5], std=[127.5, 127.5, 127.5], format_shape="NCTHW"
-    ),
-)
-
 # dataset settings
 
 # kinetics 400
@@ -32,6 +10,7 @@ model = dict(
 # ann_file_val = 'data/kinetics400/kinetics400_val_list_videos.txt'
 # ann_file_test = 'data/kinetics400/kinetics400_val_list_videos.txt'
 
+attention_type = "space_only"
 ver = "13-st"
 # frame_type = "combined"
 frame_type = "video"
@@ -46,7 +25,30 @@ ann_file_train = data_dir + "mmaction_train_data_" + frame_type + ".txt"
 ann_file_val = data_dir + "mmaction_test_data_" + frame_type + ".txt"
 ann_file_test = data_dir + "mmaction_test_data_" + frame_type + ".txt"
 
-work_dir = f"./work_dirs/timesformer-default-divst-v{ver}-{frame_type}"
+work_dir = f"./work_dirs/timesformer-default-divst-v{ver}-{frame_type}-attention-{attention_type}"
+
+
+# model settings
+model = dict(
+    type="Recognizer3D",
+    backbone=dict(
+        type="TimeSformer",
+        pretrained="https://download.openmmlab.com/mmaction/recognition/timesformer/vit_base_patch16_224.pth",  # noqa: E251  # noqa: E501
+        num_frames=8,
+        img_size=224,
+        patch_size=16,
+        embed_dims=768,
+        in_channels=3,
+        dropout_ratio=0.0,
+        transformer_layers=None,
+        attention_type=attention_type,
+        norm_cfg=dict(type="LN", eps=1e-6),
+    ),
+    cls_head=dict(type="TimeSformerHead", num_classes=400, in_channels=768, average_clips="prob"),
+    data_preprocessor=dict(
+        type="ActionDataPreprocessor", mean=[127.5, 127.5, 127.5], std=[127.5, 127.5, 127.5], format_shape="NCTHW"
+    ),
+)
 
 file_client_args = dict(io_backend="disk")
 
