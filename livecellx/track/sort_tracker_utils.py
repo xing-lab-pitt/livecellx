@@ -37,6 +37,9 @@ def convert_sort_bbox_results_to_single_cell_trajs(all_track_bboxes, raw_img_dat
     for timeframe, objects in enumerate(all_track_bboxes):
         for obj in objects:
             track_id = obj[-1]
+            if not int(track_id) == track_id:
+                print("[SORT] warning: track_id is not integer: " + str(track_id))
+            track_id = int(track_id)
             if not (track_id in id_to_sc_trajs):
                 new_traj = SingleCellTrajectory(raw_img_dataset, track_id=track_id)
                 id_to_sc_trajs[track_id] = new_traj
