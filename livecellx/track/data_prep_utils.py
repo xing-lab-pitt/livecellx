@@ -51,7 +51,7 @@ def drop_multiple_cell_frames_in_samples(class2samples: Dict, tar_keys: List[str
     Returns:
     - A dictionary containing samples for each class with cell division events removed from the specified classes.
     """
-    class2samples = class2samples.copy()
+    class2samples = {cls: list(class2samples[cls]) for cls in class2samples}
     for key in tar_keys:
         tmp_samples = []
         key_samples = class2samples[key]
@@ -83,21 +83,21 @@ def make_one_cell_per_timeframe_samples(sample: List[SingleCellStatic]) -> List[
 
 
 def make_one_cell_per_timeframe_for_class2samples(
-    class2samples: Dict, class2sample_extra_info=None, tar_keys: List[str] = ["mitosis"]
+    class2samples: Dict, class2sample_extra_info=None, tar_classes: List[str] = ["mitosis"]
 ) -> Dict:
     class2samples = class2samples.copy()
     if class2sample_extra_info is not None:
         class2sample_extra_info = class2sample_extra_info.copy()
-    for key in tar_keys:
+    for cls in tar_classes:
         tmp_samples = []
         tmp_sample_extra_info = []
-        key_samples = class2samples[key]
+        key_samples = class2samples[cls]
         for sample_idx, sample in enumerate(key_samples):
             sct_samples = make_one_cell_per_timeframe_samples(sample)
             tmp_samples.extend(sct_samples)
             if class2sample_extra_info is not None:
                 tmp_sample_extra_info.extend(
-                    [class2sample_extra_info[key][sample_idx] for _ in range(len(sct_samples))]
+                    [dict(class2sample_extra_info[cls][sample_idx]) for _ in range(len(sct_samples))]
                 )
 
             # check the length of sample is the same as the length of tmp_samples[-1]
@@ -106,10 +106,10 @@ def make_one_cell_per_timeframe_for_class2samples(
             assert len(sample_times) == len(
                 tmp_sample_times
             ), f"sample times: {sample_times}, tmp sample times: {tmp_sample_times}"
-        class2samples[key] = tmp_samples
+        class2samples[cls] = tmp_samples
         if class2sample_extra_info is not None:
-            class2sample_extra_info[key] = tmp_sample_extra_info
+            class2sample_extra_info[cls] = tmp_sample_extra_info
         assert all(
-            [check_one_sc_at_time(sample) for sample in class2samples[key]]
+            [check_one_sc_at_time(sample) for sample in class2samples[cls]]
         ), "there is more than one sc at the same timepoint"
     return class2samples, class2sample_extra_info
