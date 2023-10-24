@@ -113,6 +113,7 @@ def gen_class2sample_samples(
         "start_time",
         "end_time",
         "first_sc_id",
+        "mitosis_traj_type",
     ]
     sample_info_df = pd.DataFrame(columns=df_cols)
     for class_label in class_labels:
@@ -147,6 +148,9 @@ def gen_class2sample_samples(
                                     int(res_extra_info[i]["start_time"]) if "start_time" in res_extra_info[i] else -1,
                                     int(res_extra_info[i]["end_time"]) if "end_time" in res_extra_info[i] else -1,
                                     str(res_extra_info[i]["first_sc_id"]) if "first_sc_id" in res_extra_info[i] else "",
+                                    str(res_extra_info[i]["mitosis_traj_type"])
+                                    if "mitosis_traj_type" in res_extra_info[i]
+                                    else "",
                                 )
                                 for i, path in enumerate(frametype2paths[selected_frame_type])
                             ],
