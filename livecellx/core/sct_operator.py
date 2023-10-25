@@ -51,7 +51,7 @@ class SctOperator:
         self.viewer = viewer
         self.magicgui_container = magicgui_container
         self.mode = SctOperator.CONNECT_MODE
-        self.annotate_click_samples = {}
+        self.cls2annotated_sample_infos = {}
         if sc_operators is None:
             sc_operators = []
         self.sc_operators = sc_operators
@@ -495,9 +495,9 @@ class SctOperator:
             sct, sc, shape_index = selected_shape
             sample.append(sc)
 
-        if label not in self.annotate_click_samples:
-            self.annotate_click_samples[label] = []
-        self.annotate_click_samples[label].append(
+        if label not in self.cls2annotated_sample_infos:
+            self.cls2annotated_sample_infos[label] = []
+        self.cls2annotated_sample_infos[label].append(
             {
                 "sample": sample,
                 "sample_id": sample_id,
@@ -530,6 +530,34 @@ class SctOperator:
     def toggle_shapes_text(self):
         self.shape_layer.text.visible = not self.shape_layer.text.visible
 
+    def class2samples_to_annotation_data_structure(class2samples: dict) -> dict:
+        annotated_sample_dict = {}
+        for cls in class2samples:
+            annotated_sample_dict[cls] = []
+            for i, sample in enumerate(class2samples[cls]):
+                if len(sample) == 0:
+                    continue
+                assert "_annotation_label_info" in sample[0].meta, "sample[0].meta should have '_annotation_label_info'"
+                annotation_label_infos = sample[0].meta["_annotation_label_info"]
+                annotation_label_info = None
+                for info in annotation_label_infos:
+                    if info["label"] == cls:
+                        annotation_label_info = info
+                        break
+                assert (
+                    annotation_label_info is not None
+                ), "sc meta shoud contain annotation_label_info == cls: {}".format(cls)
+                sample_id = annotation_label_info["sample_id"]
+                sample_dict = {"sample": sample, "sample_id": sample_id}
+                annotated_sample_dict[cls].append(sample_dict)
+        return annotated_sample_dict
+
+    def load_annotations(self, annotation_dirs: list[str], classes: list = ["mitosis", "normal"]):
+        from livecellx.track.classify_utils import load_all_json_dirs
+
+        class2samples, class2samples_extra_info = load_all_json_dirs(annotation_dirs, class_subfolders=classes)
+        self.cls2annotated_sample_infos = SctOperator.class2samples_to_annotation_data_structure(class2samples)
+
     def save_annotations(
         self,
         sample_out_dir: Union[Path, str],
@@ -547,8 +575,8 @@ class SctOperator:
             sample_dataset_dir = Path(sample_dataset_dir)
         sample_paths = []
 
-        for label in self.annotate_click_samples:
-            sample_dicts = self.annotate_click_samples[label]
+        for label in self.cls2annotated_sample_infos:
+            sample_dicts = self.cls2annotated_sample_infos[label]
             label_dir: Path = sample_out_dir / label
             label_dir.mkdir(exist_ok=True)
             for i, sample_dict in enumerate(sample_dicts):
@@ -894,6 +922,7 @@ def create_scs_edit_viewer_by_interval(
     contour_sample_num=30,
 ):
     """
+    This function is deprecated and needs refactoring.
     Creates a viewer and an sct_operator for editing SingleCellStatic objects.
     """
     # TODO: a potential bug is that the slice index is not the same concept as the time. A solution is to add time frame to shape properties
