@@ -2,6 +2,7 @@ import itertools
 import json
 import copy
 import os
+from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, Union
 from collections import deque
 import matplotlib.patches as patches
@@ -16,7 +17,7 @@ import uuid
 from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecellx.core.io_utils import LiveCellEncoder
 from livecellx.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
-from livecellx.livecell_logger import main_warning, main_exception
+from livecellx.livecell_logger import main_info, main_warning, main_exception
 
 
 # TODO: possibly refactor load_from_json methods into a mixin class
@@ -338,6 +339,8 @@ class SingleCellStatic:
             res["dataset_json"] = self.img_dataset.to_json_dict()
 
         if dataset_json_dir:
+            # make dataset_json_dir posix
+            dataset_json_dir = Path(dataset_json_dir).as_posix()
             res["dataset_json_dir"] = str(dataset_json_dir)
 
         return res
@@ -1110,6 +1113,44 @@ class SingleCellTrajectory:
 
         return get_next_largest_element(self.times, time)
 
+    @staticmethod
+    def show_trajectory_on_grid(
+        trajectory: "SingleCellTrajectory",
+        nr=4,
+        nc=4,
+        start_timeframe=20,
+        interval=5,
+        padding=20,
+    ):
+        fig, axes = plt.subplots(nr, nc, figsize=(nc * 4, nr * 4))
+        if nr == 1:
+            axes = np.array([axes])
+        span_range = trajectory.get_timeframe_span()
+        traj_start, traj_end = span_range
+        if start_timeframe < traj_start:
+            print(
+                "start timeframe larger than the first timeframe of the trajectory, replace start_timeframe with the first timeframe..."
+            )
+            start_timeframe = span_range[0]
+        for r in range(nr):
+            for c in range(nc):
+                ax = axes[r, c]
+                ax.axis("off")
+                timeframe = start_timeframe + interval * (r * nc + c)
+                if timeframe > traj_end:
+                    break
+                if timeframe not in trajectory.timeframe_set:
+                    continue
+                sc = trajectory.get_single_cell(timeframe)
+                sc_img = sc.get_img_crop(padding=padding)
+                ax.imshow(sc_img)
+                # contour_coords = sc.get_img_crop_contour_coords(padding=padding)
+                contour_coords = sc.get_contour_coords_on_crop(padding=padding)
+                ax.scatter(contour_coords[:, 1], contour_coords[:, 0], s=1, c="r")
+                # trajectory_collection[timeframe].plot(axes[r, c])
+                ax.set_title(f"timeframe: {timeframe}")
+        fig.tight_layout(pad=0.5, h_pad=0.4, w_pad=0.4)
+
 
 class SingleCellTrajectoryCollection:
     """
@@ -1249,6 +1290,19 @@ class SingleCellTrajectoryCollection:
         if len(self.get_track_ids()) == 0:
             return 0
         return max(self.get_track_ids()) + 1
+
+    def remove_empty_sct(self):
+        remove_tids = []
+        remove_scs = []
+        for tid, sct in self:
+            _tmp_scs = sct.get_all_scs()
+            for sc in _tmp_scs:
+                if len(sc.contour) > 0:
+                    break
+            remove_tids.append(tid)
+            remove_scs.extend(_tmp_scs)
+        for tid in remove_tids:
+            self.pop_trajectory(tid)
 
 
 def create_sctc_from_scs(scs: List[SingleCellStatic]) -> SingleCellTrajectoryCollection:
