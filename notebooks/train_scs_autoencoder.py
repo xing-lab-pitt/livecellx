@@ -1,36 +1,36 @@
-from livecell_tracker.core.torch_datasets import SingleCellVaeDataset, ScVaeDataset
+from livecellx.core.torch_datasets import SingleCellVaeDataset, ScVaeDataset
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import Callback, LearningRateMonitor, ModelCheckpoint
 from typing import List, Union
 import torch
 import os
 import torchvision
-from livecell_tracker.core import SingleCellStatic
+from livecellx.core import SingleCellStatic
 from pathlib import Path
 from skimage.measure import regionprops
-from livecell_tracker.core.datasets import LiveCellImageDataset, SingleImageDataset
-from livecell_tracker.preprocess.utils import normalize_img_to_uint8
+from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
+from livecellx.preprocess.utils import normalize_img_to_uint8
 
-from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
-from livecell_tracker.model_zoo.autoencoder.autoencoder import Autoencoder
+from livecellx.core.io_sc import prep_scs_from_mask_dataset
+from livecellx.model_zoo.autoencoder.autoencoder import Autoencoder
 
-dataset_dir_path = Path("../datasets/test_data_STAV-A549/DIC_data")
-mask_dataset_path = Path("../datasets/test_data_STAV-A549/mask_data")
-mask_dataset = LiveCellImageDataset(mask_dataset_path, ext="png")
-dic_dataset = LiveCellImageDataset(dataset_dir_path, ext="tif")
+# dataset_dir_path = Path("../datasets/test_data_STAV-A549/DIC_data")
+# mask_dataset_path = Path("../datasets/test_data_STAV-A549/mask_data")
+# mask_dataset = LiveCellImageDataset(mask_dataset_path, ext="png")
+# dic_dataset = LiveCellImageDataset(dataset_dir_path, ext="tif")
 
 ################### large dataset ###################
-# dataset_dir_path = Path("../datasets/EBSS_Starvation/tif_STAV-A549_VIM_24hours_NoTreat_NA_YL_Ti2e_2022-12-21/XY16/")
+dataset_dir_path = Path("../datasets/EBSS_Starvation/tif_STAV-A549_VIM_24hours_NoTreat_NA_YL_Ti2e_2022-12-21/XY16/")
 
-# mask_dataset_path = Path(
-#     "../datasets/EBSS_Starvation/tif_STAV-A549_VIM_24hours_NoTreat_NA_YL_Ti2e_2022-12-21/out/XY16/seg"
-# )
-# mask_dataset = LiveCellImageDataset(mask_dataset_path, ext="png")
-# import glob
+mask_dataset_path = Path(
+    "../datasets/EBSS_Starvation/tif_STAV-A549_VIM_24hours_NoTreat_NA_YL_Ti2e_2022-12-21/out/XY16/seg"
+)
+mask_dataset = LiveCellImageDataset(mask_dataset_path, ext="png")
+import glob
 
-# time2url = sorted(glob.glob(str((Path(dataset_dir_path) / Path("*_DIC.tif")))))
-# time2url = {i: path for i, path in enumerate(time2url)}
-# dic_dataset = LiveCellImageDataset(time2url=time2url, ext="tif")
+time2url = sorted(glob.glob(str((Path(dataset_dir_path) / Path("*_DIC.tif")))))
+time2url = {i: path for i, path in enumerate(time2url)}
+dic_dataset = LiveCellImageDataset(time2url=time2url, ext="tif")
 
 single_cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
 for sc in single_cells:

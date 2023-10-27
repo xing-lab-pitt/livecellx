@@ -1,9 +1,13 @@
+docs/source/**
+docs/source/api
+docs/source/classes
+
 *.mp4
 *.npy
 **/lightning_logs/**
 **/eval_results/**
 **/test_logs/**
-
+**/notebooks/scripts/mmdetection_classify/work_dirs*/**
 *.pth
 notebook_results
 external_repos

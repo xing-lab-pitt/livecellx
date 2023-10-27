@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 import matplotlib.pyplot as plt
 
-from livecell_tracker.segment.eval_utils import read_detectron_metrics_data, plot_train_curve
+from livecellx.segment.eval_utils import read_detectron_metrics_data, plot_train_curve
 
 # TODO
 def plot_metrics_results():

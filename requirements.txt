@@ -3,6 +3,7 @@ pandas
 Pillow
 scikit-image
 ipympl
+matplotlib
 
 # correction CNN training requirements
 torchmetrics==0.8.2 # DO NOT change version here, otherwise it will break the training (complaints about Accuracy())

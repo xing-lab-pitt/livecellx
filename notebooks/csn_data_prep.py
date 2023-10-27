@@ -13,12 +13,12 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 
-from livecell_tracker import segment
-from livecell_tracker import core
-from livecell_tracker.core import datasets
-from livecell_tracker.core.datasets import LiveCellImageDataset
+from livecellx import segment
+from livecellx import core
+from livecellx.core import datasets
+from livecellx.core.datasets import LiveCellImageDataset
 from skimage import measure
-from livecell_tracker.core import SingleCellTrajectory, SingleCellStatic
+from livecellx.core import SingleCellTrajectory, SingleCellStatic
 
 # import detectron2
 # from detectron2.utils.logger import setup_logger
@@ -37,24 +37,24 @@ import cv2
 # from detectron2.config import get_cfg
 # from detectron2.utils.visualizer import Visualizer
 # from detectron2.data import MetadataCatalog, DatasetCatalog
-# from livecell_tracker.segment.detectron_utils import gen_cfg
+# from livecellx.segment.detectron_utils import gen_cfg
 
-# from livecell_tracker.segment.detectron_utils import (
+# from livecellx.segment.detectron_utils import (
 #     segment_detectron_wrapper,
 #     segment_images_by_detectron,
 #     convert_detectron_instance_pred_masks_to_binary_masks,
 #     convert_detectron_instances_to_label_masks,
 # )
-# from livecell_tracker.segment.detectron_utils import (
+# from livecellx.segment.detectron_utils import (
 #     convert_detectron_instance_pred_masks_to_binary_masks,
 #     convert_detectron_instances_to_label_masks,
 #     segment_images_by_detectron,
 #     segment_single_img_by_detectron_wrapper,
 # )
-from livecell_tracker.annotation.coco_utils import coco_to_sc
+from livecellx.annotation.coco_utils import coco_to_sc
 from pycocotools.coco import COCO
-from livecell_tracker.segment.utils import match_mask_labels_by_iou
-from livecell_tracker.preprocess.utils import enhance_contrast, normalize_img_to_uint8
+from livecellx.segment.utils import match_mask_labels_by_iou
+from livecellx.preprocess.utils import enhance_contrast, normalize_img_to_uint8
 
 
 def compute_match_label_map(t1, t2, mask_dataset, iou_threshold=0.2):
@@ -196,15 +196,15 @@ if __name__ == "__main__":
     # %%
     from multiprocessing import Pool
     from skimage.measure import regionprops, find_contours
-    from livecell_tracker.segment.ou_simulator import find_contours_opencv
+    from livecellx.segment.ou_simulator import find_contours_opencv
 
-    from livecell_tracker.segment.utils import prep_scs_from_mask_dataset
+    from livecellx.core.io_sc import prep_scs_from_mask_dataset
 
     print("<start converting label masks to single cell objects>")
     single_cells = prep_scs_from_mask_dataset(label_mask_dataset, dic_dataset, cores=None)
     # single_cells = single_cells[:5]
 
-    from livecell_tracker.core.parallel import parallelize
+    from livecellx.core.parallel import parallelize
 
     # %%
     print("<start parallely setting single cell labels>")
@@ -588,7 +588,7 @@ if __name__ == "__main__":
     # %%
 
     # %%
-    from livecell_tracker.segment.ou_utils import csn_augment_helper
+    from livecellx.segment.ou_utils import csn_augment_helper
 
     # %% [markdown]
     # Save overseg cases
@@ -726,7 +726,7 @@ if __name__ == "__main__":
     len(underseg_sc2scs)
 
     # %%
-    from livecell_tracker.segment.ou_utils import csn_augment_helper, underseg_overlay_gt_masks, underseg_overlay_scs
+    from livecellx.segment.ou_utils import csn_augment_helper, underseg_overlay_gt_masks, underseg_overlay_scs
 
     # %%
     from typing import Tuple
@@ -807,7 +807,7 @@ if __name__ == "__main__":
         all_df.to_csv(underseg_df_save_path)
 
     # %%
-    from livecell_tracker.segment.ou_utils import csn_augment_helper
+    from livecellx.segment.ou_utils import csn_augment_helper
 
     # %%
     import pandas as pd

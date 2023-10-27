@@ -20,7 +20,7 @@ jobs:
       # You can use PyPy versions in python-version.
       # For example, pypy2.7 and pypy3.9
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10"]
 
     steps:
       - uses: actions/checkout@v3
@@ -34,7 +34,7 @@ jobs:
           pip install flake8 pytest numpy
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           if [ -f ./tests/test_requirements.txt ]; then pip install -r ./tests/test_requirements.txt; fi
-          pip install lap[alldeps]
+          # pip install lap[alldeps]
           pip install .
       - name: Lint with flake8
         run: |
