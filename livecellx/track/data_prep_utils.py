@@ -87,7 +87,9 @@ def make_one_cell_per_timeframe_for_class2samples(
 ) -> Dict:
     class2samples = class2samples.copy()
     if class2sample_extra_info is not None:
-        class2sample_extra_info = class2sample_extra_info.copy()
+        import copy
+
+        class2sample_extra_info = copy.deepcopy(class2sample_extra_info)
     for cls in tar_classes:
         tmp_samples = []
         tmp_sample_extra_info = []
@@ -96,9 +98,8 @@ def make_one_cell_per_timeframe_for_class2samples(
             sct_samples = make_one_cell_per_timeframe_samples(sample)
             tmp_samples.extend(sct_samples)
             if class2sample_extra_info is not None:
-                tmp_sample_extra_info.extend(
-                    [dict(class2sample_extra_info[cls][sample_idx]) for _ in range(len(sct_samples))]
-                )
+                sample_extra_info = [dict(class2sample_extra_info[cls][sample_idx]) for _ in range(len(sct_samples))]
+                tmp_sample_extra_info.extend(sample_extra_info)
 
             # check the length of sample is the same as the length of tmp_samples[-1]
             sample_times = set([sc.timeframe for sc in sample])
