@@ -39,7 +39,7 @@ import pandas as pd
 # %%
 from mmengine.config import Config, DictAction
 from mmaction.registry import MODELS
-import livecellx.track.customized_inference
+import livecellx.track.timesformer_inference
 import mmcv
 from mmaction.apis import init_recognizer, inference_recognizer
 
@@ -48,7 +48,7 @@ import seaborn as sns
 import pandas as pd
 
 # %%
-import livecellx.track.customized_inference
+import livecellx.track.timesformer_inference
 
 
 import argparse
@@ -189,7 +189,7 @@ for row_ in tqdm(all_rows):
     video_path = str(video_dir / row_series["path"])
     try:
         model.zero_grad()
-        results, data, grad = livecellx.track.customized_inference.inference_recognizer(
+        results, data, grad = livecellx.track.timesformer_inference.inference_recognizer(
             model, video_path, require_grad=True, return_data_and_grad=True
         )
     except Exception as e:
