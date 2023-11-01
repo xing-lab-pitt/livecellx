@@ -67,7 +67,7 @@ parser.add_argument(
 parser.add_argument(
     "--mmaction_data_tsv",
     type=str,
-    help="Path to the mmaction data tsv file",
+    help="[Deprecated] Path to the mmaction data tsv file",
     default=r"./notebook_results/mmaction_train_data_v13-inclusive-corrected/mmaction_test_data_all.txt",
 )
 parser.add_argument(
@@ -112,11 +112,6 @@ test_data_df = test_data_df.rename(columns={"label_index": "label"})
 print(test_data_df.shape)
 test_data_df[:2]
 
-# mmaction df columns are path and label
-mmaction_data_df = pd.read_csv(mmaction_data_tsv, sep=" ", header=None)
-mmaction_data_df.columns = ["path", "label"]
-print(mmaction_data_df.shape)
-mmaction_data_df[:2]
 from tqdm import tqdm
 
 print("test data frame:", test_data_df.columns[:2])
