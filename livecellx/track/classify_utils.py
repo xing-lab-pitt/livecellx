@@ -102,3 +102,43 @@ def gen_inference_sctc_sample_videos(
         fps=fps,
     )
     return saved_sample_info_df
+
+
+def save_data_input(data_input, file_path):
+    from livecellx.core.sc_video_utils import gen_mp4_from_frames
+
+    imgs = data_input[1][2].detach().cpu().numpy()  # 8 x 224 x 224
+    masks = data_input[1][0].detach().cpu().numpy()  # 8 x 224 x 224
+    imgs = list(imgs)
+    masks = list(masks)
+    imgs = [normalize_img_to_uint8(img) for img in imgs]
+    masks = [normalize_img_to_uint8(mask) for mask in masks]
+
+    # already edt transformed
+    frames = combine_video_frames_and_masks(imgs, masks, is_gray=True, edt_transform=False)
+    gen_mp4_from_frames(frames, file_path)
+
+
+def is_decord_invalid_video(path):
+    """More information: https://github.com/dmlc/decord/issues/150"""
+    import decord
+
+    reader = decord.VideoReader(str(path))
+    reader.seek(0)
+    imgs = list()
+    frame_inds = range(0, len(reader))
+    for idx in frame_inds:
+        reader.seek(idx)
+        frame = reader.next()
+        imgs.append(frame.asnumpy())
+        frame = frame.asnumpy()
+
+        num_channels = frame.shape[-1]
+        if num_channels != 3:
+            print("invalid video for decord (https://github.com/dmlc/decord/issues/150): ", path)
+            return True
+        # fig, axes = plt.subplots(1, num_channels, figsize=(20, 10))
+        # for i in range(num_channels):
+        #     axes[i].imshow(frame[:, :, i])
+        # plt.show()
+    return False
