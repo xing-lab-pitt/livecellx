@@ -11,6 +11,8 @@ from tqdm import tqdm
 import os
 import os.path
 
+from sklearn.metrics import classification_report, accuracy_score, precision_score, f1_score
+
 # from livecellx import segment
 from livecellx import core
 from livecellx.core import datasets
@@ -84,6 +86,13 @@ parser.add_argument("--add-random-crop", action="store_true", help="Add random c
 parser.add_argument("--is-tsn", action="store_true", help="if it is tsn model")
 parser.add_argument(
     "--raw-video-treat-as-negative",
+    action="store_true",
+    help="In combined ver, raw videos input labels should be all WRONG",
+    default=False,
+)
+
+parser.add_argument(
+    "--no-wrong-video",
     action="store_true",
     help="In combined ver, raw videos input labels should be all WRONG",
     default=False,
@@ -261,7 +270,8 @@ for row_ in tqdm(all_rows):
     if predicted_label != test_gt_label:
         print("wrong prediction:", video_path, "predicted_label:", predicted_label, "gt_label:", test_gt_label)
         wrong_predictions.append(row_series)
-
+        if args.no_wrong_video:
+            continue
         data_input = data["inputs"][0]  # 3 x 3 x 8 x 224 x 224
         if not args.is_tsn:
             # timeSformer
@@ -303,9 +313,7 @@ for test_gt_label, total in gt2total.items():
 all_predictions_df = pd.DataFrame(all_predictions)
 wrong_predictions_df = pd.DataFrame(wrong_predictions)
 wrong_predictions_df[:2]
-
 # %%
-from sklearn.metrics import classification_report, accuracy_score, precision_score, f1_score
 
 
 def report_classification_metrics(true_labels, predicted_labels):

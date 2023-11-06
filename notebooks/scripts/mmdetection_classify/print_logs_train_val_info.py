@@ -2,6 +2,8 @@ import argparse
 import re
 from pathlib import Path
 
+import pandas as pd
+
 
 def _get_avg_scc(logs, epoch_num):
     train_logs = re.findall(rf"Epoch\(train\).*\[{epoch_num}\]\[\s*\d+/\d+\].*top1_acc: (\d+\.\d+)", logs)
@@ -14,6 +16,17 @@ def _get_avg_scc(logs, epoch_num):
     val_top1_acc = [float(log) for log in val_logs]
     val_avg_acc = sum(val_top1_acc) / len(val_top1_acc)
     return train_avg_acc, val_avg_acc
+
+
+def prune_log_filename(log_filename):
+    start_str = "rgb-"
+    end_str = "."
+
+    start_index = log_filename.find(start_str) + len(start_str)
+    end_index = log_filename.find(end_str)
+
+    extracted_str = log_filename[start_index : end_index + 1]
+    return extracted_str
 
 
 def get_avg_acc(log_file_path, epoch_num):
@@ -56,9 +69,17 @@ def plot_avg_acc(log_file_path, epoch_num, out_dir: Path = Path("result_plots/")
     plt.savefig(out_dir / str("acc-" + log_filename.replace(".log", ".png")))
     plt.close()
 
+    # save the accs to a csv txt file
+    df = pd.DataFrame({"epoch": range(1, epoch_num + 1), "train_avg_acc": train_avg_accs, "val_avg_acc": val_avg_accs})
+
+    extracted_str = prune_log_filename(log_filename)
+    df.to_csv(out_dir / str("acc-" + extracted_str + ".csv"), index=False)
+    return df
+
 
 def show_result_plots():
     paths = [
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-drop-div-combined-clipLen=1-trainClipNum=1-valClipNum=1/20230824_003503/20230824_003503.log",
         # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-combined-clipLen=1-trainClipNum=3-valClipNum=3/20230811_130716/20230811_130716.log",
         # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-combined-clipLen=2-trainClipNum=3-valClipNum=3/20230717_030248/20230717_030248.log",
         # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-combined-clipLen=3-trainClipNum=3-valClipNum=3/20230719_181939/20230719_181939.log",
@@ -69,15 +90,31 @@ def show_result_plots():
         # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v11-drop-div-video-clipLen=3-trainClipNum=3-valClipNum=3/20230901_033551/20230901_033551.log",
         # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v11-st-combined-clipLen=3-trainClipNum=3-valClipNum=3/20230909_200322/20230909_200322.log",
         # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v11-st-video-clipLen=3-trainClipNum=3-valClipNum=3/20230901_033807/20230901_033807.log",
+        # r"./work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v12-st-combined-clipLen=1-trainClipNum=1-valClipNum=1/20231005_041430/20231005_041430.log",
         #  r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v12-st-combined-clipLen=2-trainClipNum=3-valClipNum=3/20230928_023147/20230928_023147.log",
-        r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v12-st-video-clipLen=2-trainClipNum=3-valClipNum=3/20230928_023147/20230928_023147.log"
+        # r"./work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v12-st-combined-clipLen=3-trainClipNum=3-valClipNum=3/20231005_043230/20231005_043230.log",
+        # r"/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v12-st-video-clipLen=2-trainClipNum=3-valClipNum=3/20231001_154756/20231001_154756.log"
+        # r"./work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v13-drop-div-combined-clipLen=2-trainClipNum=3-valClipNum=3/20231019_003517/20231019_003517.log",
+        # r"./work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v13-drop-div-combined-clipLen=3-trainClipNum=3-valClipNum=3/20231019_003517/20231019_003517.log",
+        # r"./work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v13-drop-div-video-clipLen=2-trainClipNum=3-valClipNum=3/20231019_003517/20231019_003517.log",
+        # r"./work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v13-drop-div-video-clipLen=3-trainClipNum=3-valClipNum=3/20231019_003517/20231019_003517.log",
+        # r"./work_dirs/timesformer-default-divst-v13-st-video-random-crop/20231021_235643/20231021_235643.log",
+        # r"./work_dirs/timesformer-default-divst-v13-st-combined-random-crop/20231021_134335/20231021_134335.log",
+        r"./work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v13-inclusive-corrected-v1-all-clipLen=3-trainClipNum=3-valClipNum=3/20231029_141110/20231029_141110.log",
     ]
-    epoch = 30
+    epoch = 13
+    all_df = None
     for path in paths:
         print(">>> path:", path)
         get_avg_acc(path, epoch)
-        plot_avg_acc(path, epoch)
+        res_df = plot_avg_acc(path, epoch)
+        res_df["model"] = prune_log_filename(path)
+        if all_df is not None:
+            all_df = pd.concat([all_df, plot_avg_acc(path, epoch)])
+        else:
+            all_df = plot_avg_acc(path, epoch)
         print("-" * 50)
+    all_df.to_csv("result_plots/acc-compare.csv", index=False)
 
 
 if __name__ == "__main__":
