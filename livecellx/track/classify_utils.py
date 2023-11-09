@@ -24,6 +24,9 @@ def load_class2samples_from_json_dir(
         sample_paths = glob.glob(str(sample_json_dir / subfolder / "*.json"))
         for sample_path in sample_paths:
             sample = SingleCellStatic.load_single_cells_json(sample_path)
+            for sc in sample:
+                sc.meta["sample_src_dir"] = str(sample_json_dir)
+                sc.meta["sample_src_class"] = str(subfolder)
             class2samples[subfolder].append(sample)
     return class2samples
 
