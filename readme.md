@@ -7,11 +7,19 @@
 [![Development Status](https://img.shields.io/badge/status-pre--alpha-yellow)](https://en.wikipedia.org/wiki/Software_release_life_cycle#Pre-alpha)
 [![Documentation Status](https://readthedocs.org/projects/livecellx/badge/?version=latest)](https://livecellx.readthedocs.io/en/latest/?badge=latest)
 
-LivecellX is a comprehensive deep learning framework for Python, designed specifically for segmenting, tracking, and analyzing single-cell trajectories in long-term live-cell imaging datasets. We address incorrect segmentation cases, particularly over-segmentation and under-segmentation, using a correction module that follows a whole-image level segmentation provided by deep learning segmentation methods. This framework simplifies the data collection process through active learning and a human-in-the-loop approach. Furthermore, we showcase the ease with which cell events can be detected and analyzed, particularly through a mitosis detection task. To the best of our knowledge, we are providing the community with the first microscopy imaging correct segmentation dataset and a mitosis trajectory dataset for deep learning training. Our framework achieves near-perfect detection accuracy, exceeding 99%. You can follow our Jupyter notebooks in ./notebooks to reproduce our results. 
+LivecellX is a comprehensive deep learning framework written in Python, designed specifically for segmenting, tracking, and analyzing single-cell trajectories in live-cell imaging datasets.  
+
+### Correct segmentation network
+We address incorrect segmentation cases, particularly over-segmentation and under-segmentation cases, using a correction segmentation network (CSN) that follows a whole-image level segmentation provided by deep learning segmentation methods. The CSN framework simplifies the data collection process through active learning and a human-in-the-loop approach. To the best of our knowledge, we are providing the community with the first microscopy imaging correct segmentation dataset. 
+
+### Biological process classification and detection
+We provide a tool for users to annotate live-cell imaging datasets in Napari, and generate videos for deep learning training on video related tasks based on CNN or vision transformer based models.  
+
+To classify biological processes, we design a framework to classify and detect biological processes. We show case how to apply this framework by applying it to the single-cell mitosis trajectory classification task. Our framework achieves near-perfect detection accuracy, exceeding 99%, on mitosis classification task. You can follow our Jupyter notebooks in ./notebooks to reproduce our results and apply the pretrained models to detect mitosis events in your dataset. This framework can be applied to other biological processes.
 
 For more information, installation instructions, and tutorials, please visit our [official documentation](https://livecellx.readthedocs.io/en/latest/).
 
-> **Note:** This repository is in a pre-alpha stage. While it currently showcases basic use-cases like image segmentation and cell tracking, our complete version is slated for release in October 2023 alongside our manuscript. In the meantime, you may explore our [previous pipeline repository](https://github.com/xing-lab-pitt/xing-vimentin-dic-pipeline) maintained by Xing Lab.
+> **Note:** This repository is in a pre-alpha stage. While it currently showcases basic use-cases like image segmentation and cell tracking, our complete version is slated for release in Dec. 2023 alongside our manuscript and live-cell imaging annotated dataset. In the meantime, you may explore our [previous pipeline repository](https://github.com/xing-lab-pitt/xing-vimentin-dic-pipeline) maintained by Xing Lab.
 
 ## Installation
 
@@ -67,70 +75,3 @@ conda install -c conda-forge ffmpeg
 ## Precommit [Dev]  
 `pip install pre-commit`  
 `pre-commit install`
-
-## Expected input/output for each submodule
-
-**Note**  
-If you already have satisfying segmentation models or segmentation results, you may skip **Annotation** and **Segmentation** part below.
-### Annotation
-input: raw image files
-After annotating imaging datasets, you should have json files in COCO format ready for segmentation training. 
-
-#### Labelme
-Apply labelme to your datasets following our annotation protocol. 
-#### Convert labelme json to COCO format. 
-A fixed version of labelme2coco implementation is included in our package. Please refer to our tutorial on how to convert your labelme json to COCO format.  
-For CVAT, please export the annotation results as COCO, as shown in our annotation protocol.
-
-### Segmentation
-Segmentation has two phase. If you already have pytorch or tensorflow models trained on your dataset, you may skip training phase.
-
-### training phase
-input: COCO json files
-
-output: pytorch model (.pth file)
-
-### prediction phase
-input: raw images, a trained machine-learning based model  
-outputs: SingleCellStatic json outputs
-
-### Track
-input: SingleCellStatic
-- contour
-- bounding box
-
-output: SingleCellTrajectoryColletion
-- holding a collection of singleCellTrajectory each containing single cell time-lapse data
-- trajectory-wise feature can be calculated after track stage or at trajectory stage.
-
-### Trajectory
-input: SingleCellTrajectoryColletion
-
-output: 
-
-
-### Visualizer
-track.movie: generate_single_trajectory_movie()
-
-visualizer: viz_traj, viz_traj_collection
-
-{Documentation placeholder} [Move to docs/ and auto generate by readthedocs]
-
-### Analyze trajectories based on specific research topics
-
-
-## SingleCellStatic  
-class designed to hold all information about a single cell at some timepoint  
-**attributes**
-- time point
-- id (optional)
-- contour coordinates
-- cell bounding box
-- img crop (lazy)
-- feature map 
-- original img (reference/pointer)
-
-## SingleCellTrajectory
-- timeframe_set
-
-## SingleCellTrajectoryCollection
