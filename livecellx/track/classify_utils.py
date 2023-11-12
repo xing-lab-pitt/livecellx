@@ -57,7 +57,7 @@ def load_all_json_dirs(
     return all_class2samples, all_class2sample_extra_info
 
 
-def gen_one_sc_samples_by_window(sctc: SingleCellTrajectoryCollection, window_size=7, step_size=1):
+def gen_tid2samples_by_window(sctc: SingleCellTrajectoryCollection, window_size=7, step_size=1):
     tid2samples = {}
     tid2start_end_times = {}
     for tid, sct in sctc:
@@ -86,7 +86,7 @@ def gen_inference_sctc_sample_videos(
     sc_samples = []
     samples_info_list = []
 
-    tid2samples, tid2start_end_times = gen_one_sc_samples_by_window(sctc, window_size=window_size, step_size=step_size)
+    tid2samples, tid2start_end_times = gen_tid2samples_by_window(sctc, window_size=window_size, step_size=step_size)
     for tid, samples in tid2samples.items():
         start_end_times = tid2start_end_times[tid]
         for i, sample in enumerate(samples):
