@@ -165,16 +165,14 @@ def insert_time_segments(new_segment: Tuple[int, int], disjoint_segments: list):
         disjoint_segments.sort(key=lambda x: x[0])
         return
     # check if there is any overlap between segments
-    for i in range(len(disjoint_segments) - 1):
+    i = 0
+    while i < len(disjoint_segments) - 1:
         if disjoint_segments[i][1] >= disjoint_segments[i + 1][0]:
             # merge the two segments
-            disjoint_segments[i] = (
-                min(disjoint_segments[i][0], disjoint_segments[i + 1][0]),
-                max(disjoint_segments[i][1], disjoint_segments[i + 1][1]),
-            )
-            # remove the second segment
+            disjoint_segments[i] = (disjoint_segments[i][0], max(disjoint_segments[i][1], disjoint_segments[i + 1][1]))
             disjoint_segments.pop(i + 1)
-
+        else:  # no overlap
+            i += 1
     return disjoint_segments
 
 
@@ -258,14 +256,6 @@ def infer_sliding_window_traj(
             # TSN
             predicted_label = results.pred_labels.item.cpu().numpy()[0]
 
-        # if predicted_label == 0:
-        #     # print start, end time
-        #     start_time = row["start_time"]
-        #     end_time = row["end_time"]
-        #     insert_time_segments((start_time, end_time), disjoint_segments)
-        #     # copy the video file to mitosis folder
-        #     import shutil
-        #     shutil.copy(video_path, str(_sample_output_dir / f"mitosis/{video_filename}"))
         if predicted_label in class_labels:
             pred_class_dir = class2dir[class_names[predicted_label]]
             import shutil
