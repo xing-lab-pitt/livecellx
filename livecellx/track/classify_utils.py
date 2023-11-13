@@ -147,11 +147,27 @@ def is_decord_invalid_video(path):
     return False
 
 
-def insert_time_segments(new_segment: Tuple[int, int], disjoint_segments: list):
-    """add the new segment to segments, merge if there is overlap between new_segment and any segment in segments, keep all segments non-overlapping"""
+from typing import List, Tuple
+
+
+def insert_time_segments(
+    new_segment: Tuple[int, int], disjoint_segments: List[Tuple[int, int]], sort=True
+) -> List[Tuple[int, int]]:
+    """
+    Add the new segment to disjoint_segments, merge if there is overlap between new_segment and any segment in disjoint_segments, keep all segments non-overlapping.
+
+    Args:
+    - new_segment: A tuple representing the new segment to be added to disjoint_segments.
+    - disjoint_segments: A list of tuples representing the disjoint segments.
+
+    Returns:
+    - A list of tuples representing the updated disjoint segments.
+    """
     if len(disjoint_segments) == 0:
         disjoint_segments.append(new_segment)
-        return
+        return disjoint_segments
+    if sort:
+        disjoint_segments.sort(key=lambda x: x[0])
     # find the first segment that overlaps with new_segment
     merged = False
     for i, segment in enumerate(disjoint_segments):
@@ -163,7 +179,7 @@ def insert_time_segments(new_segment: Tuple[int, int], disjoint_segments: list):
     if not merged:
         disjoint_segments.append(new_segment)
         disjoint_segments.sort(key=lambda x: x[0])
-        return
+        return disjoint_segments
     # check if there is any overlap between segments
     i = 0
     while i < len(disjoint_segments) - 1:
