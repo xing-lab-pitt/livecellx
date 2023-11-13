@@ -4,7 +4,7 @@ import numpy as np
 from typing import List, Tuple
 
 from scipy import ndimage
-from livecellx.core.single_cell import SingleCellStatic, SingleCellTrajectoryCollection
+from livecellx.core.single_cell import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
 from livecellx.core.utils import gray_img_to_rgb, rgb_img_to_gray, label_mask_to_edt_mask
 from livecellx.preprocess.utils import normalize_img_to_uint8
 from livecellx.core.sc_video_utils import (
@@ -145,3 +145,141 @@ def is_decord_invalid_video(path):
         #     axes[i].imshow(frame[:, :, i])
         # plt.show()
     return False
+
+
+def insert_time_segments(new_segment: Tuple[int, int], disjoint_segments: list):
+    """add the new segment to segments, merge if there is overlap between new_segment and any segment in segments, keep all segments non-overlapping"""
+    if len(disjoint_segments) == 0:
+        disjoint_segments.append(new_segment)
+        return
+    # find the first segment that overlaps with new_segment
+    merged = False
+    for i, segment in enumerate(disjoint_segments):
+        if segment[0] <= new_segment[0] <= segment[1] or segment[0] <= new_segment[1] <= segment[1]:
+            # merge the new segment with the segment
+            disjoint_segments[i] = (min(segment[0], new_segment[0]), max(segment[1], new_segment[1]))
+            merged = True
+    # no overlap found, add the new segment
+    if not merged:
+        disjoint_segments.append(new_segment)
+        disjoint_segments.sort(key=lambda x: x[0])
+        return
+    # check if there is any overlap between segments
+    for i in range(len(disjoint_segments) - 1):
+        if disjoint_segments[i][1] >= disjoint_segments[i + 1][0]:
+            # merge the two segments
+            disjoint_segments[i] = (
+                min(disjoint_segments[i][0], disjoint_segments[i + 1][0]),
+                max(disjoint_segments[i][1], disjoint_segments[i + 1][1]),
+            )
+            # remove the second segment
+            disjoint_segments.pop(i + 1)
+
+    return disjoint_segments
+
+
+def infer_sliding_window_traj(
+    sct: SingleCellTrajectory,
+    model,
+    frame_type,
+    window_size=8,
+    padding_pixels=[200],
+    out_dir="./_tmp_samples",
+    prefix="samples",
+    fps=3,
+    class_labels=[0],
+    class_names=["mitosis"],
+):
+    """
+    Infers the sliding window trajectory for a given SingleCellTrajectory object using a pre-trained model.
+
+    Args:
+        sct (SingleCellTrajectory): The SingleCellTrajectory object to infer the sliding window trajectory for.
+        model: The pre-trained model to use for inference.
+        frame_type: The type of frame to use for inference.
+        window_size (int): The size of the sliding window to use for generating samples.
+        padding_pixels (list): The number of pixels to pad the samples with.
+        out_dir (str): The output directory to save the generated samples to.
+        prefix (str): The prefix to use for the generated sample filenames.
+        fps (int): The frames per second to use for the generated sample videos.
+        class_labels (list): The class labels to use for inference.
+        class_names (list): The class names to use for inference.
+
+    Returns:
+        dict: A dictionary containing the disjoint segments, sample output directory, all video dataframe, test dataframe, and predicted labels.
+    """
+    from tqdm import tqdm
+    from mmaction.apis import init_recognizer, inference_recognizer
+
+    # Create a temporary SingleCellTrajectoryCollection and add the trajectory to it
+    tmp_sctc = SingleCellTrajectoryCollection()
+    tmp_sctc.add_trajectory(sct)
+
+    # Generate the samples for the trajectory using a sliding window approach
+    tid2samples, tid2start_end_times = gen_tid2samples_by_window(tmp_sctc, window_size=window_size)
+
+    # Get the samples for the specific trajectory
+    sample_tid_samples = tid2samples[sct.track_id]
+
+    # Generate the inference samples and save them to a video
+    _sample_output_dir = Path(out_dir)
+    specific_traj_video_df = gen_inference_sctc_sample_videos(
+        tmp_sctc, padding_pixels=padding_pixels, out_dir=_sample_output_dir, prefix=prefix, fps=fps
+    )
+
+    if class_labels is not None:
+        assert len(class_labels) == len(class_names), "save_classes and class_names must have the same length"
+        class_name_to_segments = {}
+        save_class_dir = _sample_output_dir / "classes_videos"
+        class2dir = {}
+        for class_name in class_names:
+            if not save_class_dir.exists():
+                save_class_dir.mkdir(parents=True)
+            class_dir = save_class_dir / class_name
+            if not class_dir.exists():
+                class_dir.mkdir(parents=True)
+            class2dir[class_name] = class_dir
+            class_name_to_segments[class_name] = []
+        class_label2name = {class_labels[i]: class_name for i, class_name in enumerate(class_names)}
+
+    selected_df = specific_traj_video_df[specific_traj_video_df["frame_type"] == frame_type]
+
+    preds = []
+    for i, row in tqdm(selected_df.iterrows(), total=len(selected_df)):
+        video_filename = row["path"]
+        video_path = str(_sample_output_dir / "videos" / video_filename)
+
+        # Inference
+        results = inference_recognizer(model, video_path)
+        if "pred_label" in results.keys():
+            # TimeSformer
+            predicted_label = results.pred_label.cpu().numpy()[0]
+        else:
+            # TSN
+            predicted_label = results.pred_labels.item.cpu().numpy()[0]
+
+        # if predicted_label == 0:
+        #     # print start, end time
+        #     start_time = row["start_time"]
+        #     end_time = row["end_time"]
+        #     insert_time_segments((start_time, end_time), disjoint_segments)
+        #     # copy the video file to mitosis folder
+        #     import shutil
+        #     shutil.copy(video_path, str(_sample_output_dir / f"mitosis/{video_filename}"))
+        if predicted_label in class_labels:
+            pred_class_dir = class2dir[class_names[predicted_label]]
+            import shutil
+
+            shutil.copy(video_path, str(pred_class_dir / video_filename))
+            class_name = class_label2name[predicted_label]
+            insert_time_segments((row["start_time"], row["end_time"]), class_name_to_segments[class_name])
+
+        preds.append(predicted_label)
+
+    return {
+        "disjoint_segments": class_name_to_segments,
+        "sample_output_dir": _sample_output_dir,
+        "all_video_df": specific_traj_video_df,
+        "test_df": selected_df,
+        "preds": preds,
+    }
