@@ -1393,6 +1393,12 @@ def show_sct_on_grid(
             "start timeframe larger than the first timeframe of the trajectory, replace start_timeframe with the first timeframe..."
         )
         start = span_range[0]
+
+    if isinstance(ax_contour_polygon_kwargs, dict):
+        ax_contour_polygon_kwargs_list = [ax_contour_polygon_kwargs] * nr * nc
+    else:
+        ax_contour_polygon_kwargs_list = ax_contour_polygon_kwargs
+
     for r in range(nr):
         for c in range(nc):
             ax = axes[r, c]
@@ -1421,7 +1427,8 @@ def show_sct_on_grid(
             from matplotlib.patches import Polygon
 
             polygon = Polygon(
-                np.array([contour_coords[:, 1], contour_coords[:, 0]]).transpose(), **ax_contour_polygon_kwargs
+                np.array([contour_coords[:, 1], contour_coords[:, 0]]).transpose(),
+                **ax_contour_polygon_kwargs_list[r * nc + c],
             )
             ax.add_patch(polygon)
             ax.set_title(f"time: {timeframe}", fontsize=ax_title_fontsize)
