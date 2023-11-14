@@ -6,6 +6,7 @@ import numpy as np
 
 import magicgui as mgui
 from magicgui import magicgui
+from unittest.mock import patch
 from magicgui.widgets import Container, PushButton, Widget, create_widget
 from napari.layers import Shapes
 from pathlib import Path
@@ -507,11 +508,12 @@ class SctOperator:
         print("<annotate click operation complete>")
 
     def edit_selected_sc(self):
-        # get the selected shape
-        current_properties = self.shape_layer.current_properties
-        if len(current_properties) == 0:
+        # Check if any shapes are selected by looking at the selected_data attribute
+        if not self.shape_layer.selected_data and self.shape_layer.current_properties["status"][0] == "":
             main_warning("Please select a shape to edit its properties.")
             return
+        # get the selected shape
+        current_properties = self.shape_layer.current_properties
         if len(current_properties) > 1:
             main_warning("More than one shape is selected. The first selected shape is used for editing.")
         cur_sc = current_properties["sc"][0]
@@ -579,6 +581,7 @@ class SctOperator:
             sample_dicts = self.cls2annotated_sample_infos[label]
             label_dir: Path = sample_out_dir / label
             label_dir.mkdir(exist_ok=True)
+            print("label_dir: ", label_dir)
             for i, sample_dict in enumerate(sample_dicts):
                 sample = sample_dict["sample"]
                 sample_id = sample_dict["sample_id"]
@@ -593,6 +596,7 @@ class SctOperator:
                         }
                     )
                 sample_json_path = label_dir / (filename_pattern.format(sample_index=sample_id))
+                print("saving sample to: ", sample_json_path)
                 SingleCellStatic.write_single_cells_json(sample, sample_json_path, dataset_dir=sample_dataset_dir)
                 sample_paths.append(sample_json_path)
         main_info("saving scs")
@@ -609,6 +613,7 @@ class SctOperator:
 
         SingleCellStatic.write_single_cells_json(filtered_scs, scs_json_path, dataset_dir=sample_dataset_dir)
         print("<saving annotations complete>")
+        print("sample_paths: ", sample_paths)
         return sample_paths
 
     def add_new_sc(self):

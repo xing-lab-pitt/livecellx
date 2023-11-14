@@ -239,15 +239,16 @@ def video_frames_and_masks_from_sample(
     return video_frames, video_frame_masks
 
 
-def combine_video_frames_and_masks(video_frames, video_frame_masks, edt_transform=True):
+def combine_video_frames_and_masks(video_frames, video_frame_masks, edt_transform=True, is_gray=False):
     """returns a list of combined video frames and masks, each item contains a 3-channel image with first channel as frame and second channel as mask"""
     if edt_transform:
         video_frame_masks = [label_mask_to_edt_mask(x) for x in video_frame_masks]
 
     res_frames = []
     for frame, mask in zip(video_frames, video_frame_masks):
-        frame = rgb_img_to_gray(frame)
-        mask = rgb_img_to_gray(mask)
+        if not is_gray:
+            frame = rgb_img_to_gray(frame)
+            mask = rgb_img_to_gray(mask)
         res_frame = np.array([frame, mask, mask]).transpose(1, 2, 0)
         res_frames.append(res_frame)
     return res_frames

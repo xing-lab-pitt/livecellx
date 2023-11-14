@@ -4,7 +4,7 @@ import numpy as np
 from typing import List, Tuple
 
 from scipy import ndimage
-from livecellx.core.single_cell import SingleCellStatic, SingleCellTrajectoryCollection
+from livecellx.core.single_cell import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
 from livecellx.core.utils import gray_img_to_rgb, rgb_img_to_gray, label_mask_to_edt_mask
 from livecellx.preprocess.utils import normalize_img_to_uint8
 from livecellx.core.sc_video_utils import (
@@ -24,6 +24,9 @@ def load_class2samples_from_json_dir(
         sample_paths = glob.glob(str(sample_json_dir / subfolder / "*.json"))
         for sample_path in sample_paths:
             sample = SingleCellStatic.load_single_cells_json(sample_path)
+            for sc in sample:
+                sc.meta["sample_src_dir"] = str(sample_json_dir)
+                sc.meta["sample_src_class"] = str(subfolder)
             class2samples[subfolder].append(sample)
     return class2samples
 
@@ -54,7 +57,7 @@ def load_all_json_dirs(
     return all_class2samples, all_class2sample_extra_info
 
 
-def gen_one_sc_samples_by_window(sctc: SingleCellTrajectoryCollection, window_size=7, step_size=1):
+def gen_tid2samples_by_window(sctc: SingleCellTrajectoryCollection, window_size=7, step_size=1):
     tid2samples = {}
     tid2start_end_times = {}
     for tid, sct in sctc:
@@ -83,7 +86,7 @@ def gen_inference_sctc_sample_videos(
     sc_samples = []
     samples_info_list = []
 
-    tid2samples, tid2start_end_times = gen_one_sc_samples_by_window(sctc, window_size=window_size, step_size=step_size)
+    tid2samples, tid2start_end_times = gen_tid2samples_by_window(sctc, window_size=window_size, step_size=step_size)
     for tid, samples in tid2samples.items():
         start_end_times = tid2start_end_times[tid]
         for i, sample in enumerate(samples):
@@ -102,3 +105,187 @@ def gen_inference_sctc_sample_videos(
         fps=fps,
     )
     return saved_sample_info_df
+
+
+def save_data_input(data_input, file_path):
+    from livecellx.core.sc_video_utils import gen_mp4_from_frames
+
+    imgs = data_input[1][2].detach().cpu().numpy()  # 8 x 224 x 224
+    masks = data_input[1][0].detach().cpu().numpy()  # 8 x 224 x 224
+    imgs = list(imgs)
+    masks = list(masks)
+    imgs = [normalize_img_to_uint8(img) for img in imgs]
+    masks = [normalize_img_to_uint8(mask) for mask in masks]
+
+    # already edt transformed
+    frames = combine_video_frames_and_masks(imgs, masks, is_gray=True, edt_transform=False)
+    gen_mp4_from_frames(frames, file_path)
+
+
+def is_decord_invalid_video(path):
+    """More information: https://github.com/dmlc/decord/issues/150"""
+    import decord
+
+    reader = decord.VideoReader(str(path))
+    reader.seek(0)
+    imgs = list()
+    frame_inds = range(0, len(reader))
+    for idx in frame_inds:
+        reader.seek(idx)
+        frame = reader.next()
+        imgs.append(frame.asnumpy())
+        frame = frame.asnumpy()
+
+        num_channels = frame.shape[-1]
+        if num_channels != 3:
+            print("invalid video for decord (https://github.com/dmlc/decord/issues/150): ", path)
+            return True
+        # fig, axes = plt.subplots(1, num_channels, figsize=(20, 10))
+        # for i in range(num_channels):
+        #     axes[i].imshow(frame[:, :, i])
+        # plt.show()
+    return False
+
+
+from typing import List, Tuple
+
+
+def insert_time_segments(
+    new_segment: Tuple[int, int], disjoint_segments: List[Tuple[int, int]], sort=True
+) -> List[Tuple[int, int]]:
+    """
+    Add the new segment to disjoint_segments, merge if there is overlap between new_segment and any segment in disjoint_segments, keep all segments non-overlapping.
+
+    Args:
+    - new_segment: A tuple representing the new segment to be added to disjoint_segments.
+    - disjoint_segments: A list of tuples representing the disjoint segments.
+
+    Returns:
+    - A list of tuples representing the updated disjoint segments.
+    """
+    if len(disjoint_segments) == 0:
+        disjoint_segments.append(new_segment)
+        return disjoint_segments
+    if sort:
+        disjoint_segments.sort(key=lambda x: x[0])
+    # find the first segment that overlaps with new_segment
+    merged = False
+    for i, segment in enumerate(disjoint_segments):
+        if segment[0] <= new_segment[0] <= segment[1] or segment[0] <= new_segment[1] <= segment[1]:
+            # merge the new segment with the segment
+            disjoint_segments[i] = (min(segment[0], new_segment[0]), max(segment[1], new_segment[1]))
+            merged = True
+    # no overlap found, add the new segment
+    if not merged:
+        disjoint_segments.append(new_segment)
+        disjoint_segments.sort(key=lambda x: x[0])
+        return disjoint_segments
+    # check if there is any overlap between segments
+    i = 0
+    while i < len(disjoint_segments) - 1:
+        if disjoint_segments[i][1] >= disjoint_segments[i + 1][0]:
+            # merge the two segments
+            disjoint_segments[i] = (disjoint_segments[i][0], max(disjoint_segments[i][1], disjoint_segments[i + 1][1]))
+            disjoint_segments.pop(i + 1)
+        else:  # no overlap
+            i += 1
+    return disjoint_segments
+
+
+def infer_sliding_window_traj(
+    sct: SingleCellTrajectory,
+    model,
+    frame_type,
+    window_size=8,
+    padding_pixels=[200],
+    out_dir="./_tmp_samples",
+    prefix="samples",
+    fps=3,
+    class_labels=[0],
+    class_names=["mitosis"],
+):
+    """
+    Infers the sliding window trajectory for a given SingleCellTrajectory object using a pre-trained model.
+
+    Args:
+        sct (SingleCellTrajectory): The SingleCellTrajectory object to infer the sliding window trajectory for.
+        model: The pre-trained model to use for inference.
+        frame_type: The type of frame to use for inference.
+        window_size (int): The size of the sliding window to use for generating samples.
+        padding_pixels (list): The number of pixels to pad the samples with.
+        out_dir (str): The output directory to save the generated samples to.
+        prefix (str): The prefix to use for the generated sample filenames.
+        fps (int): The frames per second to use for the generated sample videos.
+        class_labels (list): The class labels to use for inference.
+        class_names (list): The class names to use for inference.
+
+    Returns:
+        dict: A dictionary containing the disjoint segments, sample output directory, all video dataframe, test dataframe, and predicted labels.
+    """
+    from tqdm import tqdm
+    from mmaction.apis import init_recognizer, inference_recognizer
+
+    # Create a temporary SingleCellTrajectoryCollection and add the trajectory to it
+    tmp_sctc = SingleCellTrajectoryCollection()
+    tmp_sctc.add_trajectory(sct)
+
+    # Generate the samples for the trajectory using a sliding window approach
+    tid2samples, tid2start_end_times = gen_tid2samples_by_window(tmp_sctc, window_size=window_size)
+
+    # Get the samples for the specific trajectory
+    sample_tid_samples = tid2samples[sct.track_id]
+
+    # Generate the inference samples and save them to a video
+    _sample_output_dir = Path(out_dir)
+    specific_traj_video_df = gen_inference_sctc_sample_videos(
+        tmp_sctc, padding_pixels=padding_pixels, out_dir=_sample_output_dir, prefix=prefix, fps=fps
+    )
+
+    if class_labels is not None:
+        assert len(class_labels) == len(class_names), "save_classes and class_names must have the same length"
+        class_name_to_segments = {}
+        save_class_dir = _sample_output_dir / "classes_videos"
+        class2dir = {}
+        for class_name in class_names:
+            if not save_class_dir.exists():
+                save_class_dir.mkdir(parents=True)
+            class_dir = save_class_dir / class_name
+            if not class_dir.exists():
+                class_dir.mkdir(parents=True)
+            class2dir[class_name] = class_dir
+            class_name_to_segments[class_name] = []
+        class_label2name = {class_labels[i]: class_name for i, class_name in enumerate(class_names)}
+
+    selected_df = specific_traj_video_df[specific_traj_video_df["frame_type"] == frame_type]
+
+    preds = []
+    for i, row in tqdm(selected_df.iterrows(), total=len(selected_df)):
+        video_filename = row["path"]
+        video_path = str(_sample_output_dir / "videos" / video_filename)
+
+        # Inference
+        results = inference_recognizer(model, video_path)
+        if "pred_label" in results.keys():
+            # TimeSformer
+            predicted_label = results.pred_label.cpu().numpy()[0]
+        else:
+            # TSN
+            predicted_label = results.pred_labels.item.cpu().numpy()[0]
+
+        if predicted_label in class_labels:
+            pred_class_dir = class2dir[class_names[predicted_label]]
+            import shutil
+
+            shutil.copy(video_path, str(pred_class_dir / video_filename))
+            class_name = class_label2name[predicted_label]
+            insert_time_segments((row["start_time"], row["end_time"]), class_name_to_segments[class_name])
+
+        preds.append(predicted_label)
+
+    return {
+        "disjoint_segments": class_name_to_segments,
+        "sample_output_dir": _sample_output_dir,
+        "all_video_df": specific_traj_video_df,
+        "test_df": selected_df,
+        "preds": preds,
+    }

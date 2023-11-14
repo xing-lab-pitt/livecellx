@@ -53,6 +53,9 @@ class SctOperatorTest(unittest.TestCase):
         self.sample_dir = Path("./test_sample_dir")
         if not self.sample_dir.exists():
             self.sample_dir.mkdir(parents=True)
+        self.sample_dir = Path("./test_sample_dir")
+        if not self.sample_dir.exists():
+            self.sample_dir.mkdir(parents=True)
 
     def test_delete_selected_sct(self):
         # Given: Initial state
@@ -73,6 +76,9 @@ class SctOperatorTest(unittest.TestCase):
         all_track_ids = self.traj_collection.get_all_tids()
         all_track_ids.remove(track_id_to_delete)
 
+        all_track_ids = self.traj_collection.get_all_tids()
+        all_track_ids.remove(track_id_to_delete)
+
         # When: Deleting selected trajectory
         self.sct_operator.delete_selected_sct()
 
@@ -84,8 +90,11 @@ class SctOperatorTest(unittest.TestCase):
         self.assertEqual(self.sct_operator.select_info, [])  # Assuming select_info is cleared after deletion
 
         # 3. Check if the only shape related to the deleted trajectory has been removed from the shape_layer
+        # 3. Check if the only shape related to the deleted trajectory has been removed from the shape_layer
         shape_track_ids = self.sct_operator.shape_layer.properties["track_id"]
         self.assertNotIn(track_id_to_delete, shape_track_ids)
+        for tid in all_track_ids:
+            self.assertIn(tid, shape_track_ids)
         for tid in all_track_ids:
             self.assertIn(tid, shape_track_ids)
 
@@ -122,6 +131,8 @@ class SctOperatorTest(unittest.TestCase):
                 self.assertTrue(isinstance(data, list))
 
                 # 2. Verify each item in the list is a dictionary representing a SingleCellStatic instance
+                for sc_dict in data:
+                    self.assertTrue(isinstance(sc_dict, dict))
                 for sc_dict in data:
                     self.assertTrue(isinstance(sc_dict, dict))
                     # Example checks for the expected keys in each dictionary

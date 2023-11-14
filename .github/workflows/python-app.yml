@@ -45,3 +45,4 @@ jobs:
       - name: Test with pytest
         run: |
           pytest ./tests
+          python -m unittest discover -s tests -p "test_*.py"
