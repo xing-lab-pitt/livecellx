@@ -7,7 +7,7 @@
 [![Development Status](https://img.shields.io/badge/status-pre--alpha-yellow)](https://en.wikipedia.org/wiki/Software_release_life_cycle#Pre-alpha)
 [![Documentation Status](https://readthedocs.org/projects/livecellx/badge/?version=latest)](https://livecellx.readthedocs.io/en/latest/?badge=latest)
 
-LivecellX is a comprehensive deep learning framework written in Python, designed specifically for segmenting, tracking, and analyzing single-cell trajectories in live-cell imaging datasets.  
+LivecellX is a comprehensive deep learning live-cell analysis framework written in Python, designed specifically for segmenting, tracking, and analyzing single-cell trajectories in live-cell imaging datasets.  
 
 ### Correct segmentation network
 We address incorrect segmentation cases, particularly over-segmentation and under-segmentation cases, using a correction segmentation network (CSN) that follows a whole-image level segmentation provided by deep learning segmentation methods. The CSN framework simplifies the data collection process through active learning and a human-in-the-loop approach. To the best of our knowledge, we are providing the community with the first microscopy imaging correct segmentation dataset. 
