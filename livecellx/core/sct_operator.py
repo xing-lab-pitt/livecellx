@@ -6,7 +6,6 @@ import numpy as np
 
 import magicgui as mgui
 from magicgui import magicgui
-from unittest.mock import patch
 from magicgui.widgets import Container, PushButton, Widget, create_widget
 from napari.layers import Shapes
 from pathlib import Path
