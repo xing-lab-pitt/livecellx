@@ -377,6 +377,9 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         """Get the time span of the dataset"""
         return self.get_sorted_times()[0], self.get_sorted_times()[-1]
 
+    def has_time(self, time):
+        return time in self.time2url
+
 
 class SingleImageDataset(LiveCellImageDataset):
     DEFAULT_TIME = 0
@@ -397,10 +400,10 @@ class SingleImageDataset(LiveCellImageDataset):
     def read_single_img_from_mem(self, url):
         return self.img.copy()
 
-    def get_img_by_time(self, time) -> np.array:
+    def get_img_by_time(self, time=None) -> np.array:
         return self.read_single_img_from_mem(self.url)
 
-    def get_img_by_idx(self, idx):
+    def get_img_by_idx(self, idx=None):
         return self.read_single_img_from_mem(self.url)
 
 

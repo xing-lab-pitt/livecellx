@@ -4,6 +4,7 @@ import numpy as np
 import json
 from json import JSONEncoder
 import pandas as pd
+from pathlib import Path, PureWindowsPath
 
 
 class LiveCellEncoder(JSONEncoder):
@@ -12,6 +13,8 @@ class LiveCellEncoder(JSONEncoder):
             return obj.tolist()
         elif isinstance(obj, pd.Series):
             return json.loads(obj.to_json())  # loads for converting string to list
+        elif isinstance(obj, Path):
+            return str(PureWindowsPath(obj).as_posix())
         return JSONEncoder.default(self, obj)
 
 

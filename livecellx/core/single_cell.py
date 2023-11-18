@@ -183,13 +183,12 @@ class SingleCellStatic:
         return self.img_dataset.get_img_by_time(self.timeframe)
 
     def get_mask(self, dtype=bool):
-        if not (self.mask_dataset is None):
+        if isinstance(self.mask_dataset, SingleImageDataset):
+            return self.mask_dataset.get_img_by_time()
+        elif not (self.mask_dataset is None) and (self.timeframe in self.mask_dataset.time2url):
             return self.mask_dataset[self.timeframe]
         elif self.contour is not None:
-            shape = self.get_img().shape
-            mask = np.zeros(shape, dtype=dtype)
-            mask[self.contour[0, :], self.contour[1, :]] = True
-            return mask
+            return self.get_contour_mask(crop=True, dtype=dtype)
         else:
             raise ValueError("mask dataset and contour are both None")
 
