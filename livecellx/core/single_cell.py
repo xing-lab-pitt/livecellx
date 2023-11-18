@@ -129,13 +129,16 @@ class SingleCellStatic:
     # TODO: [smz] implement this
     # def equals(self, other_cell: "SingleCellStatic", bbox=None, padding=0, iou_threshold=0.5):
 
-    def compute_regionprops(self, crop=True):
+    def compute_regionprops(self, crop=True, ignore_errors=False):
         props = regionprops(
             label_image=self.get_contour_mask(crop=crop).astype(int), intensity_image=self.get_contour_img(crop=crop)
         )
 
         # TODO: multiple cell parts? WARNING in the future
-        assert len(props) == 1, "contour mask should contain only one region"
+        if not ignore_errors:
+            assert (
+                len(props) == 1
+            ), "contour mask should contain only one region. You can set ignore_errors=True to ignore this error/check."
         return props[0]
 
     # TODO: optimize compute overlap mask functions by taking union of two single cell's merged bboxes and then only operate on the union region to make the process faster
