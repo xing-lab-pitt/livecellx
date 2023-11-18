@@ -1,0 +1,4 @@
+bash /home/ken67/livecellx/notebooks/scripts/mmdetection_classify/local_eval_scripts/eval_timesformer-default-divst-v13-inclusive-corrected-combined-random-crop-sampling-sequential.sh
+bash /home/ken67/livecellx/notebooks/scripts/mmdetection_classify/local_eval_scripts/eval_timesformer-default-divst-v13-inclusive-with-mitosis-type-combined-random-crop-sampling-sequential.sh
+bash /home/ken67/livecellx/notebooks/scripts/mmdetection_classify/local_eval_scripts/eval_timesformer-small-tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-combined-clipLen=1-trainClipNum=3-valClipNum=3.sh
+bash /home/ken67/livecellx/notebooks/scripts/mmdetection_classify/local_eval_scripts/eval_timesformer-small-tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-combined-clipLen=3-trainClipNum=3-valClipNum=3.sh
