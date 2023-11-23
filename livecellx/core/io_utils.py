@@ -36,7 +36,7 @@ def save_tiff(img: np.array, path: str, mode="L"):
 
 
 def save_general(img: np.array, path: str, mode="L"):
-    """save image to tiff file
+    """save image to img file
 
     Parameters
     ----------
