@@ -13,6 +13,7 @@ from matplotlib.animation import FuncAnimation
 import pandas as pd
 from skimage.measure._regionprops import RegionProperties
 from skimage.measure import regionprops
+import tqdm
 import uuid
 
 from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
@@ -424,16 +425,20 @@ class SingleCellStatic:
         _type_
             _description_
         """
+        main_info("loading single cells from json file: " + path)
         with open(path, "r") as f:
             sc_json_dict_list = json.load(f)
+        main_info("loaded " + str(len(sc_json_dict_list)) + " single cells")
 
+        main_info("constructing single cells from json dict...")
         # contour = [] here to suppress warning
         single_cells = []
-        for sc_json_dict in sc_json_dict_list:
+        for sc_json_dict in tqdm.tqdm(sc_json_dict_list):
             # Load the single cell from json dict
             sc = SingleCellStatic(contour=[]).load_from_json_dict(sc_json_dict)
             single_cells.append(sc)
 
+        main_info("done constructing single cells from json dict")
         return single_cells
 
     @staticmethod
@@ -1060,10 +1065,16 @@ class SingleCellTrajectory:
 
         return copy.deepcopy(self)
 
+    def is_empty(self):
+        return len(self.timeframe_set) == 0
+
     def subsct(self, min_time, max_time, track_id=None, keep_track_id=False):
         """return a subtrajectory of this trajectory, with timeframes between min_time and max_time. Mother and daugher info will be copied if the min_time and max_time are the start and end of the new trajectory, respectively."""
         require_copy_mothers_info = False
         require_copy_daughters_info = False
+        if self.is_empty():
+            return SingleCellTrajectory(track_id=track_id)
+
         self_span = self.get_timeframe_span()
 
         # TODO: if time is float case, consider round-off errors
@@ -1268,11 +1279,14 @@ class SingleCellTrajectoryCollection:
         remove_scs = []
         for tid, sct in self:
             _tmp_scs = sct.get_all_scs()
+            to_be_removed = True
             for sc in _tmp_scs:
                 if len(sc.contour) > 0:
+                    to_be_removed = False
                     break
-            remove_tids.append(tid)
-            remove_scs.extend(_tmp_scs)
+            if to_be_removed:
+                remove_tids.append(tid)
+                remove_scs.extend(_tmp_scs)
         for tid in remove_tids:
             self.pop_trajectory(tid)
 
