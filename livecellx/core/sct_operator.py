@@ -71,6 +71,10 @@ class SctOperator:
     def remove_sc_operator(self, sc_operator):
         self.sc_operators.remove(sc_operator)
 
+    def get_meta(self, key):
+        """Returns meta info. mainly used by Napari function callbacks"""
+        return self.meta[key]
+
     def clear_sc_opeartors(self):
         # the close method changes the length of the list, so we need to make a copy
         cur_sc_operators = list(self.sc_operators)
@@ -349,20 +353,42 @@ class SctOperator:
         self.store_shape_layer_info()
 
     def setup_from_sctc(self, sctc: SingleCellTrajectoryCollection, contour_sample_num=20):
-        shape_layer = NapariVisualizer.gen_trajectories_shapes(sctc, self.viewer, contour_sample_num=contour_sample_num)
+        shape_layer = NapariVisualizer.gen_trajectories_shapes(
+            sctc,
+            self.viewer,
+            contour_sample_num=contour_sample_num,
+            text_parameters={
+                "string": "{track_id:0.0f}\n{status}",
+                "size": 12,
+                "color": "white",
+                "anchor": "center",
+                "translation": [-2, 0],
+            },
+        )
         if self.shape_layer is not None:
             self.remove_shape_layer()
         self.setup_shape_layer(shape_layer)
         self.traj_collection = sctc
         return shape_layer
 
-    def setup_by_timespan(self, span: tuple, contour_sample_num=20):
+    def setup_by_timespan(self, span: tuple, contour_sample_num=None, contour_sample_key="_contour_sample_num"):
+        main_info(f"setting up shape layer by time span: {span}")
         tmp_sctc = filter_sctc_by_time_span(self.traj_collection, span)
         if self.shape_layer is not None:
             self.remove_shape_layer()
+
+        if contour_sample_num is None and contour_sample_key is not None:
+            contour_sample_num = self.meta[contour_sample_key]
+        else:
+            main_warning("contour_sample_num and contour_sample_key are both None, using default value 20")
+            contour_sample_num = 20  # Default number of contour samples
+        main_info(f"contour_sample_num: {contour_sample_num}", indent_level=2)
+
+        main_info("Generating Shapes in napari...")
         shape_layer = NapariVisualizer.gen_trajectories_shapes(
             tmp_sctc, self.viewer, contour_sample_num=contour_sample_num
         )
+        main_info("Setting up shape layer...")
         self.setup_shape_layer(shape_layer)
         return shape_layer
 
@@ -373,15 +399,24 @@ class SctOperator:
         Args:
             update_slice: A slice object representing the range of indices to update. If None, all indices are updated.
         """
+
+        main_info("storing sct shapes information...")
+        start_time = datetime.datetime.now()
         # check if original_face_colors is initialized
         if not hasattr(self, "original_face_colors"):
             self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
         if not hasattr(self, "original_scs"):
             self.original_scs = list(self.shape_layer.properties["sc"])
         if not hasattr(self, "original_properties"):
-            self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
-        if not hasattr(self, "original_shape_data"):
-            self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
+            # self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
+            # deep copy all except the single cells
+            self.original_properties = {}
+            for key in self.shape_layer.properties.keys():
+                if key == "sc":
+                    continue
+                self.original_properties[key] = copy.deepcopy(self.shape_layer.properties[key])
+        # if not hasattr(self, "original_shape_data"):
+        #     self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
 
         if update_slice:
             # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
@@ -389,19 +424,28 @@ class SctOperator:
             # Do not save the deep copied version of the single cells! We just keep one copy of the single cells in the shape layer.
             self.original_scs[update_slice] = list(self.shape_layer.properties["sc"])[update_slice]
             for key in self.original_properties.keys():
+                if key == "sc":
+                    continue
                 self.original_properties[key][update_slice] = copy.deepcopy(self.shape_layer.properties.copy())[key][
                     update_slice
                 ]
-            self.original_shape_data[update_slice] = copy.deepcopy(self.shape_layer.data.copy())[update_slice]
+            # self.original_shape_data[update_slice] = copy.deepcopy(self.shape_layer.data.copy())[update_slice]
             self.original_properties["sc"][update_slice] = self.original_scs[update_slice]
         else:
             self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
             self.original_scs = list(self.shape_layer.properties["sc"])
             # self.original_properties = copy.deepcopy(self.shape_layer.properties.copy())
             for key in self.original_properties.keys():
-                self.original_properties[key] = copy.deepcopy(self.shape_layer.properties.copy())[key]
-            self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
+                if key == "sc":
+                    continue
+                self.original_properties[key] = copy.deepcopy(self.shape_layer.properties[key])
+            # self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
             self.original_properties["sc"] = self.original_scs  # avoid deepcopying the single cells
+
+        end_time = datetime.datetime.now()
+
+        # Report time elapsed in seconds
+        main_info("storing sct shapes information complete, seconds: " + str((end_time - start_time).total_seconds()))
 
     def restore_shapes_data(self):
         print("<restoring sct shapes>")
@@ -616,7 +660,8 @@ class SctOperator:
         print("<adding new sc>")
         assert self.time_span is not None, "Please set the time span first."
         min_time = self.time_span[0]
-        # min_time = 0 # TODO: if we regulate that img_dataset is always used, then we can use this line
+        # TODO: discuss if we regulate that all of the img_dataset is always used, then min time should always be zero
+        # min_time = 0
         cur_time = self.viewer.dims.current_step[0] + min_time
         new_sc = SingleCellStatic(timeframe=cur_time, contour=[], img_dataset=self.img_dataset)
         new_sc.meta["created_by"] = "sct_operator"
@@ -836,7 +881,12 @@ def create_sct_napari_ui(sct_operator: SctOperator):
 
 
 def create_scts_operator_viewer(
-    sctc: SingleCellTrajectoryCollection, img_dataset=None, viewer=None, time_span=None, contour_sample_num=20
+    sctc: SingleCellTrajectoryCollection,
+    img_dataset=None,
+    viewer=None,
+    time_span=None,
+    contour_sample_num=20,
+    skip_add_shapes=False,
 ) -> SctOperator:
     import napari
     from livecellx.core.napari_visualizer import NapariVisualizer
@@ -855,17 +905,31 @@ def create_scts_operator_viewer(
         main_info(
             f"A new SCTC object with size {len(sctc)} is created by subsetting the original sctc with time span {time_span}"
         )
+        main_info("Storing the new sctc in the sct_operator...")
 
     # if the img_dataset is not None, then we can use it to determine the time span
     if img_dataset is not None:
         time_span = img_dataset.time_span()
     if viewer is None:
+        main_info("viewer is None, creating a new viewer...")
         if img_dataset is not None:
+            main_info("Creating a new viewer with the img_dataset...")
             viewer = napari.view_image(img_dataset.to_dask(), name="img_image", cache=True)
         else:
+            main_info("Creating a new viewer because img_dataset is None...")
             viewer = napari.Viewer()
 
-    shape_layer = NapariVisualizer.gen_trajectories_shapes(sctc, viewer, contour_sample_num=contour_sample_num)
+    main_info("Creating a new shape layer...")
+    if not skip_add_shapes:
+        main_info("Adding shapes to the shape layer...")
+        shape_layer = NapariVisualizer.gen_trajectories_shapes(sctc, viewer, contour_sample_num=contour_sample_num)
+    else:
+        main_info("Skipping adding shapes to the shape layer...")
+        empty_sctc = SingleCellTrajectoryCollection()
+        shape_layer = NapariVisualizer.gen_trajectories_shapes(
+            empty_sctc, viewer, contour_sample_num=contour_sample_num
+        )
+
     shape_layer.mode = "select"
     sct_operator = SctOperator(sctc, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
     create_sct_napari_ui(sct_operator)
@@ -981,14 +1045,23 @@ def create_scs_edit_viewer_by_interval(
             if clear_prev_batch:
                 # TODO: shapes may be invisible, though select is sc/sct based and should be fine
                 sct_operator.clear_selection()
+
+            main_info("Loading span " + str(cur_span))
             all_sc_trajs = create_sctc_from_scs(single_cells)
+
+            main_info("Filtering and subsetting single-cell trajectories by time span...")
             temp_sc_trajs = filter_sctc_by_time_span(all_sc_trajs, cur_span)
+
+            main_info("Setting up shape layer in napari...")
             if len(temp_sc_trajs) != 0:
                 sct_operator.setup_from_sctc(temp_sc_trajs, contour_sample_num=contour_sample_num)
             else:
                 sct_operator.shape_layer.data = []
             points_layer.metadata["cur_sct_operator"] = sct_operator
             viewer.dims.set_point(0, cur_idx)
+
+            # Completed
+            main_info("Completed moving span to " + str(cur_span))
         except Exception as e:
             print("Error:", e)
             print("Failed to load next span. Please try again.")
@@ -1022,6 +1095,8 @@ def create_sctc_edit_viewer_by_interval(
     contour_sample_num=30,
     uns_cur_idx_key="_lcx_sctc_cur_idx",
     init_time=0,
+    contour_sample_num_key="_contour_sample_num",
+    span_interval_key="_span_interval",
 ):
     """
     Creates a viewer and an sct_operator for editing SingleCellStatic objects.
@@ -1033,6 +1108,7 @@ def create_sctc_edit_viewer_by_interval(
         img_dataset=img_dataset,
         viewer=viewer,
         contour_sample_num=contour_sample_num,
+        skip_add_shapes=True,
     )
 
     viewer = sct_operator.viewer
@@ -1040,18 +1116,21 @@ def create_sctc_edit_viewer_by_interval(
     cur_index = 0
 
     sct_operator.uns[uns_cur_idx_key] = cur_index
+    sct_operator.meta[contour_sample_num_key] = contour_sample_num
+    sct_operator.meta[span_interval_key] = span_interval
 
     def _get_cur_idx(sct_operator):
         cur_idx = sct_operator.uns[uns_cur_idx_key]
         return cur_idx
 
     def _move_span(viewer, offset):
+        main_info("[sctc render by interval] sct operator: moving interval")
         try:
             cur_idx = _get_cur_idx(sct_operator)
             cur_idx += offset
             cur_idx = min(cur_idx, max_time)  # (max_time - span_interval) is acceptable as well here
             cur_idx = max(cur_idx, 0)
-            cur_span = (cur_idx, cur_idx + span_interval)
+            cur_span = (cur_idx, cur_idx + sct_operator.get_meta(span_interval_key))
             sct_operator.uns[uns_cur_idx_key] = cur_idx
             # if clear_prev_batch:
             #     sct_operator.close()
@@ -1059,8 +1138,12 @@ def create_sctc_edit_viewer_by_interval(
             if clear_prev_batch:
                 # TODO: shapes may be invisible, though select is sc/sct based and should be fine
                 sct_operator.clear_selection()
-            sct_operator.setup_by_timespan(cur_span, contour_sample_num=contour_sample_num)
+            # sct_operator.setup_by_timespan(cur_span, contour_sample_num=sct_operator.meta[contour_sample_num_key])
+            sct_operator.setup_by_timespan(cur_span, contour_sample_key=contour_sample_num_key)
             viewer.dims.set_point(0, cur_idx)
+
+            # Completed
+            main_info("[sctc render by interval] sct operator: completed moving interval")
         except Exception as e:
             print("Error:", e)
             print("Failed to load next span. Please try again.")

@@ -8,13 +8,13 @@ def wrap_func(func, args):
         return func(*args)
     elif isinstance(args, dict):
         return func(**args)
+    else:
+        raise TypeError("args must be tuple, list or dict")
 
 
 def parallelize(func, inputs, cores=None):
-    pool = Pool(processes=cores)
-    outputs = []
-    for output in tqdm.tqdm(pool.imap_unordered(partial(wrap_func, func), inputs), total=len(inputs)):
-        outputs.append(output)
-    pool.close()
-    pool.join()
+    with Pool(processes=cores) as pool:
+        outputs = []
+        for output in pool.imap_unordered(partial(wrap_func, func), inputs):
+            outputs.append(output)
     return outputs

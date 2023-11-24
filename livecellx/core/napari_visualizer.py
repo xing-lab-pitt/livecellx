@@ -1,6 +1,8 @@
+import datetime
 from livecellx.core.single_cell import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
 import numpy as np
 from napari.viewer import Viewer
+from livecellx.livecell_logger import main_info
 from livecellx.plot.visualizer import Visualizer
 
 
@@ -60,6 +62,12 @@ class NapariVisualizer:
 
         # Track ID can be UUID, so we need to map it to an integer
         track_value_indices = [idx for idx, v in enumerate(track_ids)]
+        main_info(f"Number of trajectories: {len(trajectories)}", indent_level=2)
+
+        main_info("Calling viewer.add_shapes to add trajectories to napari", indent_level=2)
+
+        # Record running time
+        start_time = datetime.datetime.now()
         shape_layer = viewer.add_shapes(
             all_shapes,
             properties=properties,
@@ -68,6 +76,11 @@ class NapariVisualizer:
             shape_type="polygon",
             text=text_parameters,
             name="trajectories",
-            **viewer_kwargs
+            **viewer_kwargs,
         )
+        end_time = datetime.datetime.now()
+
+        # Report time in seconds
+        main_info(f"Time to add shapes: {(end_time - start_time).total_seconds()}", indent_level=2)
+
         return shape_layer

@@ -173,7 +173,9 @@ class ScSegOperator:
         )
         output = model(ou_input)
         output = back_transforms(output)
-        return output, res_bbox
+        if not model.apply_gt_seg_edt:
+            output = torch.sigmoid(output)
+        return ou_input, output, res_bbox
 
     def replace_sc_contour(self, contour, padding_pixels=0, refresh=True):
         self.sc.contour = contour + self.sc.bbox[:2] - padding_pixels
@@ -288,7 +290,9 @@ class ScSegOperator:
             "one_object": True,
             "scale": 0,
         }
-        output, res_bbox = self.correct_segment(self.csn_model, create_ou_input_kwargs=create_ou_input_kwargs)
+        model_ou_input, output, res_bbox = self.correct_segment(
+            self.csn_model, create_ou_input_kwargs=create_ou_input_kwargs
+        )
         bin_mask = output[0].cpu().detach().numpy()[0] > threshold
         contours = find_contours_opencv(bin_mask.astype(bool))
         # contour = [0]
@@ -417,6 +421,7 @@ def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
         threshold: Annotated[float, {"widget_type": "FloatSpinBox", "max": int(1e4)}] = 1,
     ):
         print("[button] csn callback fired!")
+        main_info("csn output threshold:" + str(threshold), indent_level=2)
         sc_operator.csn_correct_seg_callback(threshold=threshold)
 
     @magicgui(

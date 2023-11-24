@@ -18,6 +18,7 @@ import uuid
 
 from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecellx.core.io_utils import LiveCellEncoder
+from livecellx.core.parallel import parallelize
 from livecellx.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
 from livecellx.livecell_logger import main_info, main_warning, main_exception
 
@@ -144,6 +145,11 @@ class SingleCellStatic:
 
     # TODO: optimize compute overlap mask functions by taking union of two single cell's merged bboxes and then only operate on the union region to make the process faster
     def compute_overlap_mask(self, other_cell: "SingleCellStatic", bbox=None):
+        def is_overlap_bbox(bbox1, bbox2):
+            return not (bbox1[0] > bbox2[2] or bbox1[2] < bbox2[0] or bbox1[1] > bbox2[3] or bbox1[3] < bbox2[1])
+
+        if not is_overlap_bbox(bbox, other_cell.bbox):
+            return np.zeros(self.get_img().shape, dtype=bool)
         if bbox is None:
             bbox = self.bbox
         mask = self.get_contour_mask(bbox=bbox).astype(bool)
@@ -1135,6 +1141,10 @@ class SingleCellTrajectory:
         return show_sct_on_grid(self, **kwargs)
 
 
+def load_from_json_dict_parallel_wrapper(track_id, trajectory_dict):
+    return track_id, SingleCellTrajectory().load_from_json_dict(trajectory_dict)
+
+
 class SingleCellTrajectoryCollection:
     """
     Represents a collection of single-cell trajectories.
@@ -1213,15 +1223,32 @@ class SingleCellTrajectoryCollection:
             )
         return self
 
+    def load_from_json_dict_parallel(self, json_dict):
+        self.track_id_to_trajectory = {}
+        inputs = []
+        for track_id, trajectory_dict in json_dict["track_id_to_trajectory"].items():
+            # TODO: track_id = int(float(track_id)) remove extra float conversion in the future
+            inputs.append((int(float(track_id)), trajectory_dict))
+        outputs = parallelize(load_from_json_dict_parallel_wrapper, inputs)
+        for track_id, traj in outputs:
+            self.track_id_to_trajectory[int(float(track_id))] = traj
+        return self
+
     def write_json(self, path, dataset_json_dir=None):
         with open(path, "w+") as f:
             json.dump(self.to_json_dict(dataset_json_dir=dataset_json_dir), f, cls=LiveCellEncoder)
 
     @staticmethod
-    def load_from_json_file(path):
+    def load_from_json_file(path, parallel=False):
         with open(path, "r") as f:
             json_dict = json.load(f)
-        return SingleCellTrajectoryCollection().load_from_json_dict(json_dict)
+        main_info(f"json loaded from {path}")
+
+        main_info("Creating SingleCellTrajectoryCollection from json_dict...")
+        if parallel:
+            return SingleCellTrajectoryCollection().load_from_json_dict_parallel(json_dict)
+        else:
+            return SingleCellTrajectoryCollection().load_from_json_dict(json_dict)
 
     def histogram_traj_length(self, ax=None, **kwargs):
         import seaborn as sns
