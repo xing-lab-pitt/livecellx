@@ -459,7 +459,14 @@ class SctOperator:
         sct, sc, old_shape_index = self.select_info[0]
         print("disconnecting shape...")
         old_traj = self.traj_collection.pop_trajectory(sct.track_id)
-        new_sct1, new_sct2 = old_traj.split(sc.timeframe)
+
+        
+        max_tid = self.traj_collection.get_max_tid()
+        # # Py2: prevent from overflow, no need to check in py 3
+        # assert max_tid < 2 ** 31 - 1, "max_tid is too large, please re-assign track ids."
+        
+        tid_1, tid_2 = max_tid + 1, max_tid + 2
+        new_sct1, new_sct2 = old_traj.split(sc.timeframe, tid_1=tid_1, tid_2=tid_2)
         self.traj_collection.add_trajectory(new_sct1)
         self.traj_collection.add_trajectory(new_sct2)
 

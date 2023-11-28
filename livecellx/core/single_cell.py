@@ -1100,12 +1100,12 @@ class SingleCellTrajectory:
             sub_sct.daughter_trajectories = self.daughter_trajectories.copy()
         return sub_sct
 
-    def split(self, split_time) -> Tuple["SingleCellTrajectory", "SingleCellTrajectory"]:
+    def split(self, split_time, tid_1=None, tid_2=None) -> Tuple["SingleCellTrajectory", "SingleCellTrajectory"]:
         """split this trajectory into two trajectories: [start, split_time), [split_time, end], at the given split time"""
         if split_time not in self.timeframe_set:
             raise ValueError("split time not in this trajectory")
-        sct1 = self.subsct(min(self.timeframe_set), split_time - 1)
-        sct2 = self.subsct(split_time, max(self.timeframe_set))
+        sct1 = self.subsct(min(self.timeframe_set), split_time - 1, track_id=tid_1)
+        sct2 = self.subsct(split_time, max(self.timeframe_set), track_id=tid_2)
         return sct1, sct2
 
     def next_time(self, time: Union[int, float]) -> Union[int, float, None]:
@@ -1198,9 +1198,16 @@ class SingleCellTrajectoryCollection:
     def get_all_trajectories(self) -> List[SingleCellTrajectory]:
         return list(self.track_id_to_trajectory.values())
 
+    # TODO refactor get_all_tids and get_all_track_ids
     def get_all_tids(self) -> List[float]:
         return list(self.track_id_to_trajectory.keys())
-
+    
+    def get_track_ids(self):
+        return sorted(list(self.track_id_to_trajectory.keys()))
+    
+    def get_max_tid(self):
+        return max(self.get_track_ids())
+    
     get_all_track_ids = get_all_tids
 
     def pop_trajectory(self, track_id):
@@ -1272,9 +1279,6 @@ class SingleCellTrajectoryCollection:
             else:
                 feature_table = pd.concat([feature_table, sc_feature_table])
         return feature_table
-
-    def get_track_ids(self):
-        return sorted(list(self.track_id_to_trajectory.keys()))
 
     def get_time_span(self):
         res_time_span = (0, np.inf)
