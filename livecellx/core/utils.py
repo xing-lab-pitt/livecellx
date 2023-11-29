@@ -102,3 +102,49 @@ def label_mask_to_edt_mask(label_mask, bg_val=0):
         tmp_mask[tmp_mask != bg_val] = normalized_mask[tmp_mask != bg_val]
         edt_mask += tmp_mask
     return edt_mask.astype(np.uint8)
+
+
+def clip_polygon(polygon, h, w):
+    """
+    The Sutherland-Hodgman algorithm. Adapted from ChatGpt's implementation.
+    Define the Polygon and Clipping Rectangle: The polygon is defined by its vertices, and the clipping rectangle is defined by the dimensions H and W.
+    Implement the Clipping Algorithm: The Sutherland-Hodgman algorithm is a common choice for polygon clipping. This algorithm iteratively clips the edges of the polygon against each edge of the clipping rectangle.
+    Handle Edge Cases: Special care must be taken to handle edge cases, such as when a polygon vertex lies exactly on a clipping boundary.
+    """
+
+    def clip_edge(polygon, x1, y1, x2, y2):
+        new_polygon = []
+        for i in range(len(polygon)):
+            current_x, current_y = polygon[i]
+            previous_x, previous_y = polygon[i - 1]
+
+            # Check if current and previous points are inside the clipping edge
+            inside_current = (x2 - x1) * (current_y - y1) > (y2 - y1) * (current_x - x1)
+            inside_previous = (x2 - x1) * (previous_y - y1) > (y2 - y1) * (previous_x - x1)
+
+            if inside_current:
+                if not inside_previous:
+                    # Compute intersection and add to new polygon
+                    new_polygon.append(intersect(previous_x, previous_y, current_x, current_y, x1, y1, x2, y2))
+                new_polygon.append((current_x, current_y))
+            elif inside_previous:
+                # Compute intersection and add to new polygon
+                new_polygon.append(intersect(previous_x, previous_y, current_x, current_y, x1, y1, x2, y2))
+
+        return new_polygon
+
+    def intersect(px, py, qx, qy, ax, ay, bx, by):
+        # Compute the intersection point
+        det = (qx - px) * (by - ay) - (qy - py) * (bx - ax)
+        if det == 0:
+            return qx, qy  # Lines are parallel
+        l = ((by - ay) * (bx - px) - (bx - ax) * (by - py)) / det
+        return px + l * (qx - px), py + l * (qy - py)
+
+    # Clipping against four edges of the rectangle
+    clipped_polygon = clip_edge(polygon, 0, 0, w, 0)
+    clipped_polygon = clip_edge(clipped_polygon, w, 0, w, h)
+    clipped_polygon = clip_edge(clipped_polygon, w, h, 0, h)
+    clipped_polygon = clip_edge(clipped_polygon, 0, h, 0, 0)
+
+    return np.array(clipped_polygon)

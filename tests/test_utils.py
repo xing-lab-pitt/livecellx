@@ -6,6 +6,7 @@ from livecellx.core import (
     SingleCellTrajectoryCollection,
 )
 from livecellx.core.datasets import LiveCellImageDataset
+from livecellx.core.utils import clip_polygon
 
 
 class TestHelper(unittest.TestCase):
@@ -137,3 +138,56 @@ class TestHelper(unittest.TestCase):
                 f"max_cache_size mismatch: {ds1.max_cache_size} vs {ds2.max_cache_size}",
             )
             return True
+
+
+class TestUtils(unittest.TestCase):
+    def test_clip_polygon(self):
+        # Define the input polygon and clipping rectangle
+        polygon = [(0, 0), (2, 0), (2, 2), (0, 2)]
+        h = 3
+        w = 3
+
+        # Expected clipped polygon
+        expected_clipped_polygon = np.array([(0, 0), (2, 0), (2, 2), (0, 2)])
+
+        # Call the clip_polygon function
+        clipped_polygon = clip_polygon(polygon, h, w)
+
+        # Check if the clipped polygon matches the expected result
+        np.testing.assert_array_equal(clipped_polygon, expected_clipped_polygon)
+
+    def test_clip_polygon_edge_case(self):
+        # Define the input polygon and clipping rectangle
+        polygon = [(0, 0), (2, 0), (2, 2), (0, 2)]
+        h = 2
+        w = 2
+
+        # Expected clipped polygon: starting coordinates can be different
+        expected_clipped_polygon = np.array([(0, 2), (0, 0), (2, 0), (2, 2)])
+
+        # Call the clip_polygon function
+        clipped_polygon = clip_polygon(polygon, h, w)
+
+        # Check if the clipped polygon matches the expected result
+        np.testing.assert_array_equal(clipped_polygon, expected_clipped_polygon)
+
+    def test_clip_polygon_parallel_lines(self):
+        # Define the input polygon and clipping rectangle
+        polygon = [(0, 0), (2, 0), (2, 2), (0, 2)]
+        h = 3
+        w = 3
+
+        # Expected clipped polygon (same as input polygon)
+        expected_clipped_polygon = np.array([(0, 0), (2, 0), (2, 2), (0, 2)])
+
+        # Call the clip_polygon function with parallel lines
+        clipped_polygon = clip_polygon(polygon, h, w)
+
+        # Check if the clipped polygon matches the expected result
+        np.testing.assert_array_equal(clipped_polygon, expected_clipped_polygon)
+
+
+# Append the test cases to the existing test class
+# TestHelper.test_clip_polygon = TestUtils.test_clip_polygon
+# TestHelper.test_clip_polygon_edge_case = TestUtils.test_clip_polygon_edge_case
+# TestHelper.test_clip_polygon_parallel_lines = TestUtils.test_clip_polygon_parallel_lines

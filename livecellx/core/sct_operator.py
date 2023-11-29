@@ -223,7 +223,7 @@ class SctOperator:
         return update_shape_index
 
     def update_shape_layer_by_sc(self, sc: SingleCellStatic):
-        print("<update shape layer by sc>")
+        main_info("<update shape layer by sc>")
 
         # clear selected data first because adding/deleting shapes will change the shape index
         self.clear_selection()
@@ -262,7 +262,7 @@ class SctOperator:
         # print("<setting shapes...>")
         # self.shape_layer.data = shape_data
         self.store_shape_layer_info()
-        print("<update shape layer by sc complete>")
+        main_info("<update shape layer by sc complete>")
 
     def connect_two_scts(self):
         assert len(self.select_info) == 2, "Please select two shapes to connect."
