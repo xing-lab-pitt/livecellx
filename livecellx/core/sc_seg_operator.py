@@ -252,7 +252,7 @@ class ScSegOperator:
             res_contours.append(vertices)
         return res_contours
 
-    def save_seg_callback(self, in_image=True):
+    def save_seg_callback(self, clip=True):
         """Save the segmentation to the single cell object."""
         import napari
         from PyQt5.QtWidgets import QMessageBox
@@ -269,7 +269,7 @@ class ScSegOperator:
         contour = contours[0]  # n x 2
 
         # limit the contour coordinates to the image height and width
-        if in_image:
+        if clip:
             main_info("Limiting the contour coordinates to the image height and width.", indent_level=2)
             main_debug("contour before clipping:" + str(contour.shape), indent_level=2)
             image = self.sc.get_img()
