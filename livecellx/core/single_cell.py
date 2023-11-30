@@ -439,7 +439,7 @@ class SingleCellStatic:
         main_info("constructing single cells from json dict...")
         # contour = [] here to suppress warning
         single_cells = []
-        for sc_json_dict in tqdm.tqdm(sc_json_dict_list):
+        for sc_json_dict in tqdm.tqdm(sc_json_dict_list, desc="constructing single cells from json dict"):
             # Load the single cell from json dict
             sc = SingleCellStatic(contour=[]).load_from_json_dict(sc_json_dict)
             single_cells.append(sc)
@@ -1201,13 +1201,13 @@ class SingleCellTrajectoryCollection:
     # TODO refactor get_all_tids and get_all_track_ids
     def get_all_tids(self) -> List[float]:
         return list(self.track_id_to_trajectory.keys())
-    
+
     def get_track_ids(self):
         return sorted(list(self.track_id_to_trajectory.keys()))
-    
+
     def get_max_tid(self):
         return max(self.get_track_ids())
-    
+
     get_all_track_ids = get_all_tids
 
     def pop_trajectory(self, track_id):

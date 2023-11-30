@@ -32,6 +32,40 @@ def read_img_default(url: str, **kwargs) -> np.ndarray:
     return img
 
 
+class LiveCellImageDatasetManager:
+    def __init__(
+        self, name2cache: Dict[str, "LiveCellImageDataset"] = None, path2cache: Dict[str, "LiveCellImageDataset"] = None
+    ):
+        if name2cache is None:
+            name2cache = {}
+        if path2cache is None:
+            path2cache = {}
+        self.name2cache = name2cache
+        self.path2cache = path2cache
+
+    def read_json(self, path):
+        if not os.path.exists(path):
+            raise ValueError("path does not exist: %s" % path)
+        if self.path2cache.get(path) is not None:
+            return self.path2cache[path]
+        with open(path, "r") as f:
+            json_dict = json.load(f)
+
+        if (
+            json_dict["name"] in self.name2cache
+            and self.name2cache[json_dict["name"]].get_dataset_path() == json_dict["data_dir_path"]
+        ):
+            return self.name2cache[json_dict["name"]]
+
+        dataset = LiveCellImageDataset().load_from_json_dict(json_dict)
+        self.name2cache[dataset.name] = dataset
+        self.path2cache[path] = dataset
+
+        return dataset
+
+
+default_dataset_manager = LiveCellImageDatasetManager()
+
 # TODO: add a method to get/cache all labels in a mask dataset at a specific time t
 class LiveCellImageDataset(torch.utils.data.Dataset):
     """Dataset for loading images into RAM, possibly cache images and load them on demand.
@@ -274,7 +308,9 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         return self
 
     @staticmethod
-    def load_from_json_file(path, **kwargs):
+    def load_from_json_file(path, use_cache=True, **kwargs):
+        if use_cache:
+            return default_dataset_manager.read_json(path)
         path = Path(path)
         with open(path, "r") as f:
             json_dict = json.load(f)
