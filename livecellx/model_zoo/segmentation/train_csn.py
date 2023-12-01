@@ -12,6 +12,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import TQDMProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger
 from livecellx.model_zoo.segmentation.sc_correction import CorrectSegNet
+from livecellx.model_zoo.segmentation.sc_correction_aux import CorrectSegNetAux
 from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
 
 
@@ -65,6 +66,8 @@ def parse_args():
         default="test_loss",
         help="The criterions to save the model. The model will be saved if the criterion is the minimum so far. The criterions are separated by comma. The criterion can be one of the following: test_loss, test_acc, ... (see what exists in the validation/test step function)",
     )
+    parser.add_argument("--ou_aux", dest="ou_aux", default=False, action="store_true")
+
     args = parser.parse_args()
 
     # convert string to list
@@ -166,7 +169,11 @@ def main_train():
     if args.debug:
         logger = TensorBoardLogger(save_dir=".", name="test_logs", version=args.model_version)
 
-    model = CorrectSegNet(
+    csn_model_cls = CorrectSegNet
+    if args.ou_aux:
+        csn_model_cls = CorrectSegNetAux
+
+    model = csn_model_cls(
         # train_input_paths=train_input_tuples,
         lr=args.lr,
         num_workers=1,
