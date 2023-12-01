@@ -459,7 +459,9 @@ class SingleCellStatic:
         return all_scs
 
     @staticmethod
-    def write_single_cells_json(single_cells: List["SingleCellStatic"], path: str, dataset_dir: str, return_list=False):
+    def write_single_cells_json(
+        single_cells: List["SingleCellStatic"], path: str, dataset_dir: str = None, return_list=False
+    ):
         """write a json file containing a list of single cells
 
         Parameters
@@ -470,6 +472,8 @@ class SingleCellStatic:
         """
         import json
 
+        if dataset_dir is None:
+            dataset_dir = Path(path).parent / "datasets"
         all_sc_jsons = []
         for sc in single_cells:
             sc_json = sc.to_json_dict(include_dataset_json=False, dataset_json_dir=dataset_dir)
