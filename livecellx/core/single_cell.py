@@ -177,6 +177,16 @@ class SingleCellStatic:
     def compute_iou(self, other_cell: "SingleCellStatic", bbox=None):
         if bbox is None:
             bbox = self.bbox
+        # Compare bbox, if not overlap, return 0
+        other_cell_bbox = other_cell.bbox
+        if not (
+            other_cell_bbox[0] <= bbox[2]
+            and other_cell_bbox[2] >= bbox[0]
+            and other_cell_bbox[1] <= bbox[3]
+            and other_cell_bbox[3] >= bbox[1]
+        ):
+            return 0
+
         mask = self.get_contour_mask(bbox=bbox).astype(bool)
         overlap_mask = self.compute_overlap_mask(other_cell, bbox=bbox)
         return np.sum(overlap_mask) / (
