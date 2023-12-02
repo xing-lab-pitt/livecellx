@@ -107,10 +107,11 @@ def match_label_mask_by_iou(out_label_mask, gt_label_mask, bg_label=0, match_thr
         # skip if multiple out labels are matched to gt label (possibly oversegmentation)
         if len(label_gt2out[gt_label]) > 1:
             print(
-                "Warning: multiple out labels are matched to gt label, try higher match threshold?",
+                "Overseg: multiple out labels are matched to gt label, try higher match threshold?",
                 gt_label,
                 label_gt2out[gt_label],
             )
+            continue
         matched_num += 1
     gt_num = len(gt_labels)
     out_num = len(out_labels)
