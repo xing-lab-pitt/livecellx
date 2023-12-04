@@ -1,11 +1,12 @@
 import copy
 import cv2
 from functools import partial
-from typing import Optional, Union, Annotated
+from typing import Optional, Tuple, Union, Annotated
 import magicgui as mgui
 from magicgui import magicgui
 from magicgui.widgets import Container, PushButton, Widget, create_widget
 from napari.layers import Shapes
+import torch
 from livecellx.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic
 from pathlib import Path
 import numpy as np
@@ -131,8 +132,19 @@ class ScSegOperator:
         shape_vec = self.sc.get_napari_shape_contour_vec(contour_sample_num=contour_sample_num)
         self.shape_layer.data = [shape_vec]
 
-    def correct_segment(
-        self,
+    def correct_segment(self, model, create_ou_input_kwargs=None):
+        import torch
+        from torchvision import transforms
+
+        #  padding_pixels=padding_pixels, dtype=dtype, remove_bg=remove_bg, one_object=one_object, scale=scale
+        temp_sc = self.sc.copy()
+        if create_ou_input_kwargs is None:
+            return self.correct_sc_segment(temp_sc, model)
+        else:
+            return self.correct_sc_segment(temp_sc, model, create_ou_input_kwargs=create_ou_input_kwargs)
+
+    def correct_sc_segment(
+        sc,
         model,
         create_ou_input_kwargs={
             "padding_pixels": 50,
@@ -141,19 +153,18 @@ class ScSegOperator:
             "one_object": True,
             "scale": 0,
         },
-    ):
+    ) -> Tuple[torch.Tensor, torch.Tensor, np.ndarray]:
         import torch
         from torchvision import transforms
 
         #  padding_pixels=padding_pixels, dtype=dtype, remove_bg=remove_bg, one_object=one_object, scale=scale
-
         input_transforms = transforms.Compose(
             [
                 transforms.Resize(size=(412, 412)),
             ]
         )
-        temp_sc = self.sc.copy()
-        new_contour = np.array(self.shape_layer.data[0])
+        temp_sc = sc.copy()
+        new_contour = np.array(temp_sc.contour)
         new_contour = new_contour[:, -2:]  # remove slice index (time)
         temp_sc.update_contour(new_contour)
         temp_sc.update_bbox()
