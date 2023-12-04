@@ -185,7 +185,7 @@ class SingleCellStatic:
             and other_cell_bbox[1] <= bbox[3]
             and other_cell_bbox[3] >= bbox[1]
         ):
-            return 0
+            return 0.0
 
         mask = self.get_contour_mask(bbox=bbox).astype(bool)
         overlap_mask = self.compute_overlap_mask(other_cell, bbox=bbox)
