@@ -441,11 +441,12 @@ def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
 
     @magicgui(call_button="auto correct seg")
     def csn_correct_seg(
-        threshold: Annotated[float, {"widget_type": "FloatSpinBox", "max": int(1e4)}] = 1,
+        threshold: Annotated[float, {"widget_type": "FloatSpinBox", "max": int(1e4)}] = 0.5,
+        padding: Annotated[int, {"widget_type": "SpinBox", "max": int(1e4)}] = 50,
     ):
         print("[button] csn callback fired!")
         main_info("csn output threshold:" + str(threshold), indent_level=2)
-        sc_operator.csn_correct_seg_callback(threshold=threshold)
+        sc_operator.csn_correct_seg_callback(threshold=threshold, padding_pixels=padding)
 
     @magicgui(
         auto_call=True,
