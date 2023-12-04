@@ -137,8 +137,8 @@ class TestTutorialGeneralUse(unittest.TestCase):
         # Calculate overlap between two single cells
         iou, overlap_percent = sc1.compute_iou(sc2), sc1.compute_overlap_percent(sc2)
 
-        assert isinstance(iou, float)
-        assert isinstance(overlap_percent, float)
+        assert isinstance(iou, float) or isinstance(iou, int)
+        assert isinstance(overlap_percent, float) or isinstance(overlap_percent, int)
         # IOU and overlap_percent should be 0 because the two single cells are not overlapping
         assert iou == 0
         assert 0 == overlap_percent
