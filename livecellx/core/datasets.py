@@ -150,8 +150,11 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             tmp_tuples = sorted(tmp_tuples, key=lambda x: x[0])
             tmp_tuples = tmp_tuples[:max_img_num]
             self.time2url = {time: path for time, path in tmp_tuples}
-        self.times = list(self.time2url.keys())
-        self.urls = list(self.time2url.values())
+
+        # sort times and urls based on times
+        time_urls = sorted(list(self.time2url.items()), key=lambda x: x[0])
+        self.times = [time for time, url in time_urls]
+        self.urls = [url for time, url in time_urls]
 
         self.cache_img_idx_to_img = {}
         self.max_cache_size = max_cache_size
@@ -302,7 +305,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             self.time2url = json_dict["time2url"]
         if is_integer_time:
             self.time2url = {int(time): url for time, url in self.time2url.items()}
-        self.times = list(self.time2url.keys())
+        self.times = sorted(list(self.time2url.keys()))
 
         self.max_cache_size = json_dict["max_cache_size"]
         return self
