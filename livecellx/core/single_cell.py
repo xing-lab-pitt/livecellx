@@ -208,7 +208,7 @@ class SingleCellStatic:
         elif not (self.mask_dataset is None) and (self.timeframe in self.mask_dataset.time2url):
             return self.mask_dataset[self.timeframe]
         elif self.contour is not None:
-            return self.get_contour_mask(crop=True, dtype=dtype)
+            return self.get_contour_mask(crop=False, dtype=dtype)
         else:
             raise ValueError("mask dataset and contour are both None")
 
