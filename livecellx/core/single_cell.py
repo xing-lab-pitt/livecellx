@@ -177,6 +177,16 @@ class SingleCellStatic:
     def compute_iou(self, other_cell: "SingleCellStatic", bbox=None):
         if bbox is None:
             bbox = self.bbox
+        # Compare bbox, if not overlap, return 0
+        other_cell_bbox = other_cell.bbox
+        if not (
+            other_cell_bbox[0] <= bbox[2]
+            and other_cell_bbox[2] >= bbox[0]
+            and other_cell_bbox[1] <= bbox[3]
+            and other_cell_bbox[3] >= bbox[1]
+        ):
+            return 0.0
+
         mask = self.get_contour_mask(bbox=bbox).astype(bool)
         overlap_mask = self.compute_overlap_mask(other_cell, bbox=bbox)
         return np.sum(overlap_mask) / (
@@ -439,7 +449,7 @@ class SingleCellStatic:
         main_info("constructing single cells from json dict...")
         # contour = [] here to suppress warning
         single_cells = []
-        for sc_json_dict in tqdm.tqdm(sc_json_dict_list):
+        for sc_json_dict in tqdm.tqdm(sc_json_dict_list, desc="constructing single cells from json dict"):
             # Load the single cell from json dict
             sc = SingleCellStatic(contour=[]).load_from_json_dict(sc_json_dict)
             single_cells.append(sc)
@@ -459,7 +469,9 @@ class SingleCellStatic:
         return all_scs
 
     @staticmethod
-    def write_single_cells_json(single_cells: List["SingleCellStatic"], path: str, dataset_dir: str, return_list=False):
+    def write_single_cells_json(
+        single_cells: List["SingleCellStatic"], path: str, dataset_dir: str = None, return_list=False
+    ):
         """write a json file containing a list of single cells
 
         Parameters
@@ -470,6 +482,8 @@ class SingleCellStatic:
         """
         import json
 
+        if dataset_dir is None:
+            dataset_dir = Path(path).parent / "datasets"
         all_sc_jsons = []
         for sc in single_cells:
             sc_json = sc.to_json_dict(include_dataset_json=False, dataset_json_dir=dataset_dir)
@@ -1100,12 +1114,12 @@ class SingleCellTrajectory:
             sub_sct.daughter_trajectories = self.daughter_trajectories.copy()
         return sub_sct
 
-    def split(self, split_time) -> Tuple["SingleCellTrajectory", "SingleCellTrajectory"]:
+    def split(self, split_time, tid_1=None, tid_2=None) -> Tuple["SingleCellTrajectory", "SingleCellTrajectory"]:
         """split this trajectory into two trajectories: [start, split_time), [split_time, end], at the given split time"""
         if split_time not in self.timeframe_set:
             raise ValueError("split time not in this trajectory")
-        sct1 = self.subsct(min(self.timeframe_set), split_time - 1)
-        sct2 = self.subsct(split_time, max(self.timeframe_set))
+        sct1 = self.subsct(min(self.timeframe_set), split_time - 1, track_id=tid_1)
+        sct2 = self.subsct(split_time, max(self.timeframe_set), track_id=tid_2)
         return sct1, sct2
 
     def next_time(self, time: Union[int, float]) -> Union[int, float, None]:
@@ -1198,8 +1212,15 @@ class SingleCellTrajectoryCollection:
     def get_all_trajectories(self) -> List[SingleCellTrajectory]:
         return list(self.track_id_to_trajectory.values())
 
+    # TODO refactor get_all_tids and get_all_track_ids
     def get_all_tids(self) -> List[float]:
         return list(self.track_id_to_trajectory.keys())
+
+    def get_track_ids(self):
+        return sorted(list(self.track_id_to_trajectory.keys()))
+
+    def get_max_tid(self):
+        return max(self.get_track_ids())
 
     get_all_track_ids = get_all_tids
 
@@ -1272,9 +1293,6 @@ class SingleCellTrajectoryCollection:
             else:
                 feature_table = pd.concat([feature_table, sc_feature_table])
         return feature_table
-
-    def get_track_ids(self):
-        return sorted(list(self.track_id_to_trajectory.keys()))
 
     def get_time_span(self):
         res_time_span = (0, np.inf)

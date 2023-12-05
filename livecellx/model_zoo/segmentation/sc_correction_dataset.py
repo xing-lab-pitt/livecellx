@@ -224,6 +224,20 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
 
         combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0).float()
 
+        # Prepare ou_aux tensor: 4 classes auxillary output
+        ou_aux = torch.tensor([0, 0, 0, 0]).float()
+        if "ou_aux" in self.raw_df.columns:
+            if self.raw_df["ou_aux"].iloc[idx] == "overseg":
+                ou_aux = torch.tensor([1, 0, 0, 0]).float()
+            elif self.raw_df["ou_aux"].iloc[idx] == "underseg":
+                ou_aux = torch.tensor([0, 1, 0, 0]).float()
+            elif self.raw_df["ou_aux"].iloc[idx] == "dropout":
+                ou_aux = torch.tensor([0, 0, 1, 0]).float()
+            elif self.raw_df["ou_aux"].iloc[idx] == "correct":
+                ou_aux = torch.tensor([0, 0, 0, 1]).float()
+            else:
+                raise ValueError("Unknown ou_aux value:", self.raw_df["ou_aux"].iloc[idx])
+
         res = {
             "input": input_img,
             # "raw_img": augmented_raw_img,
@@ -233,6 +247,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             "gt_mask": combined_gt,
             "idx": idx,
             "gt_label_mask": augmented_gt_label_mask,
+            "ou_aux": ou_aux,
         }
         if self.apply_gt_seg_edt:
             res["gt_mask_edt"] = gt_mask_edt

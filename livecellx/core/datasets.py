@@ -32,6 +32,40 @@ def read_img_default(url: str, **kwargs) -> np.ndarray:
     return img
 
 
+class LiveCellImageDatasetManager:
+    def __init__(
+        self, name2cache: Dict[str, "LiveCellImageDataset"] = None, path2cache: Dict[str, "LiveCellImageDataset"] = None
+    ):
+        if name2cache is None:
+            name2cache = {}
+        if path2cache is None:
+            path2cache = {}
+        self.name2cache = name2cache
+        self.path2cache = path2cache
+
+    def read_json(self, path):
+        if not os.path.exists(path):
+            raise ValueError("path does not exist: %s" % path)
+        if self.path2cache.get(path) is not None:
+            return self.path2cache[path]
+        with open(path, "r") as f:
+            json_dict = json.load(f)
+
+        if (
+            json_dict["name"] in self.name2cache
+            and self.name2cache[json_dict["name"]].get_dataset_path() == json_dict["data_dir_path"]
+        ):
+            return self.name2cache[json_dict["name"]]
+
+        dataset = LiveCellImageDataset().load_from_json_dict(json_dict)
+        self.name2cache[dataset.name] = dataset
+        self.path2cache[path] = dataset
+
+        return dataset
+
+
+default_dataset_manager = LiveCellImageDatasetManager()
+
 # TODO: add a method to get/cache all labels in a mask dataset at a specific time t
 class LiveCellImageDataset(torch.utils.data.Dataset):
     """Dataset for loading images into RAM, possibly cache images and load them on demand.
@@ -116,8 +150,11 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             tmp_tuples = sorted(tmp_tuples, key=lambda x: x[0])
             tmp_tuples = tmp_tuples[:max_img_num]
             self.time2url = {time: path for time, path in tmp_tuples}
-        self.times = list(self.time2url.keys())
-        self.urls = list(self.time2url.values())
+
+        # sort times and urls based on times
+        time_urls = sorted(list(self.time2url.items()), key=lambda x: x[0])
+        self.times = [time for time, url in time_urls]
+        self.urls = [url for time, url in time_urls]
 
         self.cache_img_idx_to_img = {}
         self.max_cache_size = max_cache_size
@@ -268,13 +305,15 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             self.time2url = json_dict["time2url"]
         if is_integer_time:
             self.time2url = {int(time): url for time, url in self.time2url.items()}
-        self.times = list(self.time2url.keys())
+        self.times = sorted(list(self.time2url.keys()))
 
         self.max_cache_size = json_dict["max_cache_size"]
         return self
 
     @staticmethod
-    def load_from_json_file(path, **kwargs):
+    def load_from_json_file(path, use_cache=True, **kwargs):
+        if use_cache:
+            return default_dataset_manager.read_json(path)
         path = Path(path)
         with open(path, "r") as f:
             json_dict = json.load(f)

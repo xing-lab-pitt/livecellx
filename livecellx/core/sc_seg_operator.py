@@ -1,11 +1,12 @@
 import copy
 import cv2
 from functools import partial
-from typing import Optional, Union, Annotated
+from typing import Optional, Tuple, Union, Annotated
 import magicgui as mgui
 from magicgui import magicgui
 from magicgui.widgets import Container, PushButton, Widget, create_widget
 from napari.layers import Shapes
+import torch
 from livecellx.core.single_cell import SingleCellTrajectoryCollection, SingleCellStatic
 from pathlib import Path
 import numpy as np
@@ -131,8 +132,19 @@ class ScSegOperator:
         shape_vec = self.sc.get_napari_shape_contour_vec(contour_sample_num=contour_sample_num)
         self.shape_layer.data = [shape_vec]
 
-    def correct_segment(
-        self,
+    def correct_segment(self, model, create_ou_input_kwargs=None):
+        import torch
+        from torchvision import transforms
+
+        #  padding_pixels=padding_pixels, dtype=dtype, remove_bg=remove_bg, one_object=one_object, scale=scale
+        temp_sc = self.sc.copy()
+        if create_ou_input_kwargs is None:
+            return self.correct_sc_segment(temp_sc, model)
+        else:
+            return self.correct_sc_segment(temp_sc, model, create_ou_input_kwargs=create_ou_input_kwargs)
+
+    def correct_sc_segment(
+        sc,
         model,
         create_ou_input_kwargs={
             "padding_pixels": 50,
@@ -141,19 +153,18 @@ class ScSegOperator:
             "one_object": True,
             "scale": 0,
         },
-    ):
+    ) -> Tuple[torch.Tensor, torch.Tensor, np.ndarray]:
         import torch
         from torchvision import transforms
 
         #  padding_pixels=padding_pixels, dtype=dtype, remove_bg=remove_bg, one_object=one_object, scale=scale
-
         input_transforms = transforms.Compose(
             [
                 transforms.Resize(size=(412, 412)),
             ]
         )
-        temp_sc = self.sc.copy()
-        new_contour = np.array(self.shape_layer.data[0])
+        temp_sc = sc.copy()
+        new_contour = np.array(temp_sc.contour)
         new_contour = new_contour[:, -2:]  # remove slice index (time)
         temp_sc.update_contour(new_contour)
         temp_sc.update_bbox()
@@ -252,10 +263,11 @@ class ScSegOperator:
             res_contours.append(vertices)
         return res_contours
 
-    def save_seg_callback(self):
+    def save_seg_callback(self, clip=True):
         """Save the segmentation to the single cell object."""
         import napari
         from PyQt5.QtWidgets import QMessageBox
+        from livecellx.core.utils import clip_polygon
 
         print("<save_seg_callback fired>")
         # Get the contour coordinates from the shape layer
@@ -265,7 +277,29 @@ class ScSegOperator:
             QMessageBox.warning(None, "Warning", message)
             return
         assert len(contours) > 0, "No contour is found in the shape layer."
-        contour = contours[0]
+        contour = contours[0]  # n x 2
+
+        # limit the contour coordinates to the image height and width
+        if clip:
+            main_info("Limiting the contour coordinates to the image height and width.", indent_level=2)
+            main_debug("contour before clipping:" + str(contour.shape), indent_level=2)
+            image = self.sc.get_img()
+            image_dim = image.shape
+
+            # Clipping algorithm
+            contour = clip_polygon(contour, image_dim[0], image_dim[1])
+
+            # Ensure the contour is within the image
+            contour[:, 0] = np.clip(contour[:, 0], 0, image_dim[0] - 1)
+            contour[:, 1] = np.clip(contour[:, 1], 0, image_dim[1] - 1)
+
+            # update the shape layer as well
+            main_info("Updating the shape layer of sc...", indent_level=2)
+            napari_vertices = [[self.sc.timeframe] + list(point) for point in contour]
+            napari_vertices = np.array(napari_vertices)
+            self.shape_layer.data = []
+            self.shape_layer.add([(napari_vertices, "polygon")], shape_type=["polygon"])
+
         # Store the contour in the single cell object
         self.sc.update_contour(contour)
 
@@ -418,11 +452,12 @@ def create_sc_seg_napari_ui(sc_operator: ScSegOperator):
 
     @magicgui(call_button="auto correct seg")
     def csn_correct_seg(
-        threshold: Annotated[float, {"widget_type": "FloatSpinBox", "max": int(1e4)}] = 1,
+        threshold: Annotated[float, {"widget_type": "FloatSpinBox", "max": int(1e4)}] = 0.5,
+        padding: Annotated[int, {"widget_type": "SpinBox", "max": int(1e4)}] = 50,
     ):
         print("[button] csn callback fired!")
         main_info("csn output threshold:" + str(threshold), indent_level=2)
-        sc_operator.csn_correct_seg_callback(threshold=threshold)
+        sc_operator.csn_correct_seg_callback(threshold=threshold, padding_pixels=padding)
 
     @magicgui(
         auto_call=True,

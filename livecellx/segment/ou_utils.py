@@ -251,58 +251,58 @@ def csn_augment_helper(
     df_save_path=None,
     normalize_img_uint8=True,
 ):
-    """_summary_
+    """
+    Helper function for augmenting data in the context of cell segmentation.
 
     Parameters
     ----------
-    img_crop : _type_
-        _description_
-    seg_label_crop : _type_
-        In overseg case, this should be a label mask and each label region will be dilated/eroded correspondingly
-        In underseg case, this can be a binary mask and should be dilated
-    combined_gt_label_mask : _type_
-        _description_
+    img_crop : ndarray
+        Cropped image data.
+    seg_label_crop : ndarray
+        Cropped segmentation label data.
+    combined_gt_label_mask : ndarray
+        Combined ground truth label mask.
     scale_factors : list
-        _description_
+        List of scale factors for augmentation.
     train_path_tuples : list
-        _description_
+        List of training path tuples.
     augmented_data : list
-        _description_
-    img_id : _type_
-        _description_
-    seg_label : _type_
-        _description_
-    gt_label : _type_
-        _description_
-    raw_img_path : _type_
-        _description_
-    seg_img_path : _type_
-        _description_
-    gt_img_path : _type_
-        _description_
-    gt_label_img_path : _type_
-        _description_
-    augmented_seg_dir : _type_
-        _description_
-    augmented_diff_seg_dir : _type_
-        _description_
+        List of augmented data.
+    img_id : int
+        Image ID.
+    seg_label : int
+        Segmentation label.
+    gt_label : int
+        Ground truth label.
+    raw_img_path : str
+        Path to save the raw image.
+    seg_img_path : str
+        Path to save the segmentation image.
+    gt_img_path : str
+        Path to save the ground truth image.
+    gt_label_img_path : str
+        Path to save the ground truth label image.
+    augmented_seg_dir : str
+        Directory to save augmented segmentation images.
+    augmented_diff_seg_dir : str
+        Directory to save augmented difference segmentation images.
     filename_pattern : str, optional
-        _description_, by default "img-%d_seg-%d.tif"
-    overseg_raw_seg_crop : _type_, optional
-        _description_, by default None
-    overseg_raw_seg_img_path : _type_, optional
-        _description_, by default None
-    raw_transformed_img_dir : _type_, optional
-        _description_, by default None
-    df_save_path : _type_, optional
-        _description_, by default None
+        Filename pattern for saving augmented images, by default "img-%d_seg-%d.tif".
+    overseg_raw_seg_crop : ndarray, optional
+        Oversegmented raw segmentation crop, by default None.
+    overseg_raw_seg_img_path : str, optional
+        Path to save the oversegmented raw segmentation image, by default None.
+    raw_transformed_img_dir : str, optional
+        Directory to save raw transformed images, by default None.
+    df_save_path : str, optional
+        Path to save the dataframe, by default None.
     normalize_img_uint8 : bool, optional
-        _description_, by default True
+        Flag indicating whether to normalize the image to uint8, by default True.
 
     Returns
     -------
-    _type_
-        _description_
+    ndarray
+        Augmented segmentation crop.
     """
     if train_path_tuples is None:
         train_path_tuples = []
@@ -378,6 +378,7 @@ def csn_augment_helper(
                 "raw_transformed_img_crop": raw_transformed_img_crop,
             }
         )
+
         # augmented_data[(img_id, seg_label)].append(
         #     (
         #         img_crop,

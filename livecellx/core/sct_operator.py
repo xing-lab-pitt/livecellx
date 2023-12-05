@@ -223,7 +223,7 @@ class SctOperator:
         return update_shape_index
 
     def update_shape_layer_by_sc(self, sc: SingleCellStatic):
-        print("<update shape layer by sc>")
+        main_info("<update shape layer by sc>")
 
         # clear selected data first because adding/deleting shapes will change the shape index
         self.clear_selection()
@@ -262,7 +262,7 @@ class SctOperator:
         # print("<setting shapes...>")
         # self.shape_layer.data = shape_data
         self.store_shape_layer_info()
-        print("<update shape layer by sc complete>")
+        main_info("<update shape layer by sc complete>")
 
     def connect_two_scts(self):
         assert len(self.select_info) == 2, "Please select two shapes to connect."
@@ -415,8 +415,8 @@ class SctOperator:
                 if key == "sc":
                     continue
                 self.original_properties[key] = copy.deepcopy(self.shape_layer.properties[key])
-        # if not hasattr(self, "original_shape_data"):
-        #     self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
+        if not hasattr(self, "original_shape_data"):
+            self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
 
         if update_slice:
             # w/o deepcopy, the original_face_colors will be changed when shape_layer.face_color is changed...
@@ -429,7 +429,7 @@ class SctOperator:
                 self.original_properties[key][update_slice] = copy.deepcopy(self.shape_layer.properties.copy())[key][
                     update_slice
                 ]
-            # self.original_shape_data[update_slice] = copy.deepcopy(self.shape_layer.data.copy())[update_slice]
+            self.original_shape_data[update_slice] = copy.deepcopy(self.shape_layer.data.copy())[update_slice]
             self.original_properties["sc"][update_slice] = self.original_scs[update_slice]
         else:
             self.original_face_colors = copy.deepcopy(list(self.shape_layer.face_color))
@@ -439,7 +439,7 @@ class SctOperator:
                 if key == "sc":
                     continue
                 self.original_properties[key] = copy.deepcopy(self.shape_layer.properties[key])
-            # self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
+            self.original_shape_data = copy.deepcopy(self.shape_layer.data.copy())
             self.original_properties["sc"] = self.original_scs  # avoid deepcopying the single cells
 
         end_time = datetime.datetime.now()
@@ -459,7 +459,13 @@ class SctOperator:
         sct, sc, old_shape_index = self.select_info[0]
         print("disconnecting shape...")
         old_traj = self.traj_collection.pop_trajectory(sct.track_id)
-        new_sct1, new_sct2 = old_traj.split(sc.timeframe)
+
+        max_tid = self.traj_collection.get_max_tid()
+        # # Py2: prevent from overflow, no need to check in py 3
+        # assert max_tid < 2 ** 31 - 1, "max_tid is too large, please re-assign track ids."
+
+        tid_1, tid_2 = max_tid + 1, max_tid + 2
+        new_sct1, new_sct2 = old_traj.split(sc.timeframe, tid_1=tid_1, tid_2=tid_2)
         self.traj_collection.add_trajectory(new_sct1)
         self.traj_collection.add_trajectory(new_sct2)
 

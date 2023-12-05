@@ -18,6 +18,7 @@ import os
 import time
 import random
 from livecellx.model_zoo.segmentation.sc_correction import CorrectSegNet
+from livecellx.model_zoo.segmentation.sc_correction_aux import CorrectSegNetAux
 from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
 
 
@@ -106,10 +107,11 @@ def match_label_mask_by_iou(out_label_mask, gt_label_mask, bg_label=0, match_thr
         # skip if multiple out labels are matched to gt label (possibly oversegmentation)
         if len(label_gt2out[gt_label]) > 1:
             print(
-                "Warning: multiple out labels are matched to gt label, try higher match threshold?",
+                "Overseg: multiple out labels are matched to gt label, try higher match threshold?",
                 gt_label,
                 label_gt2out[gt_label],
             )
+            continue
         matched_num += 1
     gt_num = len(gt_labels)
     out_num = len(out_labels)
@@ -129,11 +131,19 @@ def evaluate_sample_v3_underseg(
 ):
     assert len(gt_iou_match_thresholds) > 0
     out_mask = model(sample["input"].unsqueeze(0).cuda())
+    if isinstance(model, CorrectSegNetAux):
+        seg_out_mask = out_mask[0]
+        aux_out_mask = out_mask[1]
+    elif isinstance(model, CorrectSegNet):
+        seg_out_mask = out_mask
+    else:
+        raise ValueError("model type not supported")
     if model.loss_type == "BCE" or model.loss_type == "CE":
-        out_mask = model.output_to_logits(out_mask)
+        seg_out_mask = model.output_to_logits(seg_out_mask)
+
     # 1 sample -> get first batch
-    out_mask = out_mask[0].cpu().detach().numpy()
-    assert out_mask.shape[0] == 3
+    seg_out_mask = seg_out_mask.cpu().detach().numpy().squeeze()
+    assert seg_out_mask.shape[0] == 3, "Expected 3 channels for seg_out_mask, got shape=%s" % str(seg_out_mask.shape)
 
     original_input_mask = sample["seg_mask"].numpy().squeeze()
     original_input_mask = original_input_mask.astype(bool)
@@ -146,12 +156,12 @@ def evaluate_sample_v3_underseg(
     assert gt_label_mask is not None, "gt_label_mask is required for evaluation"
     assert len(set(np.unique(gt_seg_mask).tolist())) <= 2
 
-    combined_over_under_seg = np.zeros([3] + list(out_mask.shape[1:]))
-    combined_over_under_seg[0, out_mask[1, :] > out_threshold] = 1
-    combined_over_under_seg[1, out_mask[2, :] > out_threshold] = 1
+    combined_over_under_seg = np.zeros([3] + list(seg_out_mask.shape[1:]))
+    combined_over_under_seg[0, seg_out_mask[1, :] > out_threshold] = 1
+    combined_over_under_seg[1, seg_out_mask[2, :] > out_threshold] = 1
 
     # ignore pixels outside an area, only works for undersegmentation
-    out_mask_predicted = out_mask[0] > out_threshold
+    out_mask_predicted = seg_out_mask[0] > out_threshold
     # TODO: the following line does not hold for overseg case; double check with the team
     # out_mask_predicted[original_input_mask < 0.5] = 0
     out_mask_predicted = out_mask_predicted.astype(bool)

@@ -15,7 +15,7 @@ We address incorrect segmentation cases, particularly over-segmentation and unde
 ### Biological process classification and detection
 We provide a tool for users to annotate live-cell imaging datasets in Napari, and generate videos for deep learning training on video related tasks based on CNN or vision transformer based models.  
 
-To classify biological processes, we design a framework to classify and detect biological processes. We show case how to apply this framework by applying it to the single-cell mitosis trajectory classification task. Our framework achieves near-perfect detection accuracy, exceeding 99%, on mitosis classification task. You can follow our Jupyter notebooks in ./notebooks to reproduce our results and apply the pretrained models to detect mitosis events in your dataset. This framework can be applied to other biological processes.
+To classify biological processes, we design a framework to classify and detect biological processes. We show case how to apply this framework by applying it to the single-cell mitosis trajectory classification task. Our framework achieves near-perfect detection accuracy, exceeding 99.99%, on label-free live-cell mitosis classification task. You can follow our Jupyter notebooks in ./notebooks to reproduce our results and apply the pretrained models to detect mitosis events in your dataset. This framework can be applied to other biological processes.
 
 For more information, installation instructions, and tutorials, please visit our [official documentation](https://livecellx.readthedocs.io/en/latest/).
 
