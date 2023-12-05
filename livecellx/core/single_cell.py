@@ -431,7 +431,7 @@ class SingleCellStatic:
         _type_
             _description_
         """
-        main_info("loading single cells from json file: " + path)
+        main_info("loading single cells from json file: " + str(path))
         with open(path, "r") as f:
             sc_json_dict_list = json.load(f)
         main_info("loaded " + str(len(sc_json_dict_list)) + " single cells")
