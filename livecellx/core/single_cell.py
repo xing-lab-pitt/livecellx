@@ -492,7 +492,8 @@ class SingleCellStatic:
             img_dataset = sc.img_dataset
             mask_dataset = sc.mask_dataset
             img_dataset.write_json(out_dir=dataset_dir, overwrite=False)
-            mask_dataset.write_json(out_dir=dataset_dir, overwrite=False)
+            if mask_dataset is not None:
+                mask_dataset.write_json(out_dir=dataset_dir, overwrite=False)
             all_sc_jsons.append(sc_json)
         if return_list:
             return all_sc_jsons
