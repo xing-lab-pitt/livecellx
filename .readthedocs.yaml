@@ -36,5 +36,5 @@ sphinx:
 python:
     install:
         - method: pip
-          path: .
-          ext/home/ken67/LiveCellTracker-dev/notebooks/scripts/mmdetection_classify/work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v10-st-video-clipLen=3-trainClipNum=3-valClipNum=3ra_requirements: [docs]
+          path: [docs]
+          extra_requirements: [docs]
