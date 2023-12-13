@@ -1278,7 +1278,7 @@ class SingleCellTrajectoryCollection:
         id_to_sc_trajs = self.track_id_to_trajectory
         all_traj_lengths = np.array([_traj.get_timeframe_span_length() for _traj in id_to_sc_trajs.values()])
         if ax is None:
-            ax = sns.countplot(x=all_traj_lengths)
+            ax = sns.countplot(x=all_traj_lengths, **kwargs)
         for container in ax.containers:
             ax.bar_label(container)
         ax.set(xlabel="Trajectory Length")
