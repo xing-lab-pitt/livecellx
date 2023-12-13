@@ -4,6 +4,7 @@ import os.path
 from pathlib import Path
 from typing import Tuple
 from collections import deque
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image, ImageSequence
@@ -17,6 +18,17 @@ from livecellx.segment.ou_simulator import find_contours_opencv
 
 from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecellx.core.single_cell import SingleCellStatic
+
+
+def filter_contours_by_size(contours: list, min_size, max_size):
+    required_contours = []
+    for contour in contours:
+        contour = contour.astype(np.float32)
+        area = cv2.contourArea(contour)
+        print("area:", area)
+        if area >= min_size and area <= max_size:
+            required_contours.append(contour)
+    return required_contours
 
 
 def get_contours_from_pred_masks(instance_pred_masks):

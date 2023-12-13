@@ -144,3 +144,18 @@ def dilate_or_erode_mask(cropped_mask: np.array, scale_factor):
     else:  # quality_model_type_param > 0
         s_cropped_mask = cv.dilate(cropped_mask, kernel=kernel)
     return s_cropped_mask
+
+
+def dilate_or_erode_label_mask(label_mask: np.array, scale_factor, bg_val=0):
+    """Erode label mask to make each labeled region smaller and thus separated."""
+    labels = np.unique(label_mask)
+    # remove bg label
+    labels = labels[labels != bg_val]
+
+    res = np.zeros(label_mask.shape)
+    for label in labels:
+        bin_mask = label_mask == label
+        bin_mask = bin_mask.astype(np.uint8)
+        eroded_mask = dilate_or_erode_mask(bin_mask, scale_factor=scale_factor)
+        res = res + eroded_mask * label
+    return res

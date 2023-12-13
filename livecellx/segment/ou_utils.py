@@ -21,7 +21,7 @@ import os
 from tqdm import tqdm
 from pathlib import Path
 import pandas as pd
-from livecellx.preprocess.utils import dilate_or_erode_mask
+from livecellx.preprocess.utils import dilate_or_erode_mask, dilate_or_erode_label_mask
 
 
 def create_ou_input_from_sc(
@@ -212,20 +212,6 @@ def gen_aug_diff_mask(aug_mask: np.array, combined_gt_mask: np.array, dtype=np.i
     assert len(np.unique(diff_mask)) <= 3
 
     return diff_mask
-
-
-def dilate_or_erode_label_mask(label_mask: np.array, scale_factor, bg_val=0):
-    import scipy
-
-    label_mask = label_mask.astype(np.uint8)
-    labels = set(np.unique(label_mask))
-    labels.remove(bg_val)
-    res_mask = np.zeros_like(label_mask)
-    for label in labels:
-        tmp_bin_mask = (label_mask == label).astype(np.uint8)
-        tmp_scaled_mask = dilate_or_erode_mask(tmp_bin_mask, scale_factor)
-        res_mask = np.maximum(res_mask, tmp_scaled_mask)
-    return res_mask
 
 
 def csn_augment_helper(

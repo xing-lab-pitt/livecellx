@@ -16,7 +16,7 @@ from napari.layers import Shapes
 from livecellx.livecell_logger import main_info, main_warning, main_debug
 from livecellx.core import SingleCellTrajectory, SingleCellStatic
 from livecellx.segment.ou_utils import create_ou_input_from_sc
-from livecellx.segment.utils import find_contours_opencv
+from livecellx.segment.utils import find_contours_opencv, filter_contours_by_size
 from livecellx.core.datasets import SingleImageDataset
 
 
@@ -350,21 +350,10 @@ class ScSegOperator:
         self.update_shape_layer_by_sc()
         print("restore_sc_contour_callback done!")
 
-    @staticmethod
-    def filter_contours_by_size(contours: list, min_size, max_size):
-        required_contours = []
-        for contour in contours:
-            contour = contour.astype(np.float32)
-            area = cv2.contourArea(contour)
-            print("area:", area)
-            if area >= min_size and area <= max_size:
-                required_contours.append(contour)
-        return required_contours
-
     def filter_cells_by_size_callback(self, min_size, max_size):
         print("filter_cells_by_size_callback fired!")
         contours = self._get_contours_from_shape_layer(self.shape_layer)
-        required_contours = ScSegOperator.filter_contours_by_size(contours, min_size, max_size)
+        required_contours = filter_contours_by_size(contours, min_size, max_size)
         time = self.sc.timeframe
         new_shape_data = []
         for contour in required_contours:
