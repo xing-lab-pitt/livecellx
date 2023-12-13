@@ -38,8 +38,13 @@ class SingleCellTrajectoryIOTest(TestHelper):
 
         # extract a single SingleCellTrajectory from the collection and store it in another class attribute
         # here we arbitrarily take the trajectory corresponding to the first track_id we find in the collection
-        first_track_id = next(iter(cls.traj_collection.track_id_to_trajectory))
+        track_ids = cls.traj_collection.get_track_ids()
+        first_track_id = track_ids[0]
+        second_track_id = track_ids[1]
         cls.sct = cls.traj_collection.get_trajectory(first_track_id)
+        cls.second_traj = cls.traj_collection.get_trajectory(second_track_id)
+        cls.sct.mother_trajectories = set([cls.second_traj])
+        cls.sct.daughter_trajectories = set([cls.second_traj])
 
     def setUp(self):
         self.io_out_dir = Path("test_io_output")
@@ -76,6 +81,12 @@ class SingleCellTrajectoryIOTest(TestHelper):
             )
         else:
             self.assertIsNone(result["meta"]["mask_dataset_json_path"])
+
+        # test mother daugter
+        print("traj meta: ", result["meta"])
+        print("traj mother trajs: ", self.sct.mother_trajectories)
+        self.assertEqual(result["meta"][SingleCellTrajectory.META_MOTHER_IDS], [self.second_traj.track_id])
+        self.assertEqual(result["meta"][SingleCellTrajectory.META_DAUGHTER_IDS], [self.second_traj.track_id])
 
     def test_load_from_json_dict(self):
         # this test checks if the load_from_json_dict method works correctly

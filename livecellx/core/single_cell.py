@@ -856,7 +856,7 @@ class SingleCellTrajectory:
     def __iter__(self):
         return iter(self.timeframe_to_single_cell.items())
 
-    def update_meta_trajectories(self):
+    def _update_meta(self):
         self.meta[SingleCellTrajectory.META_MOTHER_IDS] = [mother.track_id for mother in self.mother_trajectories]
         self.meta[SingleCellTrajectory.META_DAUGHTER_IDS] = [
             daughter.track_id for daughter in self.daughter_trajectories
@@ -919,8 +919,7 @@ class SingleCellTrajectory:
 
     def to_json_dict(self, dataset_json_dir=None):
         # Check if mother and daughter trajectories exist in metadata. If not, add them
-        if "mother_trajectory_ids" not in self.meta or "daughter_trajectory_ids" not in self.meta:
-            self.update_meta_trajectories()
+        self._update_meta()
         # Update metadata with img and mask datasets json paths
         self.meta.update(
             {
