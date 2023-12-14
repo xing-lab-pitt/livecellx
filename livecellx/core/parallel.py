@@ -15,6 +15,6 @@ def wrap_func(func, args):
 def parallelize(func, inputs, cores=None):
     with Pool(processes=cores) as pool:
         outputs = []
-        for output in pool.imap_unordered(partial(wrap_func, func), inputs):
+        for output in tqdm.tqdm(pool.imap_unordered(partial(wrap_func, func), inputs), total=len(inputs)):
             outputs.append(output)
     return outputs
