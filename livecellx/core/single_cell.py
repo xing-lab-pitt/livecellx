@@ -1495,3 +1495,18 @@ def show_sct_on_grid(
             ax.set_title(f"time: {timeframe}", fontsize=ax_title_fontsize)
     fig.tight_layout(pad=0.5, h_pad=0.4, w_pad=0.4)
     return axes
+
+
+def combine_scs_label_masks(scs: SingleCellStatic, scs_labels: list = None, original_meta_label_key=None):
+    """Generate a label mask from a list of single cell objects."""
+    label_mask = np.zeros(scs[0].get_mask().shape, dtype=np.int32)
+    if scs_labels is None and original_meta_label_key is None:
+        scs_labels = list(range(1, len(scs) + 1))
+    elif scs_labels is None and original_meta_label_key is not None:
+        scs_labels = [sc.meta[original_meta_label_key] for sc in scs]
+
+    for sc_idx in range(len(scs)):
+        sc = scs[sc_idx]
+        label = scs_labels[sc_idx]
+        label_mask[sc.get_mask()] = label
+    return label_mask
