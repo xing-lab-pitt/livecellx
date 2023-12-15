@@ -353,6 +353,7 @@ class SingleCellStatic:
             "contour": self.contour.tolist(),
             "meta": dict(self.meta),
             "id": str(self.id),
+            "uns": dict(self.uns),
         }
 
         if include_dataset_json:
@@ -422,6 +423,10 @@ class SingleCellStatic:
         # self.mask_dataset = LiveCellImageDataset(
         #     json_dict["dataset_name"] + "_mask", json_dict["dataset_path"]
         # )
+
+        # Load uns
+        if "uns" in json_dict:
+            self.uns = json_dict["uns"]
         return self
 
     inflate_from_json_dict = load_from_json_dict

@@ -23,6 +23,8 @@ class SingleCellStaticIOTest(TestHelper):
         cls.io_out_dir = None
         cls.img_dataset = None
         cls.mask_dataset = None
+        for cell in cls.cells:
+            cell.uns["_test_uns_key"] = "_test_uns_value"
 
     def setUp(self):
         self.io_out_dir = Path("test_io_output")
@@ -53,6 +55,8 @@ class SingleCellStaticIOTest(TestHelper):
                 assert result["contour"] == self.cell.contour.tolist()
                 assert result["id"] == str(self.cell.id)
                 assert result["meta"] == self.cell.meta
+                assert "uns" in result
+                assert result["uns"] == self.cell.uns
 
                 # Check the 'dataset_json' field
                 if include_dataset_json:
@@ -122,6 +126,7 @@ class SingleCellStaticIOTest(TestHelper):
         for i, loaded_cell in enumerate(loaded_cells):
             original_cell = self.cells[i]
             self.assertEqualSc(original_cell, loaded_cell)
+            assert loaded_cell.uns["_test_uns_key"] == "_test_uns_value"
 
     def test_write_json(self):
         # Test write to file
