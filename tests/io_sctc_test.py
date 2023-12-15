@@ -34,6 +34,12 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
             single_cells, dic_dataset, mask_dataset=mask_dataset, max_age=1, min_hits=1
         )
 
+        # add mother/daughter trajectories
+        trajs = list(cls.traj_collection.track_id_to_trajectory.values())
+        for traj in trajs:
+            traj.mother_trajectories.add(trajs[0])
+            traj.daughter_trajectories.add(trajs[1])
+
     def setUp(self):
         self.io_out_dir = Path("test_io_output")
         self.io_out_dir.mkdir(exist_ok=True)  # Make sure the directory exists before each test
@@ -56,16 +62,17 @@ class SingleCellTrajectoryCollectionIOTest(TestHelper):
         self.assertIsInstance(traj_dict, dict)
         self.assertEqual(len(traj_dict), len(self.traj_collection))
 
-        for track_id, traj in traj_dict.items():
+        loaded_sctc = SingleCellTrajectoryCollection().load_from_json_dict(json_dict)
+        for track_id, traj_val in traj_dict.items():
             traj_instance = self.traj_collection.get_trajectory(track_id)
-            self._test_write_dataset(traj_instance.img_dataset, "img_dataset_json_path", traj)
-            self._test_write_dataset(traj_instance.mask_dataset, "mask_dataset_json_path", traj)
+            self._test_write_dataset(traj_instance.img_dataset, "img_dataset_json_path", traj_val)
+            self._test_write_dataset(traj_instance.mask_dataset, "mask_dataset_json_path", traj_val)
 
             self.assertIsInstance(track_id, int)
-            self.assertIsInstance(traj, dict)
+            self.assertIsInstance(traj_val, dict)
 
             # Check if the returned trajectory has correct format
-            loaded_sct = SingleCellTrajectory().load_from_json_dict(traj)
+            loaded_sct = loaded_sctc.get_trajectory(track_id)
             original_sct = self.traj_collection.get_trajectory(track_id)
             self.assertEqualSct(original_sct, loaded_sct)
 

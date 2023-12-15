@@ -1247,6 +1247,10 @@ class SingleCellTrajectoryCollection:
             }
         }
 
+    def _post_load_trajectories(self):
+        for _, trajectory in self:
+            trajectory.inflate_other_trajectories(self)
+
     def load_from_json_dict(self, json_dict):
         self.track_id_to_trajectory = {}
         for track_id, trajectory_dict in json_dict["track_id_to_trajectory"].items():
@@ -1254,6 +1258,7 @@ class SingleCellTrajectoryCollection:
             self.track_id_to_trajectory[int(float(track_id))] = SingleCellTrajectory().load_from_json_dict(
                 trajectory_dict
             )
+        self._post_load_trajectories()
         return self
 
     def load_from_json_dict_parallel(self, json_dict):
@@ -1265,6 +1270,7 @@ class SingleCellTrajectoryCollection:
         outputs = parallelize(load_from_json_dict_parallel_wrapper, inputs)
         for track_id, traj in outputs:
             self.track_id_to_trajectory[int(float(track_id))] = traj
+        self._post_load_trajectories()
         return self
 
     def write_json(self, path, dataset_json_dir=None):
