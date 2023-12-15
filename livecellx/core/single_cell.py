@@ -1019,7 +1019,14 @@ class SingleCellTrajectory:
         self.times = sorted(self.timeframe_set)
         return self
 
-    def inflate_other_trajectories(self, track_id_to_trajectory: Dict[int, "SingleCellTrajectory"]):
+    def inflate_other_trajectories(self, sctc: "SingleCellTrajectoryCollection"):
+        """inflate the other trajectories in this trajectory's mother and daughter trajectories"""
+        self.mother_trajectories = {sctc.get_trajectory(id) for id in self.meta[SingleCellTrajectory.META_MOTHER_IDS]}
+        self.daughter_trajectories = {
+            sctc.get_trajectory(id) for id in self.meta[SingleCellTrajectory.META_DAUGHTER_IDS]
+        }
+
+    def inflate_other_trajectories_by_dict(self, track_id_to_trajectory: Dict[int, "SingleCellTrajectory"]):
         """inflate the other trajectories in this trajectory's mother and daughter trajectories"""
         self.mother_trajectories = {
             track_id_to_trajectory[id] for id in self.meta[SingleCellTrajectory.META_MOTHER_IDS]

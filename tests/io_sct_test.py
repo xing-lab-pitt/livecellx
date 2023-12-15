@@ -216,6 +216,7 @@ class SingleCellTrajectoryIOTest(TestHelper):
 
         # Load a new SingleCellTrajectory object from the file
         new_sct = SingleCellTrajectory.load_from_json_file(path=self.json_file_path)
+        new_sct.inflate_other_trajectories(self.traj_collection)
 
         # Check that the loaded object is a SingleCellTrajectory
         self.assertIsInstance(new_sct, SingleCellTrajectory)
