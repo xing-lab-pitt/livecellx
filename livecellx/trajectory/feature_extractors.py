@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from livecellx.core.single_cell import SingleCellStatic
+from livecellx.livecell_logger import main_info
 from livecellx.preprocess.utils import normalize_img_to_uint8
 from livecellx.core.parallel import parallelize
 
@@ -17,7 +18,7 @@ def _compute_feature_wrapper(sc, func, params=dict()):
 
 
 def parallelize_compute_features(
-    scs: List[SingleCellStatic], func: callable, params: dict, cores=None
+    scs: List[SingleCellStatic], func: callable, params: dict, cores=None, replace_feature=True
 ) -> Tuple[List, List]:
     """
     Compute features in parallel for a list of SingleCellStatic objects.
@@ -44,6 +45,14 @@ def parallelize_compute_features(
     for sc in scs:
         sc_id = sc.id
         res_scs.append(sc_id_to_sc[sc_id])
+
+    res_sc_id2sc = {sc.id: sc for sc in res_scs}
+    if replace_feature:
+        main_info("Replacing features in scs", indent_level=2)
+        for sc in scs:
+            sc_id = sc.id
+            sc.feature_dict = res_sc_id2sc[sc_id].feature_dict
+
     return features, res_scs
 
 
