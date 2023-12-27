@@ -983,7 +983,7 @@ def _get_viewer_sct_operator(viewer, points_data_layer_key="_lcx_sct_cur_idx"):
 
 
 # TODO: discuss the following to-be-deprecated API
-def create_scs_edit_viewer_by_interval(
+def _deprecated_create_scs_edit_viewer_by_interval(
     single_cells,
     img_dataset: LiveCellImageDataset,
     span_interval=10,
@@ -1090,6 +1090,11 @@ def create_scs_edit_viewer_by_interval(
         _move_span(viewer, cur_step - cur_idx)
 
     return viewer
+
+
+def create_scs_edit_viewer_by_interval(scs: List[SingleCellStatic], **kwargs):
+    _sctc = create_sctc_from_scs(scs)
+    return create_sctc_edit_viewer_by_interval(_sctc, **kwargs)
 
 
 def create_sctc_edit_viewer_by_interval(
