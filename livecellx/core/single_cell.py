@@ -666,6 +666,9 @@ class SingleCellStatic:
             else:
                 res_series = pd.concat([res_series, tmp_series])
         # add time frame information
+        if res_series is None:
+            main_info("WARNING: no features found for single cell")
+            res_series = pd.Series()
         res_series["t"] = self.timeframe
         res_series["sc_id"] = self.id
         return res_series
@@ -770,7 +773,7 @@ class SingleCellStatic:
 
         return copy.copy(self)
 
-    def get_center(self, crop=True):
+    def get_center(self, crop=False):
         return np.array(self.compute_regionprops(crop=crop).centroid)
 
     def _sc_matplotlib_bbox_patch(self, edgecolor="r", linewidth=1, **kwargs) -> patches.Rectangle:
@@ -1046,6 +1049,7 @@ class SingleCellTrajectory:
         for timeframe, sc in self:
             assert timeframe == sc.timeframe, "timeframe mismatch"
             feature_series = sc.get_feature_pd_series()
+            feature_series["track_id"] = self.track_id
             row_idx = "_".join([str(self.track_id), str(sc.timeframe)])
             if feature_table is None:
                 feature_table = pd.DataFrame({row_idx: feature_series})
@@ -1412,7 +1416,7 @@ def show_sct_on_grid(
     nr=4,
     nc=4,
     start=0,
-    interval=5,
+    interval=1,
     padding=20,
     dims: Tuple[int, int] = None,
     dims_offset: Tuple[int, int] = (0, 0),
@@ -1528,3 +1532,12 @@ def combine_scs_label_masks(scs: SingleCellStatic, scs_labels: list = None, orig
         label = scs_labels[sc_idx]
         label_mask[sc.get_mask()] = label
     return label_mask
+
+
+def get_time2scs(scs: List[SingleCellStatic]):
+    time2scs = {}
+    for sc in scs:
+        if sc.timeframe not in time2scs:
+            time2scs[sc.timeframe] = []
+        time2scs[sc.timeframe].append(sc)
+    return time2scs
