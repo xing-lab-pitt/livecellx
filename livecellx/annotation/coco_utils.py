@@ -48,7 +48,7 @@ def convert_coco_category_to_mask(coco_annotation: COCO, cat_id: int, output_dir
         img.save(Path(output_dir) / f"{img_id}.png")
 
 
-def coco_to_sc(coco_data: COCO, extract_bbox=False) -> List[SingleCellStatic]:
+def coco_to_scs(coco_data: COCO, extract_bbox=False) -> List[SingleCellStatic]:
     """Converts COCO annotation to SingleCellStatic objects. img_id is stored in the meta data and used as the timeframe of each sc.
 
     Parameters

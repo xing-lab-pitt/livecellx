@@ -4,6 +4,7 @@
 # Adapated and further developed by: Ke
 # ---------------------------------------------------------------------------
 
+import json
 import logging
 import os
 from pathlib import Path, PosixPath
@@ -23,12 +24,19 @@ class labelme2coco:
         raise RuntimeError("Use labelme2coco.convert() or labelme2coco.get_coco_from_labelme_folder() instead.")
 
 
+def _get_time_from_filepath(filename: str):
+    """{parent_dirs}/{time}.png"""
+    return int(Path(filename).name.split(".")[0])
+
+
 def get_coco_from_labelme_folder(
     labelme_folder: str,
     coco_category_list: List = None,
     is_image_in_json_folder=False,
     image_file_ext="tif",
     dataset_folder_path=None,
+    is_secondary_dataset=False,
+    get_time_func=_get_time_from_filepath,
 ) -> Coco:
     """
     Generate coco object from labelme annotations. This function wil load images according to the following rules:
@@ -62,11 +70,14 @@ def get_coco_from_labelme_folder(
         image_path = str(Path(labelme_folder) / labelme_data["imagePath"])
         if not (dataset_folder_path is None):
             print(">>> loading image from dataset_folder_path: ", dataset_folder_path)
-            print(">>>>>> dataset_name: ", dataset_name)
             image_filename = os.path.basename(json_path.replace(".json", "." + image_file_ext))
-            dataset_name = Path(json_path).parent.name
 
-            image_path = str(Path(dataset_folder_path) / dataset_name / image_filename)
+            if is_secondary_dataset:
+                dataset_name = Path(json_path).parent.name
+                print(">>>>>> dataset_name: ", dataset_name)
+                image_path = str(Path(dataset_folder_path) / dataset_name / image_filename)
+            else:
+                image_path = str(Path(dataset_folder_path) / image_filename)
         elif is_image_in_json_folder:
             image_path = json_path.replace(".json", "." + image_file_ext)
 
@@ -85,7 +96,7 @@ def get_coco_from_labelme_folder(
         width, height = image.size
 
         # init coco image
-        coco_image = CocoImage(file_name=image_path, height=height, width=width)
+        coco_image = CocoImage(file_name=image_path, height=height, width=width, id=get_time_func(image_path))
         # iterate over annotations
         for shape in data["shapes"]:
             # set category name and id
@@ -125,6 +136,21 @@ def get_coco_from_labelme_folder(
                 raise NotImplementedError(f'shape_type={shape["shape_type"]} not supported.')
             coco_image.add_annotation(coco_annotation)
         coco.add_image(coco_image)
+
+    coco.image_id_setting = "manual"
+    # Write the COCO dataset to a temporary file
+    import tempfile
+    from pycocotools.coco import COCO
+
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
+        json.dump(coco.json, f)
+        temp_path = f.name
+
+    # Load the COCO dataset with pycocotools
+    coco = COCO(temp_path)
+
+    # Delete the temporary file
+    os.remove(temp_path)
 
     return coco
 
