@@ -1134,7 +1134,16 @@ def create_sctc_edit_viewer_by_interval(
         cur_idx = sct_operator.uns[uns_cur_idx_key]
         return cur_idx
 
+    from PyQt5.QtWidgets import QApplication, QProgressDialog, QMessageBox
+    from PyQt5.QtCore import Qt
+
     def _move_span(viewer, offset):
+        progress = QProgressDialog("Moving interval...", "Cancel", 0, 100)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setValue(0)
+        progress.show()
+        QApplication.processEvents()
+
         main_info("[sctc render by interval] sct operator: moving interval")
         try:
             cur_idx = _get_cur_idx(sct_operator)
@@ -1143,24 +1152,21 @@ def create_sctc_edit_viewer_by_interval(
             cur_idx = max(cur_idx, 0)
             cur_span = (cur_idx, cur_idx + sct_operator.get_meta(span_interval_key))
             sct_operator.uns[uns_cur_idx_key] = cur_idx
-            # if clear_prev_batch:
-            #     sct_operator.close()
-            # sct_operator = create_scs_edit_viewer(single_cells, img_dataset = dic_dataset, viewer = viewer, time_span=cur_span)
             if clear_prev_batch:
-                # TODO: shapes may be invisible, though select is sc/sct based and should be fine
                 sct_operator.clear_selection()
-            # sct_operator.setup_by_timespan(cur_span, contour_sample_num=sct_operator.meta[contour_sample_num_key])
+            progress.setValue(50)
+            QApplication.processEvents()
             sct_operator.setup_by_timespan(cur_span, contour_sample_key=contour_sample_num_key)
             viewer.dims.set_point(0, cur_idx)
 
-            # Completed
-            main_info("[sctc render by interval] sct operator: completed moving interval")
+            progress.setValue(100)
+            QApplication.processEvents()
         except Exception as e:
-            print("Error:", e)
-            print("Failed to load next span. Please try again.")
-            import traceback
-
-            traceback.print_exc()
+            progress.close()
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText(str(e))
+            msg.exec_()
 
     @viewer.bind_key("n")
     def next_span(viewer):
