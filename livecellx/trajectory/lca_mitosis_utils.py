@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple, Union
 import numpy as np
 from livecellx.core.single_cell import (
     SingleCellStatic,
@@ -9,7 +9,9 @@ from livecellx.core.single_cell import (
 from livecellx.livecell_logger import main_warning
 
 
-def split_mitosis_sample(sample: List[SingleCellStatic]) -> List[List[SingleCellStatic]]:
+def split_mitosis_sample(
+    sample: List[SingleCellStatic], return_break_idx=True
+) -> Union[List[List[SingleCellStatic]], Tuple[List[List[SingleCellStatic]], int]]:
     """
     Splits a list of single-cell static objects into multiple trajectories based on mitosis events. This function first finds a time point t where there are two daughter cells, and then splits the sample into two trajectories, one for each daughter cell. For cell mapping, this function uses centroid Euclidean distance. This function assumes that the input sample contains at least one mitosis event, meaning after some time point t, there should be two daughter cells; before time t, there should be only one cell at each time point.
 
@@ -17,7 +19,7 @@ def split_mitosis_sample(sample: List[SingleCellStatic]) -> List[List[SingleCell
         sample (List[SingleCellStatic]): The input sample of single-cell static objects. This sample should contain at least one mitosis even, meaning after some time point t, there should be two daughter cells; before time t, there should be only one cell at each time point .
 
     Returns:
-        List[List[SingleCellStatic]]: A list of trajectories, where each trajectory represents a separate mitosis event.
+        Union[List[List[SingleCellStatic]], Tuple[List[List[SingleCellStatic]], int]: A list of trajectories, where each trajectory is a list of SingleCellStatic objects. If return_break_idx is True, also return the index of the time point t where the mitosis event happens.
 
     Raises:
         None.
@@ -36,7 +38,8 @@ def split_mitosis_sample(sample: List[SingleCellStatic]) -> List[List[SingleCell
         else:
             common_track.append(time2scs[time][0])
     if break_time is None:
-        return [sample]
+        # None is important here: it means no mitosis event and the sample is not split
+        return [sample], None
 
     # Generate trajectories
     cur_trajs = [common_track]
@@ -63,4 +66,8 @@ def split_mitosis_sample(sample: List[SingleCellStatic]) -> List[List[SingleCell
                 else:
                     new_tracks.append(min_traj + [sc])
             cur_trajs = new_tracks
-    return cur_trajs
+
+    if return_break_idx:
+        return cur_trajs, break_time_idx
+    else:
+        return cur_trajs
