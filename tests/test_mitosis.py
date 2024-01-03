@@ -37,14 +37,15 @@ class TestSplitMitosisSample(unittest.TestCase):
     def test_one_mitosis(self):
         # Test case where there is one mitosis event
         sample = [self.sc1, self.sc2, self.sc3, self.sc4, self.sc5]
-        result = split_mitosis_sample(sample)
+        result, break_idx = split_mitosis_sample(sample)
         self.assertEqual(result, [[self.sc1, self.sc2, self.sc3, self.sc4], [self.sc1, self.sc2, self.sc3, self.sc5]])
+        self.assertEqual(break_idx, 3)
 
     def test_no_mitosis(self):
         # Test case where there is no matching trajectory for a cell
         self.sc4.get_center.return_value = np.array([100, 100])  # Set a large distance
         sample = [self.sc1, self.sc2, self.sc3, self.sc4]
-        result = split_mitosis_sample(sample)
+        result, break_idx = split_mitosis_sample(sample)
         self.assertEqual(result, [[self.sc1, self.sc2, self.sc3, self.sc4]])
 
 
