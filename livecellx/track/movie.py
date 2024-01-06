@@ -1,9 +1,62 @@
-from typing import Callable
+from typing import Callable, List
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+import imageio
+import numpy as np
+from pathlib import Path
 
-from livecellx.core.single_cell import SingleCellStatic, SingleCellTrajectory
+from livecellx.core.single_cell import SingleCellStatic, SingleCellTrajectory, get_time2scs
+from livecellx.core.io_utils import save_png
+from livecellx.core.datasets import LiveCellImageDataset
+from livecellx.preprocess.utils import normalize_img_to_uint8
+
+
+def generate_scs_movie(
+    scs: List[SingleCellStatic],
+    img_dataset: LiveCellImageDataset,
+    save_dir,
+    fps=3,
+    factor=0.5,
+    video_only=False,
+    use_all_imgs=True,
+):
+    time2scs = get_time2scs(scs)
+    if use_all_imgs:
+        times = img_dataset.times
+    else:
+        times = sorted(time2scs.keys())
+    save_dir = Path(save_dir)
+    img_dir = save_dir / "imgs"
+    # Create
+    img_dir.mkdir(exist_ok=True, parents=True)
+    # Create a movie writer object
+    with imageio.get_writer(save_dir / "movie.mp4", fps=fps) as writer:
+        for time in times:
+            if time in time2scs:
+                cur_scs = time2scs[time]
+            else:
+                cur_scs = []
+            img = img_dataset.get_img_by_time(time)
+            img = np.array(img)
+            img = normalize_img_to_uint8(img)
+            # RGBA
+            img = np.repeat(img[:, :, np.newaxis], 4, axis=2)
+            img[..., 0] = 0
+            img[..., 3] = 255
+            for sc in cur_scs:
+                sc_mask = sc.get_sc_mask(crop=False)
+                assert img.shape[:2] == sc_mask.shape[:2], "img and mask shape mismatch"
+                for sc in cur_scs:
+                    img[..., 0][sc_mask] += int(255 * factor)
+            # Clip the value to 255
+            img = np.clip(img, 0, 255)
+            img = img.astype(np.uint8)
+            # Save image as png
+            # Mode should be corresponding RGBA code in PIL
+            save_png(img_dir / (str(time) + ".png"), img, mode="RGBA")
+            # Append the image to the movie file
+            writer.append_data(img)
 
 
 def generate_single_trajectory_movie(
@@ -56,7 +109,10 @@ def generate_single_trajectory_movie(
     """
     if min_length is not None:
         if single_cell_trajectory.get_timeframe_span_length() < min_length:
-            print("[Viz] skipping the current trajectory track_id: ", single_cell_trajectory.track_id)
+            print(
+                "[Viz] skipping the current trajectory track_id: ",
+                single_cell_trajectory.track_id,
+            )
             return None
     if ax is None:
         fig, ax = plt.subplots()
@@ -65,7 +121,12 @@ def generate_single_trajectory_movie(
         return []
 
     def default_update(sc_tp: SingleCellStatic, draw_contour=True):
-        frame_idx, raw_img, bbox, img_crop = (sc_tp.timeframe, sc_tp.get_img(), sc_tp.bbox, sc_tp.get_img_crop())
+        frame_idx, raw_img, bbox, img_crop = (
+            sc_tp.timeframe,
+            sc_tp.get_img(),
+            sc_tp.bbox,
+            sc_tp.get_img_crop(),
+        )
         ax.cla()
         frame_text = ax.text(
             -10,
