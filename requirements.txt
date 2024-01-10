@@ -5,6 +5,10 @@ scikit-image
 ipympl
 matplotlib
 
+
+imageio[ffmpeg] 
+imageio[pyav]
+
 # correction CNN training requirements
 torchmetrics==0.8.2 # DO NOT change version here, otherwise it will break the training (complaints about Accuracy())
 
