@@ -14,7 +14,9 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", type=int, default=32)
-parser.add_argument("--start_frame_idx", type=int, default=0)
+parser.add_argument("--start_frame_idx", type=int, default=1)
+parser.add_argument("--end_frame_idx", type=int, default=4)
+
 parser.add_argument("--model_version", type=str, default="NoVersion")
 parser.add_argument("--debug", action="store_true")
 args = parser.parse_args()
@@ -126,13 +128,20 @@ class ViTModel(pl.LightningModule):
 train_df = df[df["split"] == "train"]
 valid_df = df[df["split"] == "test"]
 
-
-# Filter based on start_frame_idx
-print("filtering based on start_frame_idx:", args.start_frame_idx)
+print("filtering based on start_frame_idx and end_frame_idx:", args.start_frame_idx)
 print("before filtering, train_df.shape:", train_df.shape)
 print("before filtering, valid_df.shape:", valid_df.shape)
+
+# Filter based on start_frame_idx
+
 train_df = train_df[train_df["frame_idx"] >= args.start_frame_idx]
 valid_df = valid_df[valid_df["frame_idx"] >= args.start_frame_idx]
+
+# Filter based on end_frame_idx
+print("filtering based on end_frame_idx:", args.end_frame_idx)
+train_df = train_df[train_df["frame_idx"] <= args.end_frame_idx]
+valid_df = valid_df[valid_df["frame_idx"] <= args.end_frame_idx]
+
 print("after filtering, train_df.shape:", train_df.shape)
 print("after filtering, valid_df.shape:", valid_df.shape)
 
