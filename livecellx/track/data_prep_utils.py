@@ -26,7 +26,7 @@ def drop_sample_div(sample: List[SingleCellStatic]):
     return new_sample
 
 
-def check_one_sc_at_time(sample: List[SingleCellStatic]):
+def is_one_sc_each_time(sample: List[SingleCellStatic]):
     """check if there is only one sc at each timepoint"""
     times = set()
     for sc in sample:
@@ -59,7 +59,7 @@ def drop_multiple_cell_frames_in_samples(class2samples: Dict, tar_keys: List[str
             tmp_samples.append(drop_sample_div(sample))
         class2samples[key] = tmp_samples
         assert all(
-            [check_one_sc_at_time(sample) for sample in class2samples[key]]
+            [is_one_sc_each_time(sample) for sample in class2samples[key]]
         ), "there is more than one sc at the same timepoint"
     return class2samples
 
@@ -111,6 +111,6 @@ def make_one_cell_per_timeframe_for_class2samples(
         if class2sample_extra_info is not None:
             class2sample_extra_info[cls] = tmp_sample_extra_info
         assert all(
-            [check_one_sc_at_time(sample) for sample in class2samples[cls]]
+            [is_one_sc_each_time(sample) for sample in class2samples[cls]]
         ), "there is more than one sc at the same timepoint"
     return class2samples, class2sample_extra_info

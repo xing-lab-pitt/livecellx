@@ -38,7 +38,6 @@ def load_all_json_dirs(
     all_class2sample_extra_info = {}
     for sample_json_dir in sample_json_dirs:
         _class2samples = load_class2samples_from_json_dir(sample_json_dir, class_subfolders=class_subfolders)
-        print(_class2samples)
         for class_name in _class2samples:
             # report how many samples loaded from the sample json dir
             print(f"Loaded {len(_class2samples[class_name])} annotated samples from {sample_json_dir / class_name}")
