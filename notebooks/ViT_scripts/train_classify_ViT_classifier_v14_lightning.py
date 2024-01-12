@@ -11,6 +11,9 @@ import torch.optim as optim
 
 from pytorch_lightning.loggers import TensorBoardLogger
 import argparse
+from dataset import CustomDataset, DataModule
+from model import ViTModel
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", type=int, default=32)
@@ -39,91 +42,6 @@ transform = transforms.Compose(
         transforms.RandomAffine(degrees=30, translate=(0.3, 0.3), scale=(0.5, 1.5)),
     ]
 )
-
-
-class CustomDataset(Dataset):
-    def __init__(self, dataframe, transform=None):
-        self.dataframe = dataframe
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.dataframe)
-
-    def __getitem__(self, idx):
-        img_relative_path = self.dataframe.iloc[idx]["img_path"]
-        img_path = DATA_DIR / img_relative_path
-        image = Image.open(img_path)
-        label = int(self.dataframe.iloc[idx]["label_index"])
-
-        if self.transform:
-            image = self.transform(image)
-
-        return image, label
-
-
-class DataModule(pl.LightningDataModule):
-    def __init__(self, train_df, valid_df, batch_size=32):
-        super().__init__()
-        self.train_df = train_df
-        self.valid_df = valid_df
-        self.batch_size = batch_size
-
-    def setup(self, stage=None):
-        # transform defined here
-        self.train_dataset = CustomDataset(self.train_df, transform=transform)
-        self.valid_dataset = CustomDataset(self.valid_df, transform=transform)
-
-    def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=32)
-
-    def val_dataloader(self):
-        return DataLoader(self.valid_dataset, batch_size=self.batch_size, shuffle=False, num_workers=32)
-
-
-class ViTModel(pl.LightningModule):
-    def __init__(self):
-        super().__init__()
-        self.model = models.vit_b_16(pretrained=True)
-        self.criterion = nn.CrossEntropyLoss()
-
-    def forward(self, x):
-        return self.model(x)
-
-    def training_step(self, batch, batch_idx):
-        inputs, labels = batch
-        outputs = self(inputs)
-        loss = self.criterion(outputs, labels)
-
-        # Calculate accuracy
-        preds = torch.argmax(outputs, dim=1)
-        correct = torch.sum(preds == labels).item()
-        accuracy = correct / len(labels)
-
-        # Logging
-        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("train_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        inputs, labels = batch
-        outputs = self(inputs)
-        loss = self.criterion(outputs, labels)
-
-        # Calculate accuracy
-        preds = torch.argmax(outputs, dim=1)
-        correct = torch.sum(preds == labels).item()
-        accuracy = correct / len(labels)
-
-        # Logging
-        self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("val_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-
-        return loss
-
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.model.parameters(), lr=0.001)
-        return optimizer
 
 
 # Split your dataset
