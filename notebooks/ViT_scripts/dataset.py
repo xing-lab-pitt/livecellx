@@ -36,16 +36,19 @@ class CustomDataset(Dataset):
 
 
 class DataModule(pl.LightningDataModule):
-    def __init__(self, train_df, valid_df, batch_size=32):
+    def __init__(self, train_df, valid_df, batch_size=32, transform=None, data_dir=None):
         super().__init__()
         self.train_df = train_df
         self.valid_df = valid_df
         self.batch_size = batch_size
+        self.transform = transform
+        self.data_dir = data_dir
+        assert self.data_dir is not None
 
     def setup(self, stage=None):
         # transform defined here
-        self.train_dataset = CustomDataset(self.train_df, transform=transform)
-        self.valid_dataset = CustomDataset(self.valid_df, transform=transform)
+        self.train_dataset = CustomDataset(self.train_df, transform=self.transform, data_dir=self.data_dir)
+        self.valid_dataset = CustomDataset(self.valid_df, transform=self.transform, data_dir=self.data_dir)
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=32)

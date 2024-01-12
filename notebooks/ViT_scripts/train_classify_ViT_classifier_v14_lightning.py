@@ -83,7 +83,7 @@ if args.debug:
     train_df = train_df[:100]
     valid_df = valid_df[:10]
 
-data_module = DataModule(train_df, valid_df, batch_size=args.batch_size)
+data_module = DataModule(train_df, valid_df, batch_size=args.batch_size, transform=transform, data_dir=DATA_DIR)
 model = ViTModel()
 
 # Define checkpoint callback
@@ -93,6 +93,7 @@ checkpoint_callback = ModelCheckpoint(
     mode="min",
     # filename="{epoch:02d}",
 )
+
 logger_name = "ViT_lightning_logs"
 logger = TensorBoardLogger(save_dir=out_dir, version=args.model_version, name=logger_name)
 print("logger save dir:", logger.save_dir)
