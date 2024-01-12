@@ -15,10 +15,12 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", type=int, default=32)
 parser.add_argument("--start_frame_idx", type=int, default=1)
-parser.add_argument("--end_frame_idx", type=int, default=4)
+parser.add_argument("--end_frame_idx", type=int, default=5)
 
 parser.add_argument("--model_version", type=str, default="NoVersion")
+parser.add_argument("--frame-type", type=str, default="all")
 parser.add_argument("--debug", action="store_true")
+parser.add_argument("--ckpt", type=str, default=None)
 args = parser.parse_args()
 
 
@@ -144,6 +146,19 @@ valid_df = valid_df[valid_df["frame_idx"] <= args.end_frame_idx]
 
 print("after filtering, train_df.shape:", train_df.shape)
 print("after filtering, valid_df.shape:", valid_df.shape)
+
+
+if args.frame_type != "all":
+    print("filtering based on input type:", args.frame_type)
+    print("before filtering, train_df.shape:", train_df.shape)
+    print("before filtering, valid_df.shape:", valid_df.shape)
+
+    train_df = train_df[train_df["frame_type"] == args.frame_type]
+    valid_df = valid_df[valid_df["frame_type"] == args.frame_type]
+
+    print("after filtering, train_df.shape:", train_df.shape)
+    print("after filtering, valid_df.shape:", valid_df.shape)
+
 
 # Debug: reduce the size of the dataset
 if args.debug:
