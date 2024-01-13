@@ -24,6 +24,7 @@ parser.add_argument("--model_version", type=str, default="NoVersion")
 parser.add_argument("--frame-type", type=str, default="all")
 parser.add_argument("--debug", action="store_true")
 parser.add_argument("--ckpt", type=str, default=None)
+parser.add_argument("--max-epochs", type=int, default=100)
 args = parser.parse_args()
 
 
@@ -100,12 +101,14 @@ print("logger save dir:", logger.save_dir)
 print("logger subdir:", logger.sub_dir)
 print("logger version:", logger.version)
 # Trainer setup
-trainer = pl.Trainer(max_epochs=10, callbacks=[checkpoint_callback], default_root_dir=out_dir, gpus=1, logger=logger)
+trainer = pl.Trainer(
+    max_epochs=args.max_epochs, callbacks=[checkpoint_callback], default_root_dir=out_dir, gpus=1, logger=logger
+)
 
 # Save all the arguments
 args_dict = vars(args)
 args_df = pd.DataFrame.from_dict(args_dict, orient="index")
-args_csv_path = logger.save_dir / logger_name / logger.version / "args.csv"
+args_csv_path = Path(logger.save_dir) / logger_name / logger.version / "args.csv"
 args_csv_path.parent.mkdir(exist_ok=True, parents=True)
 args_df.to_csv(args_csv_path)
 
