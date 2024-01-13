@@ -105,7 +105,7 @@ trainer = pl.Trainer(max_epochs=10, callbacks=[checkpoint_callback], default_roo
 # Save all the arguments
 args_dict = vars(args)
 args_df = pd.DataFrame.from_dict(args_dict, orient="index")
-args_csv_path = logger.save_dir / logger_name / logger.version / "args.csv"
+args_csv_path = Path(logger.save_dir) / logger_name / logger.version / "args.csv"
 args_csv_path.parent.mkdir(exist_ok=True, parents=True)
 args_df.to_csv(args_csv_path)
 
