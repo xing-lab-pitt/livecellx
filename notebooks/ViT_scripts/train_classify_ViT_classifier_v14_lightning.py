@@ -17,8 +17,8 @@ from model import ViTModel
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", type=int, default=32)
-parser.add_argument("--start_frame_idx", type=int, default=1)
-parser.add_argument("--end_frame_idx", type=int, default=5)
+parser.add_argument("--start_frame_idx", type=int, default=None)
+parser.add_argument("--end_frame_idx", type=int, default=None)
 
 parser.add_argument("--model_version", type=str, default="NoVersion")
 parser.add_argument("--frame-type", type=str, default="all")
@@ -44,27 +44,35 @@ transform = transforms.Compose(
     ]
 )
 
+#######################
+# Filteromg           #
+#######################
+
+print("before filtering, train_df.shape:", train_df.shape)
+print("before filtering, valid_df.shape:", valid_df.shape)
 
 # Split your dataset
 train_df = df[df["split"] == "train"]
 valid_df = df[df["split"] == "test"]
+if args.start_frame_idx is not None:
+    print("filtering based on start_frame_idx and end_frame_idx:", args.start_frame_idx)
+    # Filter based on start_frame_idx
 
-print("filtering based on start_frame_idx and end_frame_idx:", args.start_frame_idx)
-print("before filtering, train_df.shape:", train_df.shape)
-print("before filtering, valid_df.shape:", valid_df.shape)
+    train_df = train_df[train_df["frame_idx"] >= args.start_frame_idx]
+    valid_df = valid_df[valid_df["frame_idx"] >= args.start_frame_idx]
 
-# Filter based on start_frame_idx
-
-train_df = train_df[train_df["frame_idx"] >= args.start_frame_idx]
-valid_df = valid_df[valid_df["frame_idx"] >= args.start_frame_idx]
+    print("after filtering, train_df.shape:", train_df.shape)
+    print("after filtering, valid_df.shape:", valid_df.shape)
 
 # Filter based on end_frame_idx
-print("filtering based on end_frame_idx:", args.end_frame_idx)
-train_df = train_df[train_df["frame_idx"] <= args.end_frame_idx]
-valid_df = valid_df[valid_df["frame_idx"] <= args.end_frame_idx]
 
-print("after filtering, train_df.shape:", train_df.shape)
-print("after filtering, valid_df.shape:", valid_df.shape)
+if args.end_frame_idx is not None:
+    print("filtering based on end_frame_idx:", args.end_frame_idx)
+    train_df = train_df[train_df["frame_idx"] <= args.end_frame_idx]
+    valid_df = valid_df[valid_df["frame_idx"] <= args.end_frame_idx]
+
+    print("after filtering, train_df.shape:", train_df.shape)
+    print("after filtering, valid_df.shape:", valid_df.shape)
 
 
 if args.frame_type != "all":
