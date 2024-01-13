@@ -8,6 +8,12 @@ docs/source/classes
 **/eval_results/**
 **/test_logs/**
 **/notebooks/scripts/mmdetection_classify/work_dirs*/**
+**/notebooks/InternImageSegmentation/**
+**/notebooks/livecell_tracker_csn_lightning_logs/**
+**/notebooks/results/**
+**/notebooks/sc_classify_MA*/**
+**/notebooks/vae_logs/**
+
 *.pth
 notebook_results
 external_repos
