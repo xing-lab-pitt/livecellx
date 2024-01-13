@@ -1,6 +1,11 @@
 docs/source/**
 docs/source/api
 docs/source/classes
+notebooks/ViT_scripts/ViT_workdirs/**
+notebooks/*logs*
+notebooks/tmp/**
+notebooks/eval_results/**
+notebooks/sc_classify_MA*/**
 
 *.mp4
 *.npy
