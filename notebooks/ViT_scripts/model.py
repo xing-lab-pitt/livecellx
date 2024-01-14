@@ -14,10 +14,17 @@ import argparse
 from dataset import CustomDataset, DataModule
 
 
-class ViTModel(pl.LightningModule):
-    def __init__(self):
+class LcaImageClassificationModel(pl.LightningModule):
+    """LivecellAction Image Classification Model"""
+
+    def __init__(self, model="vit_b_16"):
         super().__init__()
-        self.model = models.vit_b_16(pretrained=True)
+        if model=="vit_b_16":
+            self.model = models.vit_b_16(pretrained=True)
+        elif model=="resnet50":
+            self.model = models.resnet50(pretrained=True)
+        else:
+            raise ValueError(f"model {model} not recognized")
         self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, x):

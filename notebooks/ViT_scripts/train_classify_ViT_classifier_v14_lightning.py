@@ -12,7 +12,7 @@ import torch.optim as optim
 from pytorch_lightning.loggers import TensorBoardLogger
 import argparse
 from dataset import CustomDataset, DataModule
-from model import ViTModel
+from model import LcaImageClassificationModel
 
 
 parser = argparse.ArgumentParser()
@@ -20,6 +20,7 @@ parser.add_argument("--batch_size", type=int, default=32)
 parser.add_argument("--start_frame_idx", type=int, default=None)
 parser.add_argument("--end_frame_idx", type=int, default=None)
 
+parser.add_argument("--model", type=str, default="vit_b_16", help="vit_b_16 or resnet50", choices=["vit_b_16", "resnet50"])
 parser.add_argument("--model_version", type=str, default="NoVersion")
 parser.add_argument("--frame-type", type=str, default="all")
 parser.add_argument("--debug", action="store_true")
@@ -44,6 +45,11 @@ transform = transforms.Compose(
     ]
 )
 
+# Split your dataset
+train_df = df[df["split"] == "train"]
+valid_df = df[df["split"] == "test"]
+
+
 #######################
 # Filteromg           #
 #######################
@@ -51,9 +57,6 @@ transform = transforms.Compose(
 print("before filtering, train_df.shape:", train_df.shape)
 print("before filtering, valid_df.shape:", valid_df.shape)
 
-# Split your dataset
-train_df = df[df["split"] == "train"]
-valid_df = df[df["split"] == "test"]
 if args.start_frame_idx is not None:
     print("filtering based on start_frame_idx and end_frame_idx:", args.start_frame_idx)
     # Filter based on start_frame_idx
@@ -93,14 +96,15 @@ if args.debug:
     valid_df = valid_df[:10]
 
 data_module = DataModule(train_df, valid_df, batch_size=args.batch_size, transform=transform, data_dir=DATA_DIR)
-model = ViTModel()
+model = LcaImageClassificationModel(model=args.model)
 
 # Define checkpoint callback
 checkpoint_callback = ModelCheckpoint(
-    save_top_k=1,
+    save_top_k=3,
     monitor="val_loss",
     mode="min",
     # filename="{epoch:02d}",
+    every_n_epochs=20,
 )
 
 logger_name = "ViT_lightning_logs"

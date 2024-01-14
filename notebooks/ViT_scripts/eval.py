@@ -7,7 +7,7 @@ from PIL import Image
 from torchvision import models
 import pytorch_lightning as pl
 from dataset import CustomDataset, DataModule
-from model import ViTModel
+from model import LcaImageClassificationModel
 
 
 import argparse
@@ -23,7 +23,7 @@ args = parser.parse_args()
 
 # Load the best model checkpoint
 model_checkpoint_path = args.ckpt
-model = ViTModel.load_from_checkpoint(model_checkpoint_path)
+model = LcaImageClassificationModel.load_from_checkpoint(model_checkpoint_path)
 model.eval()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
