@@ -20,7 +20,9 @@ parser.add_argument("--batch_size", type=int, default=32)
 parser.add_argument("--start_frame_idx", type=int, default=None)
 parser.add_argument("--end_frame_idx", type=int, default=None)
 
-parser.add_argument("--model", type=str, default="vit_b_16", help="vit_b_16 or resnet50", choices=["vit_b_16", "resnet50"])
+parser.add_argument(
+    "--model", type=str, default="vit_b_16", help="vit_b_16 or resnet50", choices=["vit_b_16", "resnet50"]
+)
 parser.add_argument("--model_version", type=str, default="NoVersion")
 parser.add_argument("--frame-type", type=str, default="all")
 parser.add_argument("--debug", action="store_true")
@@ -51,7 +53,7 @@ valid_df = df[df["split"] == "test"]
 
 
 #######################
-# Filteromg           #
+# Filtering           #
 #######################
 
 print("before filtering, train_df.shape:", train_df.shape)
