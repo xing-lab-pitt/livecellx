@@ -36,13 +36,9 @@ class RandomMaskCentroid:
         assert (img[:, :, 0] == img[:, :, 1]).all(), "blue and green channel should have the same values"
 
     def __call__(self, results, exact_match_rg_channel=False):
-        # print("RandomMaskCentroid")
-        # print(results)
-        print("results keys: ", results.keys())
+
         imgs = results["imgs"]
         img_h, img_w = imgs[0].shape[:2]
-        print("# of images: ", len(imgs))
-        print("first image shape:", imgs[0].shape)
 
         # Because of lossy compression, some masks can have random dots...
         scale_factor = -0.01
@@ -87,14 +83,6 @@ class RandomMaskCentroid:
 
             # imgs[i] = dilate_or_erode_mask(img, scale_factor=0.99)
             imgs[i] = new_img.astype(np.uint8)
-
-            # plt.imshow(imgs[i][:,:,0])
-            # plt.savefig("tmp/debug_red.png")
-            # plt.imshow(imgs[i][:,:,1])
-            # plt.savefig("tmp/debug_green.png")
-            # plt.imshow(imgs[i][:,:,2])
-            # plt.savefig("tmp/debug_blue.png")
-            # exit(0)
 
         # If require exact match for mask channels
         if exact_match_rg_channel:
