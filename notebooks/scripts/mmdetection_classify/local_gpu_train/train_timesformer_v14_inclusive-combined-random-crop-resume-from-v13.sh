@@ -32,6 +32,9 @@
 nvidia-smi -L
 PYTHON=python
 OUT_DIR=local_outs
+
 export CUDA_VISIBLE_DEVICES=0
-model="v13_drop_div_clip=3_clipnum=3-combined"
-nohup $PYTHON train.py "configs/config_train_v13_div_cliplen=3_clipnum=3-combined.py" --resume auto > $OUT_DIR/train_out_model"$model".out 2>&1&
+model="timesformer-divst_v14_inclusive-combined-random-crop-resume-from-v13"
+nohup $PYTHON train.py "configs/config_train_timesformer_divst_v14-inclusive-combined-random-crop-resume-from-v13.py" \
+      --resume "/home/ken67/livecellx/notebooks/scripts/mmdetection_classify/work_dirs/timesformer-default-divst-v13-inclusive-with-mitosis-type-combined-random-crop/epoch_30.pth" \
+      > $OUT_DIR/train_out_model"$model".out 2>&1&

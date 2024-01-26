@@ -61,7 +61,7 @@ import argparse
 parser = argparse.ArgumentParser(description="Evaluate mitosis detection using mmdetection")
 parser.add_argument("--model_dir", type=str, help="Path to the directory containing the model", required=True)
 parser.add_argument("--out_dir", type=str, help="Path to the output directory", required=True)
-parser.add_argument("--config", type=str, help="Path to the configuration file", required=True)
+parser.add_argument("--config", type=str, help="Path to the configuration file", required=False, default=None)
 parser.add_argument("--checkpoint", type=str, help="Path to the checkpoint file", required=True)
 parser.add_argument(
     "--video_dir",
@@ -94,7 +94,7 @@ parser.add_argument(
 parser.add_argument(
     "--no-wrong-video",
     action="store_true",
-    help="In combined ver, raw videos input labels should be all WRONG",
+    help="whether to store wrong videos",
     default=False,
 )
 
@@ -120,6 +120,16 @@ out_dir.mkdir(parents=True, exist_ok=True)
 
 checkpoint_file = args.checkpoint
 config_file = args.config
+if config_file is None:
+    # a python file starting with 'config' and ends with '.py'
+    _files = glob.glob(os.path.join(model_dir, "config*.py"))
+    if len(_files) == 0:
+        raise ValueError("config file not found")
+    elif len(_files) > 1:
+        print("WARNING: multiple config files found, using the first one: ", _files)
+    config_file = _files[0]
+    print("config_file:", config_file)
+    assert config_file is not None
 cfg = Config.fromfile(config_file)
 DEVICE = args.device
 model = init_recognizer(config_file, checkpoint_file, device=DEVICE)
@@ -270,8 +280,11 @@ for row_ in tqdm(all_rows):
     if predicted_label != test_gt_label:
         print("wrong prediction:", video_path, "predicted_label:", predicted_label, "gt_label:", test_gt_label)
         wrong_predictions.append(row_series)
+
+        # Do not save wrong videos if specified
         if args.no_wrong_video:
             continue
+
         data_input = data["inputs"][0]  # 3 x 3 x 8 x 224 x 224
         if not args.is_tsn:
             # timeSformer
@@ -281,18 +294,21 @@ for row_ in tqdm(all_rows):
             masks = list(masks)
             imgs = [normalize_img_to_uint8(img) for img in imgs]
             masks = [normalize_img_to_uint8(mask) for mask in masks]
-
+            # Extract video filename from video_path without extension
+            video_filename = Path(video_path).name
+            _save_path = out_wrong_video_dir / video_filename
             # already edt transformed, so set to false
             frames = combine_video_frames_and_masks(imgs, masks, is_gray=True, edt_transform=False)
-            gen_mp4_from_frames(
-                frames, out_wrong_video_dir / f"wrong_{idx}-{input_frame_type}-padding_{padding_pixels}.mp4", fps=3
-            )
+            gen_mp4_from_frames(frames, _save_path, fps=3)
         else:
             # tsn
             imgs = data_input.detach().cpu().numpy()  # 90 x 3 x h x w
             imgs = list(imgs)
             imgs = [normalize_img_to_uint8(img) for img in imgs]
-            tmp_out_sample_dir = out_wrong_video_dir / f"wrong_{idx}-{input_frame_type}-padding_{padding_pixels}"
+
+            # extract video filename from video_path without extension
+            video_filename = Path(video_path).stem
+            tmp_out_sample_dir = out_wrong_video_dir / video_filename
             tmp_out_sample_dir.mkdir(parents=True, exist_ok=True)
             for i, img in enumerate(imgs):
                 save_png(tmp_out_sample_dir / f"sample_dim0-{i}.png", img.swapaxes(0, 2), mode="RGB")

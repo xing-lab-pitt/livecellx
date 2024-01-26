@@ -33,5 +33,5 @@ nvidia-smi -L
 PYTHON=python
 OUT_DIR=local_outs
 export CUDA_VISIBLE_DEVICES=0
-model="v13_drop_div_clip=3_clipnum=3-combined"
-nohup $PYTHON train.py "configs/config_train_v13_div_cliplen=3_clipnum=3-combined.py" --resume auto > $OUT_DIR/train_out_model"$model".out 2>&1&
+model="v13_inclusive_cliplen=3_clipnum=3-all-random-crop"
+nohup $PYTHON train.py "configs/config_train_v13_inclusive_cliplen=3_clipnum=3-all-random-crop.py" --resume auto > $OUT_DIR/train_out_model"$model".out 2>&1&

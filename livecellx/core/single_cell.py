@@ -348,9 +348,9 @@ class SingleCellStatic:
 
         res = {
             "timeframe": int(self.timeframe),
-            "bbox": list(np.array(self.bbox, dtype=float)),
+            "bbox": list(np.array(self.bbox, dtype=float)) if self.bbox is not None else None,
             "feature_dict": dict(self.feature_dict),
-            "contour": self.contour.tolist(),
+            "contour": self.contour.tolist() if self.contour is not None else None,
             "meta": dict(self.meta),
             "id": str(self.id),
             "uns": dict(self.uns),
