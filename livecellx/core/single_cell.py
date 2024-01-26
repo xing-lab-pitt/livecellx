@@ -1426,7 +1426,11 @@ def show_sct_on_grid(
     ax_title_fontsize=8,
     cmap="viridis",
     ax_contour_polygon_kwargs=dict(fill=None, edgecolor="r"),
-) -> matplotlib.axes.Axes:
+    dpi=300,
+    show_mask=False,
+    fig=None,
+    axes=None,
+) -> Tuple[plt.Figure, np.ndarray]:
     """
     Display a grid of single cell images with contours overlaid.
 
@@ -1466,9 +1470,13 @@ def show_sct_on_grid(
     matplotlib.axes.Axes
         The axes object containing the grid of subplots.
     """
-    fig, axes = plt.subplots(nr, nc, figsize=(nc * ax_width, nr * ax_height))
-    if nr == 1:
-        axes = np.array([axes])
+    if axes is None:
+        fig, axes = plt.subplots(nr, nc, figsize=(nc * ax_width, nr * ax_height), dpi=dpi)
+        if nr == 1:
+            axes = np.array([axes])
+    else:
+        assert np.array(axes).shape == (nr, nc), "axes shape mismatch"
+
     span_range = trajectory.get_timeframe_span()
     traj_start, traj_end = span_range
     if start < traj_start:
@@ -1492,7 +1500,10 @@ def show_sct_on_grid(
             if timeframe not in trajectory.timeframe_set:
                 continue
             sc = trajectory.get_single_cell(timeframe)
-            sc_img = sc.get_img_crop(padding=padding)
+            if show_mask:
+                sc_img = sc.get_mask_crop(padding=padding)
+            else:
+                sc_img = sc.get_img_crop(padding=padding)
             contour_coords = sc.get_contour_coords_on_crop(padding=padding)
 
             if dims is not None:
@@ -1515,8 +1526,11 @@ def show_sct_on_grid(
             )
             ax.add_patch(polygon)
             ax.set_title(f"time: {timeframe}", fontsize=ax_title_fontsize)
-    fig.tight_layout(pad=0.5, h_pad=0.4, w_pad=0.4)
-    return axes
+
+    if fig is not None:
+        main_info(f"tighting figure layout...")
+        fig.tight_layout(pad=0.5, h_pad=0.4, w_pad=0.4)
+    return fig, axes
 
 
 def combine_scs_label_masks(scs: SingleCellStatic, scs_labels: list = None, original_meta_label_key=None):
