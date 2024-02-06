@@ -60,6 +60,11 @@ def inference_recognizer(
     test_pipeline: Optional[Compose] = None,
     require_grad=True,
     return_data_and_grad=False,
+    crop_shift=False,
+    start_x=None,
+    end_x=None,  # replace with your actual values
+    start_y=None,
+    end_y=None,  # replace with your actual values
 ) -> ActionDataSample:
     """Inference a video with the recognizer.
 
@@ -75,6 +80,18 @@ def inference_recognizer(
         :obj:`ActionDataSample`: The inference results. Specifically, the
         predicted scores are saved at ``result.pred_score``.
     """
+
+    def _crop_shift(input_data: torch.Tensor):
+        # Assuming input_data is a tensor of shape [3, 3, 8, 224, 224]
+
+        # Crop the region from input_data
+        cropped_data = input_data[..., start_x:end_x, start_y:end_y]
+        # Create a new tensor of zeros with the same shape as input_data
+        padded_data = torch.zeros_like(input_data)
+        # Copy the cropped data into the new tensor
+        padded_data[..., : cropped_data.shape[-2], : cropped_data.shape[-1]] = cropped_data
+        input_data = padded_data
+        return input_data
 
     if test_pipeline is None:
         cfg = model.cfg
@@ -102,7 +119,10 @@ def inference_recognizer(
 
     data = test_pipeline(data)
     data = pseudo_collate([data])
-
+    if crop_shift:
+        inputs = data["inputs"]
+        inputs = [_crop_shift(_input_data) for _input_data in inputs]
+        data["inputs"] = inputs
     # Forward the model
     if require_grad:
         # print("data type", type(data))
