@@ -18,9 +18,10 @@ class RandomMaskCentroid:
     Purpose: we would like to control the amount of prior segmentation information fed to the models.
     """
 
-    def __init__(self, lb=2, ub=50):
+    def __init__(self, lb=2, ub=50, fix_centroid_size=None):
         self.lb = lb
         self.ub = ub
+        self.fix_centroid_size = fix_centroid_size
 
     def check_channels(self, img):
         """blue and green channel should have the same values"""
@@ -36,7 +37,6 @@ class RandomMaskCentroid:
         assert (img[:, :, 0] == img[:, :, 1]).all(), "blue and green channel should have the same values"
 
     def __call__(self, results, exact_match_rg_channel=False):
-
         imgs = results["imgs"]
         img_h, img_w = imgs[0].shape[:2]
 
@@ -51,6 +51,9 @@ class RandomMaskCentroid:
             ub = min(img_w, self.ub)
 
         centroid_box_width = np.random.randint(lb, ub)
+        if self.fix_centroid_size is not None:
+            centroid_box_width = self.fix_centroid_size
+
         for i, img in enumerate(imgs):
             new_img = img.copy()
             corrected_mask = dilate_or_erode_mask(img[:, :, 0], scale_factor=scale_factor)
