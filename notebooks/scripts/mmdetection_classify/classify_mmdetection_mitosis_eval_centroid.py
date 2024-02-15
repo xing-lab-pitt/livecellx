@@ -22,6 +22,7 @@ from livecellx.core import SingleCellTrajectory, SingleCellStatic
 from livecellx.core.sc_video_utils import gen_mp4_from_frames, combine_video_frames_and_masks
 from livecellx.preprocess.utils import normalize_img_to_uint8
 from livecellx.core.io_utils import save_png
+from centroid_aug import RandomMaskCentroid
 
 # import detectron2
 # from detectron2.utils.logger import setup_logger
@@ -63,6 +64,7 @@ parser.add_argument("--model_dir", type=str, help="Path to the directory contain
 parser.add_argument("--out_dir", type=str, help="Path to the output directory", required=True)
 parser.add_argument("--config", type=str, help="Path to the configuration file", required=False, default=None)
 parser.add_argument("--checkpoint", type=str, help="Path to the checkpoint file", required=True)
+parser.add_argument("--frame-type", type=str, help="Frame type", required=True)
 parser.add_argument(
     "--video_dir",
     type=str,
@@ -97,8 +99,6 @@ parser.add_argument(
     help="whether to store wrong videos",
     default=False,
 )
-
-parser.add_argument("--frame-type", type=str, help="frame type to use", default="all")
 
 
 args = parser.parse_args()
@@ -146,24 +146,19 @@ test_data_df = test_data_df.rename(columns={"label_index": "label"})
 print(test_data_df.shape)
 test_data_df[:2]
 
+if args.frame_type == "all":
+    pass
+else:
+    print("before filtering by frame_type:", test_data_df.shape)
+    test_data_df = test_data_df[test_data_df["frame_type"] == args.frame_type]
+    print("frame_type:", args.frame_type, "test_data_df.shape:", test_data_df.shape)
+
+
 from tqdm import tqdm
 
 print("test data frame:", test_data_df.columns[:2])
 
-
-# Filtering by frame type
-print(">>> Using frame type:", args.frame_type)
-if args.frame_type == "all":
-    pass
-elif args.frame_type == "video":
-    test_data_df = test_data_df[test_data_df["frame_type"] == "video"]
-elif args.frame_type == "mask":
-    test_data_df = test_data_df[test_data_df["frame_type"] == "mask"]
-elif args.frame_type == "combined":
-    test_data_df = test_data_df[test_data_df["frame_type"] == "combined"]
-else:
-    raise ValueError("frame_type not recognized")
-
+centroid_sizes = [5, 10, 20, 30, 40, 50]
 
 if args.add_random_crop and args.is_tsn:
     model.cfg.test_pipeline = [
@@ -249,6 +244,13 @@ else:
     #             dict(type='PackActionInputs'),
     #         ]
 
+centroid_aug_indx = 3
+
+centroid_test_pipelines = []
+for centroid_size in centroid_sizes:
+    _aug = RandomMaskCentroid(fix_centroid_size=centroid_size)
+    pipeline = model.cfg.test_pipeline[:3] + [_aug] + model.cfg.test_pipeline[3:]
+    centroid_test_pipelines.append(pipeline)
 
 nclasses = 3
 gt2total = {class_idx: 0 for class_idx in range(nclasses)}
@@ -259,81 +261,84 @@ video_dir = Path(video_dir)
 print("total #rows:", len(test_data_df))
 
 all_rows = [_row for _row in test_data_df.iterrows()]
-for row_ in tqdm(all_rows):
-    idx, row_series = row_
-    video_path = str(video_dir / row_series["path"])
-    input_frame_type = row_series["frame_type"]
-    padding_pixels = row_series["padding_pixels"]
-    try:
-        model.zero_grad()
-        results, data, grad = livecellx.track.timesformer_inference.inference_recognizer(
-            model, video_path, require_grad=True, return_data_and_grad=True
-        )
-    except Exception as e:
-        print("exception during prediction:", e)
-        # print backtrace
-        import traceback
+for centroid_size, centroid_test_pipeline in zip(centroid_sizes, centroid_test_pipelines):
+    model.cfg.test_pipeline = centroid_test_pipeline
+    for row_ in tqdm(all_rows):
+        idx, row_series = row_
+        video_path = str(video_dir / row_series["path"])
+        input_frame_type = row_series["frame_type"]
+        padding_pixels = row_series["padding_pixels"]
+        try:
+            model.zero_grad()
+            results, data, grad = livecellx.track.timesformer_inference.inference_recognizer(
+                model, video_path, require_grad=True, return_data_and_grad=True
+            )
+        except Exception as e:
+            print("exception during prediction:", e)
+            # print backtrace
+            import traceback
 
-        traceback.print_exc()
-        print("video_path:", video_path)
-        continue
-    # predicted_label = results.pred_labels.item.cpu().numpy()[0]
-
-    predicted_label = results.pred_label.item()
-    if args.raw_video_treat_as_negative:
-        test_gt_label = 2  # no focus!
-    else:
-        test_gt_label = row_series["label"]
-        if test_gt_label not in gt2total:
-            gt2total[test_gt_label] = 0
-            gt2correct[test_gt_label] = 0
-    gt2total[test_gt_label] += 1
-    row_series = row_series.copy()
-    row_series["predicted_label"] = predicted_label
-    row_series["true_label"] = test_gt_label
-    row_series["correct"] = predicted_label == test_gt_label
-    all_predictions.append(row_series)
-
-    if predicted_label != test_gt_label:
-        print("wrong prediction:", video_path, "predicted_label:", predicted_label, "gt_label:", test_gt_label)
-        wrong_predictions.append(row_series)
-
-        # Do not save wrong videos if specified
-        if args.no_wrong_video:
+            traceback.print_exc()
+            print("video_path:", video_path)
             continue
+        # predicted_label = results.pred_labels.item.cpu().numpy()[0]
 
-        data_input = data["inputs"][0]  # 3 x 3 x 8 x 224 x 224
-        if not args.is_tsn:
-            # timeSformer
-            imgs = data_input[1][2].detach().cpu().numpy()  # 8 x 224 x 224
-            masks = data_input[1][0].detach().cpu().numpy()  # 8 x 224 x 224
-            imgs = list(imgs)
-            masks = list(masks)
-            imgs = [normalize_img_to_uint8(img) for img in imgs]
-            masks = [normalize_img_to_uint8(mask) for mask in masks]
-            # Extract video filename from video_path without extension
-            video_filename = Path(video_path).name
-            _save_path = out_wrong_video_dir / video_filename
-            # already edt transformed, so set to false
-            frames = combine_video_frames_and_masks(imgs, masks, is_gray=True, edt_transform=False)
-            gen_mp4_from_frames(frames, _save_path, fps=3)
+        predicted_label = results.pred_label.item()
+        if args.raw_video_treat_as_negative:
+            test_gt_label = 2  # no focus!
         else:
-            # tsn
-            imgs = data_input.detach().cpu().numpy()  # 90 x 3 x h x w
-            imgs = list(imgs)
-            imgs = [normalize_img_to_uint8(img) for img in imgs]
+            test_gt_label = row_series["label"]
+            if test_gt_label not in gt2total:
+                gt2total[test_gt_label] = 0
+                gt2correct[test_gt_label] = 0
+        gt2total[test_gt_label] += 1
+        row_series = row_series.copy()
+        row_series["predicted_label"] = predicted_label
+        row_series["true_label"] = test_gt_label
+        row_series["correct"] = predicted_label == test_gt_label
+        row_series["centroid_size"] = centroid_size
+        all_predictions.append(row_series)
 
-            # extract video filename from video_path without extension
-            video_filename = Path(video_path).stem
-            tmp_out_sample_dir = out_wrong_video_dir / video_filename
-            tmp_out_sample_dir.mkdir(parents=True, exist_ok=True)
-            for i, img in enumerate(imgs):
-                save_png(tmp_out_sample_dir / f"sample_dim0-{i}.png", img.swapaxes(0, 2), mode="RGB")
-    else:
-        gt2correct[test_gt_label] += 1
+        if predicted_label != test_gt_label:
+            print("wrong prediction:", video_path, "predicted_label:", predicted_label, "gt_label:", test_gt_label)
+            wrong_predictions.append(row_series)
+
+            # Do not save wrong videos if specified
+            if args.no_wrong_video:
+                continue
+
+            # Save videos with wrong predictions
+            data_input = data["inputs"][0]  # 3 x 3 x 8 x 224 x 224
+            if not args.is_tsn:
+                # timeSformer
+                imgs = data_input[1][2].detach().cpu().numpy()  # 8 x 224 x 224
+                masks = data_input[1][0].detach().cpu().numpy()  # 8 x 224 x 224
+                imgs = list(imgs)
+                masks = list(masks)
+                imgs = [normalize_img_to_uint8(img) for img in imgs]
+                masks = [normalize_img_to_uint8(mask) for mask in masks]
+                # Extract video filename from video_path without extension
+                video_filename = Path(video_path).name
+                _save_path = out_wrong_video_dir / video_filename
+                # already edt transformed, so set to false
+                frames = combine_video_frames_and_masks(imgs, masks, is_gray=True, edt_transform=False)
+                gen_mp4_from_frames(frames, _save_path, fps=3)
+            else:
+                # tsn
+                imgs = data_input.detach().cpu().numpy()  # 90 x 3 x h x w
+                imgs = list(imgs)
+                imgs = [normalize_img_to_uint8(img) for img in imgs]
+
+                # extract video filename from video_path without extension
+                video_filename = Path(video_path).stem
+                tmp_out_sample_dir = out_wrong_video_dir / video_filename
+                tmp_out_sample_dir.mkdir(parents=True, exist_ok=True)
+                for i, img in enumerate(imgs):
+                    save_png(tmp_out_sample_dir / f"sample_dim0-{i}.png", img.swapaxes(0, 2), mode="RGB")
+        else:
+            gt2correct[test_gt_label] += 1
 
 
-# %%
 for test_gt_label, total in gt2total.items():
     correct = gt2correct[test_gt_label]
     if total == 0:
@@ -341,12 +346,11 @@ for test_gt_label, total in gt2total.items():
         continue
     print("gt_label:", test_gt_label, "total:", total, "correct:", correct, "acc:", correct / total)
 
-# %%
+
 # convert all series in wrong_predictions to dataframe
 all_predictions_df = pd.DataFrame(all_predictions)
 wrong_predictions_df = pd.DataFrame(wrong_predictions)
 wrong_predictions_df[:2]
-# %%
 
 
 def report_classification_metrics(true_labels, predicted_labels):
@@ -372,6 +376,22 @@ def report_classification_metrics(true_labels, predicted_labels):
 
 
 # %%
+report_classification_metrics(
+    all_predictions_df[all_predictions_df["frame_type"] == "combined"]["true_label"],
+    all_predictions_df[all_predictions_df["frame_type"] == "combined"]["predicted_label"],
+)
+
+# %%
+frame_types = all_predictions_df["frame_type"].unique()
+
+for frame_type in frame_types:
+    indexer = all_predictions_df["frame_type"] == frame_type
+    print("#" * 40, "frame_type:", frame_type, "#" * 40)
+    report_classification_metrics(
+        all_predictions_df[indexer]["true_label"], all_predictions_df[indexer]["predicted_label"]
+    )
+
+# %%
 all_predictions_df.to_csv(out_dir / "all_predictions.csv", index=False)
 wrong_predictions_df.to_csv(out_dir / "wrong_predictions.csv", index=False)
 wrong_predictions_df = pd.read_csv(out_dir / "wrong_predictions.csv")
@@ -385,13 +405,3 @@ wrong_predictions_df = pd.read_csv(out_dir / "wrong_predictions.csv")
 wrong_predictions_df["short_src_dir"] = (
     wrong_predictions_df["src_dir"].str.split(r"\\|/").apply(lambda x: "/".join(x[-3:]))
 )
-
-
-# %%
-frame_types = all_predictions_df["frame_type"].unique()
-for frame_type in frame_types:
-    indexer = all_predictions_df["frame_type"] == frame_type
-    print("#" * 40, "frame_type:", frame_type, "#" * 40)
-    report_classification_metrics(
-        all_predictions_df[indexer]["true_label"], all_predictions_df[indexer]["predicted_label"]
-    )
