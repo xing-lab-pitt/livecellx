@@ -47,7 +47,7 @@ def split_mitosis_sample(
         # Corner case, some time after break time contains only 1 sc
         cur_scs = time2scs[time]
         if len(cur_scs) == 1:
-            cur_trajs = [traj + cur_scs[0] for traj in cur_trajs]
+            cur_trajs = [traj + cur_scs for traj in cur_trajs]
             continue
         else:
             # Simply match scs according to distance
