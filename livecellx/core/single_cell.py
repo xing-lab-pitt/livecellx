@@ -815,6 +815,7 @@ class SingleCellTrajectory:
         mother_trajectories=None,
         daughter_trajectories=None,
         meta: Dict[str, Any] = None,
+        tmp: Dict[str, Any] = None,
     ) -> None:
         if timeframe_to_single_cell is None:
             self.timeframe_to_single_cell = dict()
@@ -849,6 +850,11 @@ class SingleCellTrajectory:
             self.meta[SingleCellTrajectory.META_DAUGHTER_IDS] = [
                 daughter.track_id for daughter in self.daughter_trajectories
             ]
+
+        if tmp is not None:
+            self.tmp = tmp
+        else:
+            self.tmp = {}
 
     def __repr__(self) -> str:
         return f"SingleCellTrajectory(track_id={self.track_id}, #timeframe set={len(self)})"
@@ -1480,10 +1486,12 @@ def show_sct_on_grid(
     span_range = trajectory.get_timeframe_span()
     traj_start, traj_end = span_range
     if start < traj_start:
-        print(
-            "start timeframe larger than the first timeframe of the trajectory, replace start_timeframe with the first timeframe..."
-        )
         start = span_range[0]
+        print(
+            "start timeframe larger than the first timeframe of the trajectory, replace start_timeframe with the first timeframe={}".format(
+                int(start)
+            )
+        )
 
     if isinstance(ax_contour_polygon_kwargs, dict):
         ax_contour_polygon_kwargs_list = [ax_contour_polygon_kwargs] * nr * nc
