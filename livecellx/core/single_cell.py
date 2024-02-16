@@ -1113,7 +1113,7 @@ class SingleCellTrajectory:
         return len(self.timeframe_set) == 0
 
     def subsct(self, min_time, max_time, track_id=None, keep_track_id=False):
-        """return a subtrajectory of this trajectory, with timeframes between min_time and max_time. Mother and daugher info will be copied if the min_time and max_time are the start and end of the new trajectory, respectively."""
+        """return a subtrajectory of this trajectory, with timeframes between [min_time, max_time]. Mother and daugher info will be copied if the min_time and max_time are the start and end of the new trajectory, respectively."""
         require_copy_mothers_info = False
         require_copy_daughters_info = False
         if self.is_empty():
@@ -1565,3 +1565,63 @@ def get_time2scs(scs: List[SingleCellStatic]):
             time2scs[sc.timeframe] = []
         time2scs[sc.timeframe].append(sc)
     return time2scs
+
+
+def sample_samples_from_sctc(
+    sctc: SingleCellTrajectoryCollection,
+    objective_sample_num=10000,
+    exclude_scs_ids=set(),
+    seed=0,
+    length_range=(6, 10),
+    max_trial_counter=100000,
+):
+
+    # set numpy seed
+    np.random.seed(seed)
+
+    normal_frame_len_range = length_range
+    counter = 0
+    normal_samples = []
+    normal_samples_extra_info = []
+    skipped_sample_num = 0
+    while counter < objective_sample_num and max_trial_counter > 0:
+        # randomly select a sct from sctc
+        # generate a list of scs
+        track_id = np.random.choice(list(sctc.track_id_to_trajectory.keys()))
+        sct = sctc.get_trajectory(track_id)
+        # randomly select a length
+        frame_len = np.random.randint(*normal_frame_len_range)
+        # generate a sample
+        times = list(sct.timeframe_to_single_cell.keys())
+        times = sorted(times)
+        if len(times) <= frame_len:
+            continue
+        start_idx = np.random.randint(0, len(times) - frame_len)
+        start_time = times[start_idx]
+        end_time = times[start_idx + frame_len - 1]
+
+        sub_sct = sct.subsct(start_time, end_time)
+
+        is_some_sc_in_exclude_scs = False
+        for time, sc in sub_sct.timeframe_to_single_cell.items():
+            # print("sc.id:", sc.id, type(sc.id))
+            if str(sc.id) in exclude_scs_ids:
+                is_some_sc_in_exclude_scs = True
+                break
+        if is_some_sc_in_exclude_scs:
+            # print("some sc in the exclude scs list")
+            skipped_sample_num += 1
+            continue
+
+        new_sample = []
+        for time, sc in sub_sct.timeframe_to_single_cell.items():
+            new_sample.append(sc)
+        normal_samples.append(new_sample)
+        normal_samples_extra_info.append({"src_dir": sub_sct.get_all_scs()[0].meta["src_dir"]})
+        counter += 1
+        max_trial_counter -= 1
+
+    print("# of skipped samples based on the excluded scs list:", skipped_sample_num)
+    print("# of generated samples:", len(normal_samples))
+    print("# of generated samples extra info:", len(normal_samples_extra_info))
+    return normal_samples, normal_samples_extra_info
