@@ -84,7 +84,7 @@ class SingleCellStatic:
 
         self.bbox = bbox
         if contour is None and not empty_cell:
-            main_warning(">>> [SingleCellStatic] WARNING: contour is None, please check if this is intended.")
+            main_warning(">>> [SingleCellStatic] WARNING: contour is None, please check if this is expected.")
             contour = np.array([], dtype=int)
         self.contour = contour
 
@@ -204,13 +204,16 @@ class SingleCellStatic:
 
     def get_mask(self, dtype=bool):
         if isinstance(self.mask_dataset, SingleImageDataset):
-            return self.mask_dataset.get_img_by_time()
-        elif not (self.mask_dataset is None) and (self.timeframe in self.mask_dataset.time2url):
-            return self.mask_dataset[self.timeframe]
-        elif self.contour is not None:
+            try:
+                return self.mask_dataset.get_img_by_time()
+            except Exception as e:
+                main_exception(
+                    f"Error getting mask for single cell {self.id} at timeframe {self.timeframe} from mask dataset. Using contour mask instead."
+                )
+        if self.contour is not None:
             return self.get_contour_mask(crop=False, dtype=dtype)
-        else:
-            raise ValueError("mask dataset and contour are both None")
+
+        raise ValueError("mask dataset and contour are both None")
 
     def get_label_mask(self, dtype=int):
         mask = self.get_mask(dtype=dtype)
@@ -433,7 +436,7 @@ class SingleCellStatic:
 
     @staticmethod
     # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
-    def load_single_cells_json(path: str) -> List["SingleCellStatic"]:
+    def load_single_cells_json(path: str, verbose=False) -> List["SingleCellStatic"]:
         """load a json file containing a list of single cells
 
         Parameters
@@ -449,17 +452,16 @@ class SingleCellStatic:
         main_info("loading single cells from json file: " + str(path))
         with open(path, "r") as f:
             sc_json_dict_list = json.load(f)
-        main_info("loaded " + str(len(sc_json_dict_list)) + " single cells")
 
-        main_info("constructing single cells from json dict...")
         # contour = [] here to suppress warning
         single_cells = []
         for sc_json_dict in tqdm.tqdm(sc_json_dict_list, desc="constructing single cells from json dict"):
             # Load the single cell from json dict
             sc = SingleCellStatic(contour=[]).load_from_json_dict(sc_json_dict)
             single_cells.append(sc)
-
-        main_info("done constructing single cells from json dict")
+        if verbose:
+            main_info("Done constructing single cells from json dict")
+            main_info("loaded " + str(len(single_cells)) + " single cells")
         return single_cells
 
     @staticmethod
