@@ -343,7 +343,9 @@ class SingleCellStatic:
                 self.img_dataset.get_default_json_path(out_dir=dataset_json_dir)
             )
             self.img_dataset.write_json(out_dir=dataset_json_dir, overwrite=False)
-        if self.mask_dataset is not None:
+        if isinstance(self.mask_dataset, SingleImageDataset):
+            pass
+        elif self.mask_dataset is not None:
             self.meta[SCKM.JSON_MASK_DATASET_PATH] = str(
                 self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir)
             )
@@ -449,7 +451,8 @@ class SingleCellStatic:
         _type_
             _description_
         """
-        main_info("loading single cells from json file: " + str(path))
+        if verbose:
+            main_info("loading single cells from json file: " + str(path))
         with open(path, "r") as f:
             sc_json_dict_list = json.load(f)
 
@@ -592,7 +595,8 @@ class SingleCellStatic:
     @staticmethod
     def gen_contour_mask(
         contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255, dtype=bool
-    ) -> np.array:
+    ) -> np.array:  #
+        # TODO: optimize: we do not need img here but shape of img.
         from skimage.draw import line, polygon
 
         assert img is not None or shape is not None, "either img or shape must be provided"
