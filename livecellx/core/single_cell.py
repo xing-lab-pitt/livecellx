@@ -208,7 +208,7 @@ class SingleCellStatic:
                 return self.mask_dataset.get_img_by_time()
             except Exception as e:
                 main_exception(
-                    f"Error getting mask for single cell {self.id} at timeframe {self.timeframe} from mask dataset. Using contour mask instead."
+                    f"Error getting mask for single cell {self.id} at timeframe {self.timeframe} from presented mask dataset. Using contour mask instead."
                 )
         if self.contour is not None:
             return self.get_contour_mask(crop=False, dtype=dtype)
@@ -248,6 +248,7 @@ class SingleCellStatic:
                 img_crop = np.pad(img_crop, ((0, padding), (0, 0), (0, 0)), mode="constant")
             if max_y + padding > img.shape[1]:
                 img_crop = np.pad(img_crop, ((0, 0), (0, padding), (0, 0)), mode="constant")
+
         return img_crop
 
     def get_img_crop(self, padding=0, bbox=None, **kwargs):
