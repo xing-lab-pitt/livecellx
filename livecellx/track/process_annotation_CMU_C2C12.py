@@ -84,7 +84,7 @@ def is_last_timeframe_mitotic(sct: SingleCellTrajectory) -> bool:
 
 def any_mitosis_in_sct(sct: SingleCellTrajectory) -> bool:
     for t, sc in sct:
-        if sc.meta["cell_status"] == MITOTIC_STATUS_CODE:
+        if sc.meta["cell_status"] == MITOTIC_STATUS_CODE or sc.meta["cell_status"] == MITOTIC_OR_APOPTOTIC_CODE:
             return True
     return False
 
