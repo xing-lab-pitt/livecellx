@@ -1578,8 +1578,24 @@ def sample_samples_from_sctc(
     exclude_scs_ids=set(),
     seed=0,
     length_range=(6, 10),
-    max_trial_counter=100000,
+    max_trial_counter=1000,
+    check_nonoverlap=True,
 ):
+    def _check_in_visited_range(visited_range, track_id, start_time, end_time):
+        """check if the given time range of a track is in the visited range"""
+        if track_id not in visited_range:
+            return False
+        for _start, _end in visited_range[track_id]:
+            # Check if there is any overlap between [_start, _end] and [start_time, end_time]
+            if _start <= start_time:
+                ls, le = _start, _end
+                rs, re = start_time, end_time
+            else:
+                ls, le = start_time, end_time
+                rs, re = _start, _end
+            if rs <= le:
+                return True
+        return False
 
     # set numpy seed
     np.random.seed(seed)
@@ -1589,6 +1605,7 @@ def sample_samples_from_sctc(
     normal_samples = []
     normal_samples_extra_info = []
     skipped_sample_num = 0
+    visited_range = {}
     while counter < objective_sample_num and max_trial_counter > 0:
         # randomly select a sct from sctc
         # generate a list of scs
@@ -1600,10 +1617,18 @@ def sample_samples_from_sctc(
         times = list(sct.timeframe_to_single_cell.keys())
         times = sorted(times)
         if len(times) <= frame_len:
+            max_trial_counter -= 1
             continue
         start_idx = np.random.randint(0, len(times) - frame_len)
         start_time = times[start_idx]
         end_time = times[start_idx + frame_len - 1]
+
+        if check_nonoverlap and _check_in_visited_range(visited_range, track_id, start_time, end_time):
+            max_trial_counter -= 1
+            continue
+        if track_id not in visited_range:
+            visited_range[track_id] = []
+        visited_range[track_id].append((start_time, end_time))
 
         sub_sct = sct.subsct(start_time, end_time)
 
@@ -1622,11 +1647,54 @@ def sample_samples_from_sctc(
         for time, sc in sub_sct.timeframe_to_single_cell.items():
             new_sample.append(sc)
         normal_samples.append(new_sample)
-        normal_samples_extra_info.append({"src_dir": sub_sct.get_all_scs()[0].meta["src_dir"]})
+        normal_samples_extra_info.append(
+            {
+                "src_dir": sub_sct.get_all_scs()[0].meta["src_dir"],
+                "track_id": track_id,
+                "start_time": start_time,
+                "end_time": end_time,
+            }
+        )
         counter += 1
-        max_trial_counter -= 1
 
+    if check_nonoverlap:
+        print("visited range:", visited_range)
+        # Check if the generated samples are non-overlapping
+        main_info("Checking if the generated samples are non-overlapping...")
+        for i in range(len(normal_samples)):
+            for j in range(i + 1, len(normal_samples)):
+                # Retrieve track id, start time, and end time for each sample
+                track_id_i = normal_samples_extra_info[i]["track_id"]
+                start_time_i = normal_samples_extra_info[i]["start_time"]
+                end_time_i = normal_samples_extra_info[i]["end_time"]
+                track_id_j = normal_samples_extra_info[j]["track_id"]
+                start_time_j = normal_samples_extra_info[j]["start_time"]
+                end_time_j = normal_samples_extra_info[j]["end_time"]
+
+                # Check if the two samples overlap
+                if track_id_i == track_id_j:
+                    if start_time_i <= end_time_j and start_time_j <= end_time_i:
+                        print(f"Overlap found between samples {i} and {j}")
+                        print(f"Sample {i}: track_id={track_id_i}, start_time={start_time_i}, end_time={end_time_i}")
+                        print(f"Sample {j}: track_id={track_id_j}, start_time={start_time_j}, end_time={end_time_j}")
+                        assert False, "Overlap found between samples while checking non-overlapping samples"
+        main_info("Success: No overlap found between the generated samples")
     print("# of skipped samples based on the excluded scs list:", skipped_sample_num)
     print("# of generated samples:", len(normal_samples))
     print("# of generated samples extra info:", len(normal_samples_extra_info))
     return normal_samples, normal_samples_extra_info
+
+
+def filter_boundary_cells(scs: List[SingleCellStatic], dist_to_boundary=30):
+    not_boundary_scs = []
+    dim = scs[0].get_img().shape[:2]
+    for sc in scs:
+        bbox = sc.get_bbox()
+        if (
+            bbox[0] > dist_to_boundary
+            and bbox[1] > dist_to_boundary
+            and bbox[2] < dim[0] - dist_to_boundary
+            and bbox[3] < dim[1] - dist_to_boundary
+        ):
+            not_boundary_scs.append(sc)
+    return not_boundary_scs
