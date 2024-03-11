@@ -8,6 +8,8 @@ import pandas as pd
 def _get_avg_scc(logs, epoch_num):
     train_logs = re.findall(rf"Epoch\(train\).*\[{epoch_num}\]\[\s*\d+/\d+\].*top1_acc: (\d+\.\d+)", logs)
     # print("train_logs:", train_logs)
+    if train_logs == []:
+        return None, None
     train_top1_acc = [float(log) for log in train_logs]
     train_avg_acc = sum(train_top1_acc) / len(train_top1_acc)
 
@@ -39,22 +41,23 @@ def get_avg_acc(log_file_path, epoch_num):
     print(f"Top1 accuracy of epoch {epoch_num} (val): {val_avg_acc}")
 
 
-def plot_avg_acc(log_file_path, epoch_num, out_dir: Path = Path("result_plots/")):
+def plot_avg_acc(log_file_path, epoch_num, start_epoch=1, out_dir: Path = Path("result_plots/")):
     with open(log_file_path, "r") as f:
         logs = f.read()
 
     # plot acc curve
     train_avg_accs = []
     val_avg_accs = []
-    for epoch in range(1, epoch_num + 1):
+    end_epoch = start_epoch + epoch_num
+    for epoch in range(start_epoch, end_epoch + 1):
         train_avg_acc, val_avg_acc = _get_avg_scc(logs, epoch)
         train_avg_accs.append(train_avg_acc)
         val_avg_accs.append(val_avg_acc)
     # plot and save the fig
     import matplotlib.pyplot as plt
 
-    plt.plot(range(1, epoch_num + 1), train_avg_accs, label="train")
-    plt.plot(range(1, epoch_num + 1), val_avg_accs, label="test")
+    plt.plot(range(start_epoch, end_epoch + 1), train_avg_accs, label="train")
+    plt.plot(range(start_epoch, end_epoch + 1), val_avg_accs, label="test")
     plt.xlabel("epoch")
     plt.ylabel("accuracy")
     plt.legend()
@@ -66,11 +69,15 @@ def plot_avg_acc(log_file_path, epoch_num, out_dir: Path = Path("result_plots/")
     log_file_path = Path(os.path.abspath(log_file_path)).as_posix()
     log_filename = str(Path(log_file_path).parent.parent.name)
     out_dir.mkdir(parents=True, exist_ok=True)
-    plt.savefig(out_dir / str("acc-" + log_filename.replace(".log", ".png")))
+    fig_path = out_dir / str("acc-" + log_filename.replace(".log", ".png"))
+    print("saving fig to:", fig_path)
+    plt.savefig(fig_path)
     plt.close()
 
     # save the accs to a csv txt file
-    df = pd.DataFrame({"epoch": range(1, epoch_num + 1), "train_avg_acc": train_avg_accs, "val_avg_acc": val_avg_accs})
+    df = pd.DataFrame(
+        {"epoch": range(start_epoch, end_epoch + 1), "train_avg_acc": train_avg_accs, "val_avg_acc": val_avg_accs}
+    )
 
     extracted_str = prune_log_filename(log_filename)
     df.to_csv(out_dir / str("acc-" + extracted_str + ".csv"), index=False)
@@ -100,9 +107,10 @@ def show_result_plots():
         # r"./work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v13-drop-div-video-clipLen=3-trainClipNum=3-valClipNum=3/20231019_003517/20231019_003517.log",
         # r"./work_dirs/timesformer-default-divst-v13-st-video-random-crop/20231021_235643/20231021_235643.log",
         # r"./work_dirs/timesformer-default-divst-v13-st-combined-random-crop/20231021_134335/20231021_134335.log",
-        r"./work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v13-inclusive-corrected-v1-all-clipLen=3-trainClipNum=3-valClipNum=3/20231029_141110/20231029_141110.log",
+        # r"./work_dirs/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb-v13-inclusive-corrected-v1-all-clipLen=3-trainClipNum=3-valClipNum=3/20231029_141110/20231029_141110.log",
+        r"./work_dirs/timesformer-default-divst-v14-inclusive-combined-random-crop/20240130_063549/20240130_063549.log"
     ]
-    epoch = 13
+    epoch = 20
     all_df = None
     for path in paths:
         print(">>> path:", path)
@@ -124,11 +132,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calculate average accuracy for a given epoch from log file")
     parser.add_argument("log_file_path", type=str, help="path to the log file")
     parser.add_argument("epoch_num", type=int, help="epoch number for which to calculate average accuracy", default=-1)
+    parser.add_argument("--start_epoch", type=int, help="start epoch number for plotting", default=1)
     args = parser.parse_args()
 
     # print args
     print("log_file_path:", args.log_file_path)
     print("epoch_num:", args.epoch_num)
 
-    get_avg_acc(args.log_file_path, args.epoch_num)
-    plot_avg_acc(args.log_file_path, args.epoch_num)
+    get_avg_acc(args.log_file_path, args.start_epoch + args.epoch_num)
+    plot_avg_acc(args.log_file_path, args.epoch_num, start_epoch=args.start_epoch)
