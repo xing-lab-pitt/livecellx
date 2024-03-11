@@ -2,10 +2,10 @@
 
 # Set the environment variables
 export EXP_DIR="090303-C2C12P15-FGF2"
-export ANNOTATION_DIR="/data/Ke_data/datasets/CMU_C2C12/$EXP_DIR/Annotation_Human"
+export ANNOTATION_DIR="/home/ken67/LiveCellTracker-dev/datasets/CMU_C2C12/$EXP_DIR/Annotation_Human"
 
 # Create output directory if it doesn't exist
-mkdir -p "./tmp/CMU_C2C12/$EXP_DIR/"
+mkdir -p "../datasets/mitosis-annotations-2023/CMU_C2C12_v16/$EXP_DIR/"
 
 # Loop through the files F0001 to F0018
 for i in {1..18}; do
@@ -17,11 +17,11 @@ for i in {1..18}; do
     fi
 
     XML_PATH="${ANNOTATION_DIR}/Human exp1_${FILE_NUM} Data.xml"
-    IMG_DIR="/data/Ke_data/datasets/CMU_C2C12/$EXP_DIR/exp1_${FILE_NUM}"
+    IMG_DIR="/home/ken67/LiveCellTracker-dev/datasets/CMU_C2C12/$EXP_DIR/exp1_${FILE_NUM}"
 
     # Run the python script for the current file
-    python /home/ken67/livecellx/livecellx/track/process_annotation_CMU_C2C12.py \
+    python ../livecellx/track/process_annotation_CMU_C2C12.py \
         --xml_path="$XML_PATH" \
-        --out_dir="./tmp/CMU_C2C12/$EXP_DIR/" \
+        --out_dir="/home/ken67/LiveCellTracker-dev/datasets/mitosis-annotations-2023/CMU_C2C12_v16/$EXP_DIR/" \
         --img_dir="$IMG_DIR"
 done
