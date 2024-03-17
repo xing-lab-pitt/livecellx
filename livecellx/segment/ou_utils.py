@@ -324,7 +324,9 @@ def csn_augment_helper(
         # aug_seg_crop = dilate_or_erode_mask(seg_label_crop, scale_factor=scale)
         aug_seg_crop = dilate_or_erode_label_mask(seg_label_crop, scale_factor=scale)
         aug_values = np.unique(aug_seg_crop)
-        assert len(aug_values) <= 2, "only two values should be present in aug masks"
+        assert (
+            len(aug_values) <= 2
+        ), "Only two values should be present in aug masks, for over/under-seg cases. You may remove this assertion if working on multi-underseg cases."
         aug_seg_crop[aug_seg_crop > 0] = 1
         aug_seg_crop[aug_seg_crop < 0] = 0  # not necessary, check math
         save_tiff(aug_seg_crop, augmented_seg_path)
@@ -332,7 +334,8 @@ def csn_augment_helper(
         aug_diff_mask = gen_aug_diff_mask(aug_seg_crop, combined_gt_binary_mask)
         save_tiff(aug_diff_mask, augmented_diff_seg_path, mode="I")
 
-        raw_transformed_img_path = raw_transformed_img_dir / ("img-%d_seg-%d_aug-%d.tif" % (img_id, seg_label, idx))
+        filename_pattern_aug = "aug-%d-" + filename_pattern
+        raw_transformed_img_path = raw_transformed_img_dir / (filename_pattern_aug % (idx, img_id, seg_label))
         raw_transformed_img_crop = img_crop.copy().astype(int)
         raw_transformed_img_crop[aug_seg_crop == 0] *= -1
         save_tiff(raw_transformed_img_crop, raw_transformed_img_path, mode="I")
@@ -380,7 +383,7 @@ def csn_augment_helper(
     df = pd.DataFrame(train_path_tuples, columns=cols)
 
     # when generate samples in parallel mode, we need to double check race conditions
-    # currently disable saving when generating samples in parallel mode
+    # For now please avoid saving parallely when generating samples in parallel mode
     if df_save_path:
         if os.path.exists(df_save_path):
             df.to_csv(
