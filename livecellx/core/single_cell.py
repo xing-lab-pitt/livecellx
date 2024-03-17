@@ -1443,6 +1443,8 @@ def show_sct_on_grid(
     show_mask=False,
     fig=None,
     axes=None,
+    crop_from_center=True,
+    show_contour=True,
 ) -> Tuple[plt.Figure, np.ndarray]:
     """
     Display a grid of single cell images with contours overlaid.
@@ -1522,25 +1524,59 @@ def show_sct_on_grid(
             contour_coords = sc.get_contour_coords_on_crop(padding=padding)
 
             if dims is not None:
-                sc_img = sc_img[dims_offset[0] : dims_offset[0] + dims[0], dims_offset[1] : dims_offset[1] + dims[1]]
-                contour_coords[:, 0] -= dims_offset[0]
-                contour_coords[:, 1] -= dims_offset[1]
+                center_coord = [sc_img.shape[i] // 2 for i in range(2)]
+                if crop_from_center:
+                    xs, ys, xe, ye = (
+                        center_coord[0] - dims[0] // 2,
+                        center_coord[1] - dims[1] // 2,
+                        center_coord[0] + dims[0] // 2,
+                        center_coord[1] + dims[1] // 2,
+                    )
 
-                if pad_dims:
-                    _pad_pixels = [max(0, dims[i] - sc_img.shape[i]) for i in range(len(dims))]
-                    sc_img = np.pad(sc_img, _pad_pixels, mode="constant", constant_values=0)
-                    contour_coords[:, 0] += _pad_pixels[0]
-                    contour_coords[:, 1] += _pad_pixels[1]
+                    # Center padding
+                    _center_padding = padding // 2
+                    xs, ys, xe, ye = (
+                        xs - _center_padding,
+                        ys - _center_padding,
+                        xe + _center_padding,
+                        ye + _center_padding,
+                    )
+                    # Fit to boundary of img shape [0, boundary]
+                    xs, ys, xe, ye = max(0, xs), max(0, ys), min(sc_img.shape[0], xe), min(sc_img.shape[1], ye)
+                    sc_img = sc_img[xs:xe, ys:ye]
+                    contour_coords[:, 0] = contour_coords[:, 0] - xs
+                    contour_coords[:, 1] = contour_coords[:, 1] - ys
+                    if pad_dims:
+                        _pad_pixels = [dims[0] - (xe - xs), dims[1] - (ye - ys)]
+                        # Ensure non-neg and //2 for center
+                        _pad_pixels = [max(0, val) // 2 for val in _pad_pixels]
+                        sc_img = np.pad(sc_img, _pad_pixels, mode="constant", constant_values=0)
+                        contour_coords[:, 0] += _pad_pixels[0]
+                        contour_coords[:, 1] += _pad_pixels[1]
+                else:
+                    sc_img = sc_img[
+                        dims_offset[0] : dims_offset[0] + dims[0], dims_offset[1] : dims_offset[1] + dims[1]
+                    ]
+                    contour_coords[:, 0] -= dims_offset[0]
+                    contour_coords[:, 1] -= dims_offset[1]
+                    if pad_dims:
+                        _pad_pixels = [max(0, dims[i] - sc_img.shape[i]) for i in range(len(dims))]
+                        sc_img = np.pad(sc_img, _pad_pixels, mode="constant", constant_values=0)
+                        contour_coords[:, 0] += _pad_pixels[0]
+                        contour_coords[:, 1] += _pad_pixels[1]
+
             ax.imshow(sc_img, cmap=cmap)
-            # draw a polygon based on contour coordinates
-            from matplotlib.patches import Polygon
 
-            polygon = Polygon(
-                np.array([contour_coords[:, 1], contour_coords[:, 0]]).transpose(),
-                **ax_contour_polygon_kwargs_list[r * nc + c],
-            )
-            ax.add_patch(polygon)
-            ax.set_title(f"time: {timeframe}", fontsize=ax_title_fontsize)
+            if show_contour:
+                # draw a polygon based on contour coordinates
+                from matplotlib.patches import Polygon
+
+                polygon = Polygon(
+                    np.array([contour_coords[:, 1], contour_coords[:, 0]]).transpose(),
+                    **ax_contour_polygon_kwargs_list[r * nc + c],
+                )
+                ax.add_patch(polygon)
+                ax.set_title(f"time: {timeframe}", fontsize=ax_title_fontsize)
 
     if fig is not None:
         main_info(f"tighting figure layout...")
