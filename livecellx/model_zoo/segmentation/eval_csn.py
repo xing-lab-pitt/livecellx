@@ -86,31 +86,26 @@ def match_label_mask_by_iou(out_label_mask, gt_label_mask, bg_label=0, match_thr
     gt_labels = gt_labels[gt_labels != bg_label]
 
     # calculate iou mapping between out labels and gt labels
-    label_gt2out = {}
+    label_gt2out = {gt:[] for gt in gt_labels}
+    label_out2gt = {out:[] for out in out_labels}
     gt_out_iou_list = []
     for gt_label in gt_labels:
         gt_mask = gt_label_mask == gt_label
         label_gt2out[gt_label] = []
+        
         for out_label in out_labels:
             out_mask = out_label_mask == out_label
             iou = np.sum(out_mask & gt_mask) / np.sum(out_mask | gt_mask)
             gt_out_iou_list.append((gt_label, out_label, iou))
             if iou > match_threshold:
                 label_gt2out[gt_label].append(out_label)
+                label_out2gt[out_label].append(gt_label)
+
 
     # because it is a 2D imaging label mapping, there is no overlapping and only one region may cross sufficiently high iou thresholds
     matched_num = 0
     for gt_label in label_gt2out:
-        # no match labels
-        if len(label_gt2out[gt_label]) < 1:
-            continue
-        # skip if multiple out labels are matched to gt label (possibly oversegmentation)
-        if len(label_gt2out[gt_label]) > 1:
-            print(
-                "Overseg: multiple out labels are matched to gt label, try higher match threshold?",
-                gt_label,
-                label_gt2out[gt_label],
-            )
+        if len(label_gt2out[gt_label]) != 1:
             continue
         matched_num += 1
     gt_num = len(gt_labels)
