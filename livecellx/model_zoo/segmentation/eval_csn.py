@@ -154,7 +154,9 @@ def evaluate_sample_v3_underseg(
     original_cell_count = len(np.unique(original_label_mask)) - 1  # -1 for bg
 
     assert gt_label_mask is not None, "gt_label_mask is required for evaluation"
-    assert len(set(np.unique(gt_seg_mask).tolist())) <= 2
+    assert (
+        len(set(np.unique(gt_seg_mask).tolist())) <= 2
+    ), "More than two labels in the gt masks. Please remove this assertation if you are working on mapping cases with more than 2 gt cells (the case in LCA paper)."
 
     combined_over_under_seg = np.zeros([3] + list(seg_out_mask.shape[1:]))
     combined_over_under_seg[0, seg_out_mask[1, :] > out_threshold] = 1
