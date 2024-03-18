@@ -148,3 +148,23 @@ def clip_polygon(polygon, h, w):
     clipped_polygon = clip_edge(clipped_polygon, 0, h, 0, 0)
 
     return np.array(clipped_polygon)
+
+
+def crop_or_pad_img(img_crop, fix_dims):
+    """Crop or pad a 2D image to fix_dims; For crop, crop from the central region"""
+    if fix_dims is not None:
+        if img_crop.shape[0] > fix_dims[0]:
+            start = (img_crop.shape[0] - fix_dims[0]) // 2
+            img_crop = img_crop[start : start + fix_dims[0], :]
+        else:
+            pad = (fix_dims[0] - img_crop.shape[0]) // 2
+            img_crop = np.pad(img_crop, ((pad, pad), (0, 0)), mode="constant", constant_values=0)
+
+        if img_crop.shape[1] > fix_dims[1]:
+            start = (img_crop.shape[1] - fix_dims[1]) // 2
+            img_crop = img_crop[:, start : start + fix_dims[1]]
+        else:
+            pad = (fix_dims[1] - img_crop.shape[1]) // 2
+            img_crop = np.pad(img_crop, ((0, 0), (pad, pad)), mode="constant", constant_values=0)
+
+    return img_crop

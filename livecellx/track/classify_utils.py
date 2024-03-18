@@ -1,7 +1,7 @@
 import glob
 from pathlib import Path
 import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 from scipy import ndimage
 from livecellx.core.single_cell import SingleCellStatic, SingleCellTrajectory, SingleCellTrajectoryCollection
@@ -32,8 +32,20 @@ def load_class2samples_from_json_dir(
 
 
 def load_all_json_dirs(
-    sample_json_dirs: Path, class_subfolders=["mitosis", "apoptosis", "normal"]
-) -> tuple[dict[str, list[SingleCellStatic]], dict[str, list[dict]]]:
+    sample_json_dirs: List[Path], class_subfolders: List[str] = ["mitosis", "apoptosis", "normal"]
+) -> Tuple[Dict[str, List[SingleCellStatic]], Dict[str, List[Dict]]]:
+    """
+    Load annotated samples from multiple JSON directories.
+
+    Args:
+        sample_json_dirs (List[Path]): List of paths to the JSON directories.
+        class_subfolders (List[str], optional): List of class subfolders to consider. Defaults to ["mitosis", "apoptosis", "normal"].
+
+    Returns:
+        Tuple[Dict[str, List[SingleCellStatic]], Dict[str, List[Dict]]]: A tuple containing two dictionaries:
+            - all_class2samples: A dictionary mapping class names to lists of SingleCellStatic objects.
+            - all_class2sample_extra_info: A dictionary mapping class names to lists of additional information dictionaries.
+    """
     all_class2samples = {}
     all_class2sample_extra_info = {}
     for sample_json_dir in sample_json_dirs:

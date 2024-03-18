@@ -1,4 +1,5 @@
 from typing import Dict, List
+
 from livecellx.core.single_cell import SingleCellStatic
 
 
@@ -34,9 +35,6 @@ def is_one_sc_each_time(sample: List[SingleCellStatic]):
             return False
         times.add(sc.timeframe)
     return True
-
-
-from typing import Dict, List
 
 
 def drop_multiple_cell_frames_in_samples(class2samples: Dict, tar_keys: List[str] = ["mitosis"]) -> Dict:

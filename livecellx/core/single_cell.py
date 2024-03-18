@@ -84,7 +84,7 @@ class SingleCellStatic:
 
         self.bbox = bbox
         if contour is None and not empty_cell:
-            main_warning(">>> [SingleCellStatic] WARNING: contour is None, please check if this is intended.")
+            main_warning(">>> [SingleCellStatic] WARNING: contour is None, please check if this is expected.")
             contour = np.array([], dtype=int)
         self.contour = contour
 
@@ -204,13 +204,16 @@ class SingleCellStatic:
 
     def get_mask(self, dtype=bool):
         if isinstance(self.mask_dataset, SingleImageDataset):
-            return self.mask_dataset.get_img_by_time()
-        elif not (self.mask_dataset is None) and (self.timeframe in self.mask_dataset.time2url):
-            return self.mask_dataset[self.timeframe]
-        elif self.contour is not None:
+            try:
+                return self.mask_dataset.get_img_by_time()
+            except Exception as e:
+                main_exception(
+                    f"Error getting mask for single cell {self.id} at timeframe {self.timeframe} from presented mask dataset. Using contour mask instead."
+                )
+        if self.contour is not None:
             return self.get_contour_mask(crop=False, dtype=dtype)
-        else:
-            raise ValueError("mask dataset and contour are both None")
+
+        raise ValueError("mask dataset and contour are both None")
 
     def get_label_mask(self, dtype=int):
         mask = self.get_mask(dtype=dtype)
@@ -245,6 +248,7 @@ class SingleCellStatic:
                 img_crop = np.pad(img_crop, ((0, padding), (0, 0), (0, 0)), mode="constant")
             if max_y + padding > img.shape[1]:
                 img_crop = np.pad(img_crop, ((0, 0), (0, padding), (0, 0)), mode="constant")
+
         return img_crop
 
     def get_img_crop(self, padding=0, bbox=None, **kwargs):
@@ -340,7 +344,9 @@ class SingleCellStatic:
                 self.img_dataset.get_default_json_path(out_dir=dataset_json_dir)
             )
             self.img_dataset.write_json(out_dir=dataset_json_dir, overwrite=False)
-        if self.mask_dataset is not None:
+        if isinstance(self.mask_dataset, SingleImageDataset):
+            pass
+        elif self.mask_dataset is not None:
             self.meta[SCKM.JSON_MASK_DATASET_PATH] = str(
                 self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir)
             )
@@ -433,7 +439,7 @@ class SingleCellStatic:
 
     @staticmethod
     # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
-    def load_single_cells_json(path: str) -> List["SingleCellStatic"]:
+    def load_single_cells_json(path: str, verbose=False) -> List["SingleCellStatic"]:
         """load a json file containing a list of single cells
 
         Parameters
@@ -446,20 +452,20 @@ class SingleCellStatic:
         _type_
             _description_
         """
-        main_info("loading single cells from json file: " + str(path))
+        if verbose:
+            main_info("loading single cells from json file: " + str(path))
         with open(path, "r") as f:
             sc_json_dict_list = json.load(f)
-        main_info("loaded " + str(len(sc_json_dict_list)) + " single cells")
 
-        main_info("constructing single cells from json dict...")
         # contour = [] here to suppress warning
         single_cells = []
         for sc_json_dict in tqdm.tqdm(sc_json_dict_list, desc="constructing single cells from json dict"):
             # Load the single cell from json dict
             sc = SingleCellStatic(contour=[]).load_from_json_dict(sc_json_dict)
             single_cells.append(sc)
-
-        main_info("done constructing single cells from json dict")
+        if verbose:
+            main_info("Done constructing single cells from json dict")
+            main_info("loaded " + str(len(single_cells)) + " single cells")
         return single_cells
 
     @staticmethod
@@ -590,7 +596,8 @@ class SingleCellStatic:
     @staticmethod
     def gen_contour_mask(
         contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255, dtype=bool
-    ) -> np.array:
+    ) -> np.array:  #
+        # TODO: optimize: we do not need img here but shape of img.
         from skimage.draw import line, polygon
 
         assert img is not None or shape is not None, "either img or shape must be provided"
@@ -815,6 +822,7 @@ class SingleCellTrajectory:
         mother_trajectories=None,
         daughter_trajectories=None,
         meta: Dict[str, Any] = None,
+        tmp: Dict[str, Any] = None,
     ) -> None:
         if timeframe_to_single_cell is None:
             self.timeframe_to_single_cell = dict()
@@ -849,6 +857,11 @@ class SingleCellTrajectory:
             self.meta[SingleCellTrajectory.META_DAUGHTER_IDS] = [
                 daughter.track_id for daughter in self.daughter_trajectories
             ]
+
+        if tmp is not None:
+            self.tmp = tmp
+        else:
+            self.tmp = {}
 
     def __repr__(self) -> str:
         return f"SingleCellTrajectory(track_id={self.track_id}, #timeframe set={len(self)})"
@@ -1105,7 +1118,7 @@ class SingleCellTrajectory:
         return len(self.timeframe_set) == 0
 
     def subsct(self, min_time, max_time, track_id=None, keep_track_id=False):
-        """return a subtrajectory of this trajectory, with timeframes between min_time and max_time. Mother and daugher info will be copied if the min_time and max_time are the start and end of the new trajectory, respectively."""
+        """return a subtrajectory of this trajectory, with timeframes between [min_time, max_time]. Mother and daugher info will be copied if the min_time and max_time are the start and end of the new trajectory, respectively."""
         require_copy_mothers_info = False
         require_copy_daughters_info = False
         if self.is_empty():
@@ -1426,7 +1439,13 @@ def show_sct_on_grid(
     ax_title_fontsize=8,
     cmap="viridis",
     ax_contour_polygon_kwargs=dict(fill=None, edgecolor="r"),
-) -> matplotlib.axes.Axes:
+    dpi=300,
+    show_mask=False,
+    fig=None,
+    axes=None,
+    crop_from_center=True,
+    show_contour=True,
+) -> Tuple[plt.Figure, np.ndarray]:
     """
     Display a grid of single cell images with contours overlaid.
 
@@ -1466,16 +1485,22 @@ def show_sct_on_grid(
     matplotlib.axes.Axes
         The axes object containing the grid of subplots.
     """
-    fig, axes = plt.subplots(nr, nc, figsize=(nc * ax_width, nr * ax_height))
-    if nr == 1:
-        axes = np.array([axes])
+    if axes is None:
+        fig, axes = plt.subplots(nr, nc, figsize=(nc * ax_width, nr * ax_height), dpi=dpi)
+        if nr == 1:
+            axes = np.array([axes])
+    else:
+        assert np.array(axes).shape == (nr, nc), "axes shape mismatch"
+
     span_range = trajectory.get_timeframe_span()
     traj_start, traj_end = span_range
     if start < traj_start:
-        print(
-            "start timeframe larger than the first timeframe of the trajectory, replace start_timeframe with the first timeframe..."
-        )
         start = span_range[0]
+        print(
+            "start timeframe larger than the first timeframe of the trajectory, replace start_timeframe with the first timeframe={}".format(
+                int(start)
+            )
+        )
 
     if isinstance(ax_contour_polygon_kwargs, dict):
         ax_contour_polygon_kwargs_list = [ax_contour_polygon_kwargs] * nr * nc
@@ -1492,31 +1517,71 @@ def show_sct_on_grid(
             if timeframe not in trajectory.timeframe_set:
                 continue
             sc = trajectory.get_single_cell(timeframe)
-            sc_img = sc.get_img_crop(padding=padding)
+            if show_mask:
+                sc_img = sc.get_mask_crop(padding=padding)
+            else:
+                sc_img = sc.get_img_crop(padding=padding)
             contour_coords = sc.get_contour_coords_on_crop(padding=padding)
 
             if dims is not None:
-                sc_img = sc_img[dims_offset[0] : dims_offset[0] + dims[0], dims_offset[1] : dims_offset[1] + dims[1]]
-                contour_coords[:, 0] -= dims_offset[0]
-                contour_coords[:, 1] -= dims_offset[1]
+                center_coord = [sc_img.shape[i] // 2 for i in range(2)]
+                if crop_from_center:
+                    xs, ys, xe, ye = (
+                        center_coord[0] - dims[0] // 2,
+                        center_coord[1] - dims[1] // 2,
+                        center_coord[0] + dims[0] // 2,
+                        center_coord[1] + dims[1] // 2,
+                    )
 
-                if pad_dims:
-                    _pad_pixels = [max(0, dims[i] - sc_img.shape[i]) for i in range(len(dims))]
-                    sc_img = np.pad(sc_img, _pad_pixels, mode="constant", constant_values=0)
-                    contour_coords[:, 0] += _pad_pixels[0]
-                    contour_coords[:, 1] += _pad_pixels[1]
+                    # Center padding
+                    _center_padding = padding // 2
+                    xs, ys, xe, ye = (
+                        xs - _center_padding,
+                        ys - _center_padding,
+                        xe + _center_padding,
+                        ye + _center_padding,
+                    )
+                    # Fit to boundary of img shape [0, boundary]
+                    xs, ys, xe, ye = max(0, xs), max(0, ys), min(sc_img.shape[0], xe), min(sc_img.shape[1], ye)
+                    sc_img = sc_img[xs:xe, ys:ye]
+                    contour_coords[:, 0] = contour_coords[:, 0] - xs
+                    contour_coords[:, 1] = contour_coords[:, 1] - ys
+                    if pad_dims:
+                        _pad_pixels = [dims[0] - (xe - xs), dims[1] - (ye - ys)]
+                        # Ensure non-neg and //2 for center
+                        _pad_pixels = [max(0, val) // 2 for val in _pad_pixels]
+                        sc_img = np.pad(sc_img, _pad_pixels, mode="constant", constant_values=0)
+                        contour_coords[:, 0] += _pad_pixels[0]
+                        contour_coords[:, 1] += _pad_pixels[1]
+                else:
+                    sc_img = sc_img[
+                        dims_offset[0] : dims_offset[0] + dims[0], dims_offset[1] : dims_offset[1] + dims[1]
+                    ]
+                    contour_coords[:, 0] -= dims_offset[0]
+                    contour_coords[:, 1] -= dims_offset[1]
+                    if pad_dims:
+                        _pad_pixels = [max(0, dims[i] - sc_img.shape[i]) for i in range(len(dims))]
+                        sc_img = np.pad(sc_img, _pad_pixels, mode="constant", constant_values=0)
+                        contour_coords[:, 0] += _pad_pixels[0]
+                        contour_coords[:, 1] += _pad_pixels[1]
+
             ax.imshow(sc_img, cmap=cmap)
-            # draw a polygon based on contour coordinates
-            from matplotlib.patches import Polygon
 
-            polygon = Polygon(
-                np.array([contour_coords[:, 1], contour_coords[:, 0]]).transpose(),
-                **ax_contour_polygon_kwargs_list[r * nc + c],
-            )
-            ax.add_patch(polygon)
-            ax.set_title(f"time: {timeframe}", fontsize=ax_title_fontsize)
-    fig.tight_layout(pad=0.5, h_pad=0.4, w_pad=0.4)
-    return axes
+            if show_contour:
+                # draw a polygon based on contour coordinates
+                from matplotlib.patches import Polygon
+
+                polygon = Polygon(
+                    np.array([contour_coords[:, 1], contour_coords[:, 0]]).transpose(),
+                    **ax_contour_polygon_kwargs_list[r * nc + c],
+                )
+                ax.add_patch(polygon)
+                ax.set_title(f"time: {timeframe}", fontsize=ax_title_fontsize)
+
+    if fig is not None:
+        main_info(f"tighting figure layout...")
+        fig.tight_layout(pad=0.5, h_pad=0.4, w_pad=0.4)
+    return fig, axes
 
 
 def combine_scs_label_masks(scs: SingleCellStatic, scs_labels: list = None, original_meta_label_key=None):
@@ -1541,3 +1606,131 @@ def get_time2scs(scs: List[SingleCellStatic]):
             time2scs[sc.timeframe] = []
         time2scs[sc.timeframe].append(sc)
     return time2scs
+
+
+def sample_samples_from_sctc(
+    sctc: SingleCellTrajectoryCollection,
+    objective_sample_num=10000,
+    exclude_scs_ids=set(),
+    seed=0,
+    length_range=(6, 10),
+    max_trial_counter=1000,
+    check_nonoverlap=True,
+):
+    def _check_in_visited_range(visited_range, track_id, start_time, end_time):
+        """check if the given time range of a track is in the visited range"""
+        if track_id not in visited_range:
+            return False
+        for _start, _end in visited_range[track_id]:
+            # Check if there is any overlap between [_start, _end] and [start_time, end_time]
+            if _start <= start_time:
+                ls, le = _start, _end
+                rs, re = start_time, end_time
+            else:
+                ls, le = start_time, end_time
+                rs, re = _start, _end
+            if rs <= le:
+                return True
+        return False
+
+    # set numpy seed
+    np.random.seed(seed)
+
+    normal_frame_len_range = length_range
+    counter = 0
+    normal_samples = []
+    normal_samples_extra_info = []
+    skipped_sample_num = 0
+    visited_range = {}
+    while counter < objective_sample_num and max_trial_counter > 0:
+        # randomly select a sct from sctc
+        # generate a list of scs
+        track_id = np.random.choice(list(sctc.track_id_to_trajectory.keys()))
+        sct = sctc.get_trajectory(track_id)
+        # randomly select a length
+        frame_len = np.random.randint(*normal_frame_len_range)
+        # generate a sample
+        times = list(sct.timeframe_to_single_cell.keys())
+        times = sorted(times)
+        if len(times) <= frame_len:
+            max_trial_counter -= 1
+            continue
+        start_idx = np.random.randint(0, len(times) - frame_len)
+        start_time = times[start_idx]
+        end_time = times[start_idx + frame_len - 1]
+
+        if check_nonoverlap and _check_in_visited_range(visited_range, track_id, start_time, end_time):
+            max_trial_counter -= 1
+            continue
+        if track_id not in visited_range:
+            visited_range[track_id] = []
+        visited_range[track_id].append((start_time, end_time))
+
+        sub_sct = sct.subsct(start_time, end_time)
+
+        is_some_sc_in_exclude_scs = False
+        for time, sc in sub_sct.timeframe_to_single_cell.items():
+            # print("sc.id:", sc.id, type(sc.id))
+            if str(sc.id) in exclude_scs_ids:
+                is_some_sc_in_exclude_scs = True
+                break
+        if is_some_sc_in_exclude_scs:
+            # print("some sc in the exclude scs list")
+            skipped_sample_num += 1
+            continue
+
+        new_sample = []
+        for time, sc in sub_sct.timeframe_to_single_cell.items():
+            new_sample.append(sc)
+        normal_samples.append(new_sample)
+        normal_samples_extra_info.append(
+            {
+                "src_dir": sub_sct.get_all_scs()[0].meta["src_dir"],
+                "track_id": track_id,
+                "start_time": start_time,
+                "end_time": end_time,
+            }
+        )
+        counter += 1
+
+    if check_nonoverlap:
+        print("visited range:", visited_range)
+        # Check if the generated samples are non-overlapping
+        main_info("Checking if the generated samples are non-overlapping...")
+        for i in range(len(normal_samples)):
+            for j in range(i + 1, len(normal_samples)):
+                # Retrieve track id, start time, and end time for each sample
+                track_id_i = normal_samples_extra_info[i]["track_id"]
+                start_time_i = normal_samples_extra_info[i]["start_time"]
+                end_time_i = normal_samples_extra_info[i]["end_time"]
+                track_id_j = normal_samples_extra_info[j]["track_id"]
+                start_time_j = normal_samples_extra_info[j]["start_time"]
+                end_time_j = normal_samples_extra_info[j]["end_time"]
+
+                # Check if the two samples overlap
+                if track_id_i == track_id_j:
+                    if start_time_i <= end_time_j and start_time_j <= end_time_i:
+                        print(f"Overlap found between samples {i} and {j}")
+                        print(f"Sample {i}: track_id={track_id_i}, start_time={start_time_i}, end_time={end_time_i}")
+                        print(f"Sample {j}: track_id={track_id_j}, start_time={start_time_j}, end_time={end_time_j}")
+                        assert False, "Overlap found between samples while checking non-overlapping samples"
+        main_info("Success: No overlap found between the generated samples")
+    print("# of skipped samples based on the excluded scs list:", skipped_sample_num)
+    print("# of generated samples:", len(normal_samples))
+    print("# of generated samples extra info:", len(normal_samples_extra_info))
+    return normal_samples, normal_samples_extra_info
+
+
+def filter_boundary_cells(scs: List[SingleCellStatic], dist_to_boundary=30):
+    not_boundary_scs = []
+    dim = scs[0].get_img().shape[:2]
+    for sc in scs:
+        bbox = sc.get_bbox()
+        if (
+            bbox[0] > dist_to_boundary
+            and bbox[1] > dist_to_boundary
+            and bbox[2] < dim[0] - dist_to_boundary
+            and bbox[3] < dim[1] - dist_to_boundary
+        ):
+            not_boundary_scs.append(sc)
+    return not_boundary_scs

@@ -79,10 +79,13 @@ def parse_args():
 
 def main_train():
     args = parse_args()
+    train_csv_filename = "train_data.csv"
+    if args.ou_aux:
+        train_csv_filename = "train_data_aux.csv"
     print("[Args] ", args)
     # train_dir = Path("./notebook_results/a549_ccp_vim/train_data_v1")
     train_dir = Path(args.train_dir)
-    train_csv = train_dir / "train_data.csv"
+    train_csv = train_dir / train_csv_filename
     kernel_size = args.kernel_size
     train_df = pd.read_csv(train_csv)
 
@@ -161,7 +164,7 @@ def main_train():
     test_dataset = None
     if args.test_dir is not None:
         test_dir = Path(args.test_dir)
-        test_csv = test_dir / "train_data.csv"
+        test_csv = test_dir / train_csv_filename
         test_df = pd.read_csv(test_csv)
         test_dataset = df2dataset(test_df)
 
