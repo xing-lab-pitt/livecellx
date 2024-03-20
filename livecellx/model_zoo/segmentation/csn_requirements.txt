@@ -1,2 +1,3 @@
 paretoset
 pytorch-lightning==1.5.6
+pandas<2.0.0
