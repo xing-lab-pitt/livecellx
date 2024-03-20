@@ -156,6 +156,9 @@ def main_train():
     if args.debug:
         train_df = train_df[:100]
         val_df = val_df[:10]
+    # Get rid of last batch if it's not full to avoid BatchNorm complaints
+    train_df = train_df.iloc[: (len(train_df) // args.batch_size) * args.batch_size]
+    val_df = val_df.iloc[: (len(val_df) // args.batch_size) * args.batch_size]
 
     train_dataset = df2dataset(train_df)
     val_dataset = df2dataset(val_df)
