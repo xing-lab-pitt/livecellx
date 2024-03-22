@@ -34,6 +34,11 @@ from livecellx.preprocess.utils import normalize_img_to_uint8
 class CorrectSegNetDataset(torch.utils.data.Dataset):
     """Dataset for training CorrectSegNetDatasert"""
 
+    OVERSEG_ONEHOT = [1, 0, 0, 0]
+    UNDERSEG_ONEHOT = [0, 1, 0, 0]
+    DROPOUT_ONEHOT = [0, 0, 1, 0]
+    CORRECT_ONEHOT = [0, 0, 0, 1]
+
     def __init__(
         self,
         raw_img_paths: List[str],
