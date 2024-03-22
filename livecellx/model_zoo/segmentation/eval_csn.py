@@ -86,13 +86,13 @@ def match_label_mask_by_iou(out_label_mask, gt_label_mask, bg_label=0, match_thr
     gt_labels = gt_labels[gt_labels != bg_label]
 
     # calculate iou mapping between out labels and gt labels
-    label_gt2out = {gt:[] for gt in gt_labels}
-    label_out2gt = {out:[] for out in out_labels}
+    label_gt2out = {gt: [] for gt in gt_labels}
+    label_out2gt = {out: [] for out in out_labels}
     gt_out_iou_list = []
     for gt_label in gt_labels:
         gt_mask = gt_label_mask == gt_label
         label_gt2out[gt_label] = []
-        
+
         for out_label in out_labels:
             out_mask = out_label_mask == out_label
             iou = np.sum(out_mask & gt_mask) / np.sum(out_mask | gt_mask)
@@ -100,7 +100,6 @@ def match_label_mask_by_iou(out_label_mask, gt_label_mask, bg_label=0, match_thr
             if iou > match_threshold:
                 label_gt2out[gt_label].append(out_label)
                 label_out2gt[out_label].append(gt_label)
-
 
     # because it is a 2D imaging label mapping, there is no overlapping and only one region may cross sufficiently high iou thresholds
     matched_num = 0
@@ -128,11 +127,12 @@ def evaluate_sample_v3_underseg(
     out_mask = model(sample["input"].unsqueeze(0).cuda())
     if isinstance(model, CorrectSegNetAux):
         seg_out_mask = out_mask[0]
-        aux_out_mask = out_mask[1]
+        aux_out = out_mask[1]
     elif isinstance(model, CorrectSegNet):
         seg_out_mask = out_mask
     else:
         raise ValueError("model type not supported")
+
     if model.loss_type == "BCE" or model.loss_type == "CE":
         seg_out_mask = model.output_to_logits(seg_out_mask)
 
@@ -209,6 +209,16 @@ def evaluate_sample_v3_underseg(
 
     # metrics_dict["gt_iou_match_threshold"] = gt_iou_match_threshold
     # metrics_dict["gt_out_iou_list"] = gt_out_iou_list
+
+    # Check if aux out is correct
+    if isinstance(model, CorrectSegNetAux):
+        aux_out_class = aux_out.squeeze().argmax().item()
+        aux_vec = np.zeros(4)
+        aux_vec[aux_out_class] = 1
+        if list(sample["ou_aux"]) != list(aux_vec):
+            metrics_dict["aux_out_correct"] = 0
+        else:
+            metrics_dict["aux_out_correct"] = 1
     return metrics_dict
 
 
