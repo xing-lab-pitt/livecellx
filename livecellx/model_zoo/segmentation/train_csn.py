@@ -4,16 +4,18 @@ torch.manual_seed(237)
 import argparse
 from pathlib import Path
 import pandas as pd
-from torchvision import transforms
+
 import torch
 import torch.utils.data
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import TQDMProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger
+import livecellx
 from livecellx.model_zoo.segmentation.sc_correction import CorrectSegNet
 from livecellx.model_zoo.segmentation.sc_correction_aux import CorrectSegNetAux
 from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
+import livecellx.model_zoo.segmentation.csn_configs as csn_configs
 
 
 def parse_args():
@@ -67,6 +69,7 @@ def parse_args():
         help="The criterions to save the model. The model will be saved if the criterion is the minimum so far. The criterions are separated by comma. The criterion can be one of the following: test_loss, test_acc, ... (see what exists in the validation/test step function)",
     )
     parser.add_argument("--ou_aux", dest="ou_aux", default=False, action="store_true")
+    parser.add_argument("--aug-ver", default="v0", type=str, help="The version of the augmentation to use.")
 
     args = parser.parse_args()
 
@@ -111,14 +114,14 @@ def main_train():
     # augmentation params
     translation_range = (args.translation, args.translation)
     degrees = args.degrees
-    train_transforms = transforms.Compose(
-        [
-            # transforms.Resize((412, 412)),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomAffine(degrees=degrees, translate=translation_range, scale=args.aug_scale),
-            transforms.RandomCrop((412, 412), pad_if_needed=True),
-        ]
-    )
+    if args.aug_ver == "v0":
+        train_transforms = csn_configs.gen_train_transform_v0(degrees, translation_range, args.aug_scale)
+    elif args.aug_ver == "v1":
+        train_transforms = csn_configs.gen_train_transform_v1(degrees, translation_range, args.aug_scale)
+    elif args.aug_ver == "v2":
+        train_transforms = csn_configs.gen_train_transform_v2(degrees, translation_range, args.aug_scale)
+    else:
+        raise ValueError("Unknown augmentation version")
 
     def df2dataset(df):
         raw_img_paths = list(df["raw"])

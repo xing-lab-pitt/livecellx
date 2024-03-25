@@ -138,6 +138,8 @@ def evaluate_sample_v3_underseg(
 
     # 1 sample -> get first batch
     seg_out_mask = seg_out_mask.cpu().detach().numpy().squeeze()
+
+    # seg_out_mask = skimage.transform.resize(seg_out_mask, sample["gt_mask"].shape[1:], order=1, mode="reflect")
     assert seg_out_mask.shape[0] == 3, "Expected 3 channels for seg_out_mask, got shape=%s" % str(seg_out_mask.shape)
 
     original_input_mask = sample["seg_mask"].numpy().squeeze()
@@ -165,6 +167,11 @@ def evaluate_sample_v3_underseg(
 
     # match gt label mask with out label mask
     out_label_mask = skimage.measure.label(out_mask_predicted)
+
+    # Resize out_label_mask to match gt_label_mask (example: (412, 412) to (136, 172)) if GT label is not enhanced during dataset preparation
+    # [TODO] Remvoe if label masks are augmented during dataset preparation
+    out_label_mask = skimage.transform.resize(out_label_mask, gt_label_mask.shape, order=0, mode="reflect")
+    original_label_mask = skimage.transform.resize(original_label_mask, gt_label_mask.shape, order=0, mode="reflect")
 
     out_matched_num, out_cell_count, gt_cell_num, gt_out_iou_list = match_label_mask_by_iou(
         out_label_mask, gt_label_mask, match_threshold=gt_iou_match_thresholds[0], return_iou_list=True
