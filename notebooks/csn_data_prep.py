@@ -51,7 +51,7 @@ import cv2
 #     segment_images_by_detectron,
 #     segment_single_img_by_detectron_wrapper,
 # )
-from livecellx.annotation.coco_utils import coco_to_sc
+from livecellx.annotation.coco_utils import coco_to_scs
 from pycocotools.coco import COCO
 from livecellx.segment.utils import match_mask_labels_by_iou
 from livecellx.preprocess.utils import enhance_contrast, normalize_img_to_uint8
@@ -232,10 +232,7 @@ if __name__ == "__main__":
 
     # %%
     times = sorted(single_cells_by_time.keys())
-    # %% [markdown]
-    # Visualize one single cell
 
-    # %%
     sc = single_cells[0]
 
     times = sorted(label_mask_dataset.times)
@@ -449,7 +446,7 @@ if __name__ == "__main__":
     # convert label maps to coco
 
     def ou_maps_to_coco(
-        data,
+        map_list,
         mask_dataset: LiveCellImageDataset,
         img_dataset: LiveCellImageDataset,
         mode,
@@ -517,7 +514,7 @@ if __name__ == "__main__":
             t1_cat_label = under_cat_id
             t2_cat_label = under_gt_cat_id
         ann_id = 0
-        for idx, (t1, t2, t1_label, mapping) in enumerate(data):
+        for idx, (t1, t2, t1_label, mapping) in enumerate(map_list):
             sc = time_label2sc[(t1, t1_label)]
             img_url = img_dataset.time2url[sc.timeframe]
             img_id = int(sc.timeframe)
@@ -569,7 +566,7 @@ if __name__ == "__main__":
 
     # %%
     coco_data = COCO(pos_data_dir / ("coco_overseg_interval-%s.json" % sample_interval))
-    overseg_scs = coco_to_sc(coco_data)
+    overseg_scs = coco_to_scs(coco_data)
 
     # %%
     over_seg_gt_scs = []
@@ -700,7 +697,7 @@ if __name__ == "__main__":
 
     # %%
     underseg_coco_data = COCO(pos_data_dir / ("coco_underseg_interval-%s.json" % sample_interval))
-    underseg_scs = coco_to_sc(underseg_coco_data)
+    underseg_scs = coco_to_scs(underseg_coco_data)
 
     # %%
     under_seg_gt_scs = []
