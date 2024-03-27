@@ -140,6 +140,10 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask = Image.open(self.gt_mask_paths[idx])
         augmented_raw_transformed_img = Image.open(self.raw_transformed_img_paths[idx])
         aug_diff_img = Image.open(self.aug_diff_img_paths[idx])
+        if "ou_aux" in self.raw_df.columns:
+            ou_aux_label = ou_aux_label
+        else:
+            ou_aux_label = None
         if self.normalize_uint8:
             augmented_raw_img = normalize_img_to_uint8(np.array(augmented_raw_img))
             augmented_raw_transformed_img = normalize_img_to_uint8(np.array(augmented_raw_transformed_img))
@@ -231,17 +235,17 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
 
         # Prepare ou_aux tensor: 4 classes auxillary output
         ou_aux = torch.tensor([0, 0, 0, 0]).float()
-        if "ou_aux" in self.raw_df.columns:
-            if self.raw_df["ou_aux"].iloc[idx] == "overseg":
+        if ou_aux_label is not None:
+            if ou_aux_label.iloc[idx] == "overseg":
                 ou_aux = torch.tensor([1, 0, 0, 0]).float()
-            elif self.raw_df["ou_aux"].iloc[idx] == "underseg":
+            elif ou_aux_label.iloc[idx] == "underseg":
                 ou_aux = torch.tensor([0, 1, 0, 0]).float()
-            elif self.raw_df["ou_aux"].iloc[idx] == "dropout":
+            elif ou_aux_label.iloc[idx] == "dropout":
                 ou_aux = torch.tensor([0, 0, 1, 0]).float()
-            elif self.raw_df["ou_aux"].iloc[idx] == "correct":
+            elif ou_aux_label.iloc[idx] == "correct":
                 ou_aux = torch.tensor([0, 0, 0, 1]).float()
             else:
-                raise ValueError("Unknown ou_aux value:", self.raw_df["ou_aux"].iloc[idx])
+                raise ValueError("Unknown ou_aux value:", ou_aux_label.iloc[idx])
 
         res = {
             "input": input_img,
