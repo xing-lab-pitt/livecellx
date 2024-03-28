@@ -402,6 +402,71 @@ def csn_augment_helper(
     }
 
 
+def gen_csn_correct_case(scs, out_dir, filename_pattern="img-%d_scId-%s.tif"):
+    out_subdir = out_dir / "correct_cases"
+    raw_out_dir = out_subdir / "raw"
+    seg_out_dir = out_subdir / "seg"
+    gt_out_dir = out_subdir / "gt"
+    gt_label_out_dir = out_subdir / "gt_label_mask"
+    augmented_seg_dir = out_subdir / "augmented_seg"
+    raw_transformed_img_dir = out_subdir / "raw_transformed_img"
+    augmented_diff_seg_dir = out_subdir / "augmented_diff_seg"
+
+    os.makedirs(raw_out_dir, exist_ok=True)
+    os.makedirs(seg_out_dir, exist_ok=True)
+    os.makedirs(gt_out_dir, exist_ok=True)
+    os.makedirs(augmented_seg_dir, exist_ok=True)
+    os.makedirs(gt_label_out_dir, exist_ok=True)
+    os.makedirs(raw_transformed_img_dir, exist_ok=True)
+    os.makedirs(augmented_diff_seg_dir, exist_ok=True)
+
+    scale_factors = [0]  # We
+    train_path_tuples = []
+    augmented_data = []
+
+    for sc in tqdm(scs):
+        img_id = sc.timeframe
+        seg_label = sc.id
+        # (img_crop, seg_crop, combined_gt_label_mask) = underseg_overlay_gt_masks(seg_label, scs, padding_scale=2)
+        img_crop = sc.get_img_crop()
+        seg_crop = sc.get_contour_mask()
+        # Only 1 gt mask for mask cases, seg_crop is sufficient
+        combined_gt_label_mask = seg_crop
+
+        filename = filename_pattern % (img_id, seg_label)
+        raw_img_path = raw_out_dir / filename
+        seg_img_path = seg_out_dir / filename
+        gt_img_path = gt_out_dir / filename
+        gt_label_img_path = gt_label_out_dir / filename
+
+        # call csn augment helper
+        csn_augment_helper(
+            img_crop=img_crop,
+            seg_label_crop=seg_crop,
+            combined_gt_label_mask=combined_gt_label_mask,
+            scale_factors=scale_factors,
+            train_path_tuples=train_path_tuples,
+            augmented_data=augmented_data,
+            img_id=img_id,
+            seg_label=seg_label,
+            gt_label=None,
+            raw_img_path=raw_img_path,
+            seg_img_path=seg_img_path,
+            gt_img_path=gt_img_path,
+            gt_label_img_path=gt_label_img_path,
+            augmented_seg_dir=augmented_seg_dir,
+            augmented_diff_seg_dir=augmented_diff_seg_dir,
+            raw_transformed_img_dir=raw_transformed_img_dir,
+            df_save_path=None,
+            filename_pattern="img-%d_scId-%s.tif",
+        )
+
+    pd.DataFrame(
+        train_path_tuples,
+        columns=["raw", "seg", "gt", "raw_seg", "scale", "aug_diff_mask", "gt_label_mask", "raw_transformed_img"],
+    ).to_csv(out_subdir / "data.csv", index=False)
+
+
 def collect_and_combine_data(out_dir: Path):
     if isinstance(out_dir, str):
         out_dir = Path(out_dir)
