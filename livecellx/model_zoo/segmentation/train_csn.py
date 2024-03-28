@@ -120,6 +120,10 @@ def main_train():
         train_transforms = csn_configs.gen_train_transform_v1(degrees, translation_range, args.aug_scale)
     elif args.aug_ver == "v2":
         train_transforms = csn_configs.gen_train_transform_v2(degrees, translation_range, args.aug_scale)
+    elif args.aug_ver == "v3":
+        train_transforms = csn_configs.gen_train_transform_v3(degrees, translation_range, args.aug_scale)
+    elif args.aug_ver == "v4":
+        train_transforms = csn_configs.gen_train_transform_v4(degrees, translation_range, args.aug_scale)
     else:
         raise ValueError("Unknown augmentation version")
 
