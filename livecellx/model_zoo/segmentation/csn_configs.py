@@ -170,7 +170,8 @@ def gen_train_transform_v4(
             transforms.RandomVerticalFlip(),
             transforms.RandomAffine(degrees=degrees, translate=translation_range, scale=scale, shear=10),
             gauss_noise_tensor,
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            transforms.Resize((412, 412)),
+            transforms.Normalize([0.485], [0.229]),
         ]
     )
     return train_transforms
