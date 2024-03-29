@@ -57,6 +57,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         raw_df=None,
         normalize_uint8=False,
         bg_val=0,
+        use_gt_pixel_weight=False,
     ):
         """_summary_
 
@@ -114,6 +115,14 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         print("whether to normalize_uint8:", self.normalize_uint8)
         self.bg_val = bg_val
 
+        self.use_gt_pixel_weight = use_gt_pixel_weight
+        print("whether to use_gt_pixel_weight:", self.use_gt_pixel_weight)
+        if self.use_gt_pixel_weight:
+            self.gt_pixel_weight_paths = [
+                str(Path(path).parent.parent / "gt_pixel_weight" / (str(Path(path).stem) + "_weight.npy"))
+                for path in self.gt_mask_paths
+            ]
+
     def get_raw_seg(self, idx) -> np.array:
         return np.array(Image.open(self.raw_seg_paths[idx]))
 
@@ -156,6 +165,14 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_label_mask__np = np.array(Image.open(self.gt_label_mask_paths[idx]))
         gt_label_mask = torch.tensor(gt_label_mask__np.copy()).long()
 
+        if self.use_gt_pixel_weight:
+            # Read the pixel weight map from the <gt_pixel_weight> subfolder. weights are in npy format
+            gt_pixel_weight = np.load(self.gt_pixel_weight_paths[idx])
+        else:
+            # Ones for all pixels
+            gt_pixel_weight = np.ones_like(gt_label_mask__np)
+        gt_pixel_weight = torch.tensor(gt_pixel_weight).float()
+
         # transform to edt for inputs before augmentation
         if self.input_type == "edt_v0":
             scaled_seg_mask = self.label_mask_to_edt(scaled_seg_mask)
@@ -168,6 +185,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
                 gt_mask.float(),
                 aug_diff_img,
                 gt_label_mask,
+                gt_pixel_weight,
             ],
             dim=0,
         )
@@ -178,6 +196,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         augmented_raw_transformed_img = concat_img[1]
         augmented_scaled_seg_mask = concat_img[2]
         augmented_gt_label_mask = concat_img[5].long()
+        augmented_gt_pixel_weight = concat_img[6]
 
         if self.input_type == "raw_aug_seg":
             input_img = torch.stack(
@@ -257,6 +276,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             "idx": idx,
             "gt_label_mask": augmented_gt_label_mask,
             "ou_aux": ou_aux,
+            "gt_pixel_weight": augmented_gt_pixel_weight,
         }
         if self.apply_gt_seg_edt:
             res["gt_mask_edt"] = gt_mask_edt

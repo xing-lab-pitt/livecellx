@@ -207,8 +207,8 @@ def gen_train_transform_v5(
             transforms.RandomVerticalFlip(),
             transforms.RandomAffine(degrees=degrees, translate=translation_range, scale=scale, shear=10),
             transforms.GaussianBlur(kernel_size=3),
-            transforms.Resize((412, 412)),
-            transforms.Normalize([0.485], [0.229]),
+            transforms.Resize((256, 256)),
+            transforms.Normalize([127], [30]),
         ]
     )
     return train_transforms

@@ -70,6 +70,7 @@ def parse_args():
     )
     parser.add_argument("--ou_aux", dest="ou_aux", default=False, action="store_true")
     parser.add_argument("--aug-ver", default="v0", type=str, help="The version of the augmentation to use.")
+    parser.add_argument("--use-gt-pixel-weight", default=False, action="store_true")
 
     args = parser.parse_args()
 
@@ -124,6 +125,8 @@ def main_train():
         train_transforms = csn_configs.gen_train_transform_v3(degrees, translation_range, args.aug_scale)
     elif args.aug_ver == "v4":
         train_transforms = csn_configs.gen_train_transform_v4(degrees, translation_range, args.aug_scale)
+    elif args.aug_ver == "v5":
+        train_transforms = csn_configs.gen_train_transform_v5(degrees, translation_range, args.aug_scale)
     else:
         raise ValueError("Unknown augmentation version")
 
@@ -154,6 +157,7 @@ def main_train():
             exclude_raw_input_bg=args.exclude_raw_input_bg,
             raw_df=df,
             subdirs=subdirs,
+            use_gt_pixel_weight=args.use_gt_pixel_weight,
         )
         return dataset
 
