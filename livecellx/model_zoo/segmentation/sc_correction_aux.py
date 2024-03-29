@@ -224,7 +224,9 @@ class CorrectSegNetAux(LightningModule):
             for cat_dim in range(0, num_classes):
                 temp_target = target[:, cat_dim, ...]
                 temp_output = seg_output[:, cat_dim, ...]
-                total_loss += weighted_mse_loss(temp_output, temp_target) * self.class_weights[cat_dim]
+                total_loss += (
+                    weighted_mse_loss(temp_output, temp_target, weights=gt_pixel_weight) * self.class_weights[cat_dim]
+                )
             seg_loss = total_loss
         elif self.loss_type == "BCE":
             # # Debugging
