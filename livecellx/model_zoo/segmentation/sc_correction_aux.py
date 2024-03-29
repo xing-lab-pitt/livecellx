@@ -42,16 +42,11 @@ def weighted_mse_loss(predict, target, weights=None):
     - loss: Scalar tensor representing the weighted MSE loss.
     """
     if weights is not None:
-        # Ensure the weights can be broadcasted to match the input shape
-        # Weights for channels other than the first are assumed to be 1
-        expanded_weights = torch.ones_like(predict)
-        expanded_weights[:, 0, :, :] = weights[:, 0, :, :]  # Apply weights to the first channel
-
         # Calculate squared differences
         squared_diff = (predict - target) ** 2
 
         # Apply weights
-        weighted_squared_diff = squared_diff * expanded_weights
+        weighted_squared_diff = squared_diff * weights
 
         # Calculate mean of the weighted squared differences
         loss = weighted_squared_diff.mean()

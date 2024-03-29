@@ -71,6 +71,7 @@ def parse_args():
     parser.add_argument("--ou_aux", dest="ou_aux", default=False, action="store_true")
     parser.add_argument("--aug-ver", default="v0", type=str, help="The version of the augmentation to use.")
     parser.add_argument("--use-gt-pixel-weight", default=False, action="store_true")
+    parser.add_argument("--aux-loss-weight", default=0.5, type=float)
 
     args = parser.parse_args()
 
@@ -188,27 +189,43 @@ def main_train():
     if args.debug:
         logger = TensorBoardLogger(save_dir=".", name="test_logs", version=args.model_version)
 
-    csn_model_cls = CorrectSegNet
     if args.ou_aux:
-        csn_model_cls = CorrectSegNetAux
-
-    model = csn_model_cls(
-        # train_input_paths=train_input_tuples,
-        lr=args.lr,
-        num_workers=1,
-        batch_size=args.batch_size,
-        train_transforms=train_transforms,
-        train_dataset=train_dataset,
-        val_dataset=val_dataset,
-        test_dataset=test_dataset,
-        kernel_size=kernel_size,
-        loss_type=args.loss,
-        class_weights=args.class_weights,
-        # only for record keeping purposes; handled by the dataset
-        input_type=args.input_type,
-        apply_gt_seg_edt=args.apply_gt_seg_edt,
-        exclude_raw_input_bg=args.exclude_raw_input_bg,
-    )
+        model = CorrectSegNetAux(
+            # train_input_paths=train_input_tuples,
+            lr=args.lr,
+            num_workers=1,
+            batch_size=args.batch_size,
+            train_transforms=train_transforms,
+            train_dataset=train_dataset,
+            val_dataset=val_dataset,
+            test_dataset=test_dataset,
+            kernel_size=kernel_size,
+            loss_type=args.loss,
+            class_weights=args.class_weights,
+            # only for record keeping purposes; handled by the dataset
+            input_type=args.input_type,
+            apply_gt_seg_edt=args.apply_gt_seg_edt,
+            exclude_raw_input_bg=args.exclude_raw_input_bg,
+            aux_loss_weight=args.aux_loss_weight,
+        )
+    else:
+        model = CorrectSegNet(
+            # train_input_paths=train_input_tuples,
+            lr=args.lr,
+            num_workers=1,
+            batch_size=args.batch_size,
+            train_transforms=train_transforms,
+            train_dataset=train_dataset,
+            val_dataset=val_dataset,
+            test_dataset=test_dataset,
+            kernel_size=kernel_size,
+            loss_type=args.loss,
+            class_weights=args.class_weights,
+            # only for record keeping purposes; handled by the dataset
+            input_type=args.input_type,
+            apply_gt_seg_edt=args.apply_gt_seg_edt,
+            exclude_raw_input_bg=args.exclude_raw_input_bg,
+        )
 
     print("logger save dir:", logger.save_dir)
     print("logger subdir:", logger.sub_dir)
