@@ -1,3 +1,4 @@
+from functools import partial
 import torch
 from torchvision import transforms
 from torchvision import transforms
@@ -94,7 +95,10 @@ def gen_train_transform_v2(
     return train_transforms
 
 
-def gauss_noise_tensor(img, sigma=30.0):
+def gauss_noise_tensor(
+    img,
+    sigma=30.0,
+):
     assert isinstance(img, torch.Tensor)
     dtype = img.dtype
     if not img.is_floating_point():
@@ -113,7 +117,7 @@ def gauss_noise_tensor(img, sigma=30.0):
 
 
 def gen_train_transform_v3(
-    degrees: float, translation_range: Tuple[float, float], scale: Tuple[float, float]
+    degrees: float, translation_range: Tuple[float, float], scale: Tuple[float, float], gauss_sigma=30
 ) -> transforms.Compose:
     """Generate the training data transformation.
 
@@ -137,7 +141,7 @@ def gen_train_transform_v3(
             # transforms.Resize((412, 412)),
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomAffine(degrees=degrees, translate=translation_range, scale=scale),
-            gauss_noise_tensor,
+            partial(gauss_noise_tensor, sigma=gauss_sigma),
             transforms.Resize((412, 412)),
         ]
     )
@@ -145,7 +149,7 @@ def gen_train_transform_v3(
 
 
 def gen_train_transform_v4(
-    degrees: float, translation_range: Tuple[float, float], scale: Tuple[float, float]
+    degrees: float, translation_range: Tuple[float, float], scale: Tuple[float, float], gauss_sigma=30
 ) -> transforms.Compose:
     """Generate the training data transformation.
 
@@ -169,7 +173,40 @@ def gen_train_transform_v4(
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
             transforms.RandomAffine(degrees=degrees, translate=translation_range, scale=scale, shear=10),
-            gauss_noise_tensor,
+            partial(gauss_noise_tensor, sigma=gauss_sigma),
+            transforms.Resize((412, 412)),
+            transforms.Normalize([0.485], [0.229]),
+        ]
+    )
+    return train_transforms
+
+
+def gen_train_transform_v5(
+    degrees: float, translation_range: Tuple[float, float], scale: Tuple[float, float], gauss_sigma=30
+) -> transforms.Compose:
+    """Generate the training data transformation.
+
+    Parameters
+    ----------
+    degrees : float
+        The range of degrees to rotate the image.
+    translation_range : Tuple[float, float]
+        The range of translation in pixels.
+    scale : Tuple[float, float]
+        The range of scale factors.
+
+    Returns
+    -------
+    transforms.Compose
+        The composed transformation for training data.
+    """
+
+    train_transforms = transforms.Compose(
+        [
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomAffine(degrees=degrees, translate=translation_range, scale=scale, shear=10),
+            transforms.GaussianBlur(kernel_size=3),
             transforms.Resize((412, 412)),
             transforms.Normalize([0.485], [0.229]),
         ]
