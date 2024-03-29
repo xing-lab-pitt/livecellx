@@ -4,6 +4,8 @@ from torchvision import transforms
 from torchvision import transforms
 from typing import Tuple
 
+from livecellx.model_zoo.segmentation.custom_transforms import CustomTransformV5
+
 
 def gen_train_transform_v0(
     degrees: float, translation_range: Tuple[float, float], scale: Tuple[float, float]
@@ -182,7 +184,31 @@ def gen_train_transform_v4(
 
 
 def gen_train_transform_v5(
-    degrees: float, translation_range: Tuple[float, float], scale: Tuple[float, float], gauss_sigma=30
+    degrees: float, translation_range: Tuple[float, float] = None, scale: Tuple[float, float] = None, gauss_sigma=30
+) -> CustomTransformV5:
+    """Generate the training data transformation.
+
+    Parameters
+    ----------
+    degrees : float
+        The range of degrees to rotate the image.
+    translation_range : Tuple[float, float]
+        The range of translation in pixels.
+    scale : Tuple[float, float]
+        The range of scale factors.
+
+    Returns
+    -------
+    transforms.Compose
+        The composed transformation for training data.
+    """
+
+    train_transforms = CustomTransformV5(degrees=degrees, translation_range=translation_range, scale=scale)
+    return train_transforms
+
+
+def gen_train_transform_v6(
+    degrees: float, translation_range: Tuple[float, float] = None, scale: Tuple[float, float] = None, gauss_sigma=30
 ) -> transforms.Compose:
     """Generate the training data transformation.
 
@@ -206,9 +232,7 @@ def gen_train_transform_v5(
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
             transforms.RandomAffine(degrees=degrees, translate=translation_range, scale=scale, shear=10),
-            transforms.GaussianBlur(kernel_size=3),
             transforms.Resize((256, 256)),
-            transforms.Normalize([127], [30]),
         ]
     )
     return train_transforms
