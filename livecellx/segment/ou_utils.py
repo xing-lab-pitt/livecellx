@@ -25,14 +25,23 @@ from livecellx.preprocess.utils import dilate_or_erode_mask, dilate_or_erode_lab
 
 
 def create_ou_input_from_sc(
-    sc: SingleCellStatic, padding_pixels: int = 0, dtype=float, remove_bg=True, one_object=True, scale=0, bbox=None
+    sc: SingleCellStatic,
+    padding_pixels: int = 0,
+    dtype=float,
+    remove_bg=True,
+    one_object=True,
+    scale=0,
+    bbox=None,
+    normalize_img_level=True,
 ):
+    if normalize_img_level:
+        norm_func = normalize_img_to_uint8
     if bbox is None:
         bbox = sc.get_bbox()
     if remove_bg:
-        img_crop = sc.get_contour_img(padding=padding_pixels, bbox=bbox).astype(dtype)
+        img_crop = sc.get_contour_img(padding=padding_pixels, bbox=bbox, preprocess_img_func=norm_func).astype(dtype)
     else:
-        img_crop = sc.get_img_crop(padding=padding_pixels, bbox=bbox).astype(dtype)
+        img_crop = sc.get_img_crop(padding=padding_pixels, bbox=bbox, preprocess_img_func=norm_func).astype(dtype)
 
     # TODO: issue: during training, we normalize on the entire image...
     img_crop = normalize_img_to_uint8(img_crop).astype(dtype)
