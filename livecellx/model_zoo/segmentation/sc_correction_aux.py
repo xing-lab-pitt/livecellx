@@ -24,6 +24,38 @@ TEST_LOADER_IN_VAL_LOADER_LIST_IDX = 1
 
 LOG_PROGRESS_BAR = False
 
+import torch
+import torch.nn.functional as F
+
+
+def weighted_mse_loss(predict, target, weights=None):
+    """
+    Compute the weighted MSE loss with an optional weight map for the first channel.
+
+    Parameters:
+    - input: Tensor of predicted values (batch_size, channels, height, width).
+    - target: Tensor of target values with the same shape as input.
+    - weights: Optional. Tensor of weights for the first channel (batch_size, 1, height, width).
+               If None, no weights are applied and standard MSE loss is calculated.
+
+    Returns:
+    - loss: Scalar tensor representing the weighted MSE loss.
+    """
+    if weights is not None:
+        # Calculate squared differences
+        squared_diff = (predict - target) ** 2
+
+        # Apply weights
+        weighted_squared_diff = squared_diff * weights
+
+        # Calculate mean of the weighted squared differences
+        loss = weighted_squared_diff.mean()
+    else:
+        # If no weights are provided, calculate standard MSE loss
+        loss = F.mse_loss(predict, target, reduction="mean")
+
+    return loss
+
 
 class CorrectSegNetAux(LightningModule):
     def __init__(
@@ -32,7 +64,7 @@ class CorrectSegNetAux(LightningModule):
         batch_size=5,
         class_weights=[1, 1, 1],
         model_type=None,
-        num_workers=16,
+        num_workers=32,
         train_input_paths=None,
         train_transforms=None,
         seed=99,
@@ -151,7 +183,9 @@ class CorrectSegNetAux(LightningModule):
         else:
             return x
 
-    def compute_loss(self, output: torch.tensor, target: torch.tensor, aux_out=None, aux_target=None):
+    def compute_loss(
+        self, output: torch.tensor, target: torch.tensor, aux_out=None, aux_target=None, gt_pixel_weight=None
+    ):
         """Compute loss fuction
 
         Parameters
@@ -178,27 +212,55 @@ class CorrectSegNetAux(LightningModule):
         ), "seg_output shape should be batch_size x num_classes x height x width, got %s" % str(seg_output.shape)
 
         if self.loss_type == "CE":
-            return self.loss_func(seg_output, target), aux_loss
+            seg_loss = self.loss_func(seg_output, target)
         elif self.loss_type == "MSE":
             total_loss = 0
             num_classes = seg_output.shape[1]
             for cat_dim in range(0, num_classes):
                 temp_target = target[:, cat_dim, ...]
                 temp_output = seg_output[:, cat_dim, ...]
-                total_loss += self.loss_func(temp_output, temp_target) * self.class_weights[cat_dim]
-            return total_loss, aux_loss
+                total_loss += (
+                    weighted_mse_loss(temp_output, temp_target, weights=gt_pixel_weight) * self.class_weights[cat_dim]
+                )
+            seg_loss = total_loss
         elif self.loss_type == "BCE":
+            # # Debugging
+            # print("*" * 40)
+            # print("Dimensions:")
+            # print("seg_output shape: ", seg_output.shape)
+            # print("target shape: ", target.shape)
+            # print("*" * 40)
+            # if gt_pixel_weight is not None:
+            #     print("gt_pixel_weight shape: ", gt_pixel_weight.shape)
+            if gt_pixel_weight is not None:
+                # Repeat to match 3 channels of gt (seg and two OU masks): gt_pixel_weight shape: 2, 412, 412 -> 2, 3, 412, 412
+                gt_pixel_weight_repeated = gt_pixel_weight.unsqueeze(1).repeat(1, 3, 1, 1)
+                # assert len(gt_pixel_weight_repeated.shape) == 4
+                gt_pixel_weight_permuted = gt_pixel_weight_repeated.permute(0, 2, 3, 1)
+            else:
+                gt_pixel_weight_permuted = None
             seg_output = seg_output.permute(0, 2, 3, 1)
             target = target.permute(0, 2, 3, 1)
-            return self.loss_func(seg_output, target), aux_loss
+            self.loss_func = torch.nn.BCEWithLogitsLoss(
+                weight=gt_pixel_weight_permuted, pos_weight=torch.tensor(self.class_weights).cuda()
+            )
+
+            seg_loss = self.loss_func(seg_output, target)
+        else:
+            raise NotImplementedError("Loss:%s not implemented", self.loss_type)
+
+        return seg_loss, aux_loss
 
     def training_step(self, batch, batch_idx):
         # print("[train_step] x shape: ", batch["input"].shape)
         # print("[train_step] y shape: ", batch["gt_mask"].shape)
         x, y = batch["input"], batch["gt_mask"]
         aux_target = batch["ou_aux"]
+        gt_pixel_weight = batch["gt_pixel_weight"]
         output, aux_out = self(x)
-        seg_loss, aux_loss = self.compute_loss(output, y, aux_out=aux_out, aux_target=aux_target)
+        seg_loss, aux_loss = self.compute_loss(
+            output, y, aux_out=aux_out, aux_target=aux_target, gt_pixel_weight=gt_pixel_weight
+        )
         loss = seg_loss + self.aux_loss_weight * aux_loss
         predicted_labels = torch.argmax(output, dim=1)
         self.log(

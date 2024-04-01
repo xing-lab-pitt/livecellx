@@ -22,7 +22,9 @@ from livecellx.model_zoo.segmentation.sc_correction_aux import CorrectSegNetAux
 from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
 
 
-def assemble_dataset(df: pd.DataFrame, apply_gt_seg_edt=False, exclude_raw_input_bg=False, input_type=None):
+def assemble_dataset(
+    df: pd.DataFrame, apply_gt_seg_edt=False, exclude_raw_input_bg=False, input_type=None, use_gt_pixel_weight=False
+):
     assert input_type is not None
     raw_img_paths = list(df["raw"])
     scaled_seg_mask_paths = list(df["seg"])
@@ -47,6 +49,7 @@ def assemble_dataset(df: pd.DataFrame, apply_gt_seg_edt=False, exclude_raw_input
         exclude_raw_input_bg=exclude_raw_input_bg,
         input_type=input_type,
         raw_df=df,
+        use_gt_pixel_weight=use_gt_pixel_weight,
     )
     return dataset
 
