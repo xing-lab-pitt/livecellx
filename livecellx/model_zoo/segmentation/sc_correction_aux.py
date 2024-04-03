@@ -255,8 +255,6 @@ class CorrectSegNetAux(LightningModule):
         # print("[train_step] x shape: ", batch["input"].shape)
         # print("[train_step] y shape: ", batch["gt_mask"].shape)
         x, y = batch["input"], batch["gt_mask"]
-        if self.apply_gt_seg_edt:
-            y = batch["gt_mask_edt"]
         aux_target = batch["ou_aux"]
         gt_pixel_weight = batch["gt_pixel_weight"]
         output, aux_out = self(x)
@@ -346,9 +344,6 @@ class CorrectSegNetAux(LightningModule):
             self.test_step(batch, batch_idx)
             return
         x, y = batch["input"], batch["gt_mask"]
-        if self.apply_gt_seg_edt:
-            y = batch["gt_mask_edt"]
-
         aux_target = batch["ou_aux"]
         output, aux_out = self(x)
         seg_loss, aux_loss = self.compute_loss(output, y, aux_out=aux_out, aux_target=aux_target)
@@ -388,9 +383,6 @@ class CorrectSegNetAux(LightningModule):
         from livecellx.model_zoo.segmentation.eval_csn import compute_metrics
 
         x, y = batch["input"], batch["gt_mask"]
-        if self.apply_gt_seg_edt:
-            y = batch["gt_mask_edt"]
-
         aux_target = batch["ou_aux"]
         output, aux_out = self(x)
         seg_loss, aux_loss = self.compute_loss(output, y, aux_out=aux_out, aux_target=aux_target)
