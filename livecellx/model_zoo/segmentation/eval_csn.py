@@ -125,6 +125,7 @@ def evaluate_sample_v3_underseg(
     out_threshold=0.6,
     gt_label_mask=None,
     gt_iou_match_thresholds=[0.5, 0.8, 0.9, 0.95],  # eval on a range of thresholds
+    return_outs_and_sample=False,
 ):
     assert len(gt_iou_match_thresholds) > 0
     out_mask = model(sample["input"].unsqueeze(0).cuda())
@@ -221,6 +222,7 @@ def evaluate_sample_v3_underseg(
     # metrics_dict["gt_out_iou_list"] = gt_out_iou_list
 
     # Check if aux out is correct
+    aux_vec = []
     if isinstance(model, CorrectSegNetAux):
         aux_out_class = aux_out.squeeze().argmax().item()
         aux_vec = np.zeros(4)
@@ -229,6 +231,8 @@ def evaluate_sample_v3_underseg(
             metrics_dict["aux_out_correct"] = 0
         else:
             metrics_dict["aux_out_correct"] = 1
+    if return_outs_and_sample:
+        return metrics_dict, seg_out_mask, aux_vec, sample
     return metrics_dict
 
 
