@@ -8,27 +8,9 @@ from livecellx.core.single_cell import SingleCellStatic
 from livecellx.core.sc_key_manager import SingleCellMetaKeyManager
 
 
-# TODO: fix the function below
-def process_scs_from_label_mask(label_mask_dataset, dic_dataset, time, bg_val=0, min_contour_len=10):
-    """process single cells from one label mask. Store labels of single cells in their meta data.
-
-    Parameters
-    ----------
-    label_mask_dataset : _type_
-        _description_
-    dic_dataset : _type_
-        _description_
-    time : _type_
-        _description_
-    bg_val : int, optional
-        _description_, by default 0
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
-    label_mask = label_mask_dataset.get_img_by_time(time)
+def process_scs_from_single_label_mask(
+    label_mask, img_dataset, time, bg_val=0, min_contour_len=10, label_mask_dataset=None
+):
     labels = set(np.unique(label_mask))
     if bg_val in labels:
         labels.remove(bg_val)
@@ -75,13 +57,44 @@ def process_scs_from_label_mask(label_mask_dataset, dic_dataset, time, bg_val=0,
         )  # int important here to get rid of numpy.int64 or numpy.int8, etc, to avoid json dump error
         sc = SingleCellStatic(
             timeframe=time,
-            img_dataset=dic_dataset,
+            img_dataset=img_dataset,
             mask_dataset=label_mask_dataset,
             contour=contour,
         )
         sc.meta[SingleCellMetaKeyManager.MASK_LABEL] = label
         _scs.append(sc)
     return _scs
+
+
+# TODO: fix the function below
+def process_scs_from_label_mask(label_mask_dataset, img_dataset, time, bg_val=0, min_contour_len=10):
+    """process single cells from one label mask. Store labels of single cells in their meta data.
+
+    Parameters
+    ----------
+    label_mask_dataset : _type_
+        _description_
+    dic_dataset : _type_
+        _description_
+    time : _type_
+        _description_
+    bg_val : int, optional
+        _description_, by default 0
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+
+    return process_scs_from_single_label_mask(
+        label_mask_dataset.get_mask(time),
+        img_dataset,
+        time,
+        bg_val=bg_val,
+        min_contour_len=min_contour_len,
+        label_mask_dataset=label_mask_dataset,
+    )
 
 
 def process_mask_wrapper(args):

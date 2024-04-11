@@ -49,6 +49,7 @@ class SingleCellStatic:
         cache: Optional[Dict[str, object]] = None,  # TODO: now only image crop is cached
         update_mask_dataset_by_contour=False,
         empty_cell=False,
+        tmp=None,
     ) -> None:
         """_summary_
 
@@ -124,6 +125,11 @@ class SingleCellStatic:
         else:
             # self.id = SingleCellStatic.id_generator.__next__()
             self.id = uuid.uuid4()
+
+        if tmp is not None:
+            self.tmp = tmp
+        else:
+            self.tmp = dict()
 
     def __repr__(self) -> str:
         return f"SingleCellStatic(id={self.id}, timeframe={self.timeframe}, bbox={self.bbox})"
@@ -1734,3 +1740,12 @@ def filter_boundary_cells(scs: List[SingleCellStatic], dist_to_boundary=30):
         ):
             not_boundary_scs.append(sc)
     return not_boundary_scs
+
+
+def create_label_mask_from_scs(scs: List[SingleCellStatic], labels=None, dtype=np.int32):
+    label_mask = np.zeros(scs[0].get_mask().shape, dtype=dtype)
+    if labels is None:
+        labels = list(range(1, len(scs) + 1))  # Bg label is 0
+    for idx, sc in enumerate(scs):
+        label_mask[sc.get_mask()] = labels[idx]
+    return label_mask
