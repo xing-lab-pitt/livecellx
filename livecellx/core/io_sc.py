@@ -88,7 +88,7 @@ def process_scs_from_label_mask(label_mask_dataset, img_dataset, time, bg_val=0,
     """
 
     return process_scs_from_single_label_mask(
-        label_mask_dataset.get_mask(time),
+        label_mask_dataset.get_img_by_time(time),
         img_dataset,
         time,
         bg_val=bg_val,
