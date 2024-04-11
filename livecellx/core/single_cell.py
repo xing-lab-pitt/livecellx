@@ -181,22 +181,59 @@ class SingleCellStatic:
         return np.sum(overlap_mask) / np.sum(mask)
 
     def compute_iou(self, other_cell: "SingleCellStatic", bbox=None):
-        if bbox is None:
-            bbox = self.bbox
         # Compare bbox, if not overlap, return 0
         other_cell_bbox = other_cell.bbox
         if not (
-            other_cell_bbox[0] <= bbox[2]
-            and other_cell_bbox[2] >= bbox[0]
-            and other_cell_bbox[1] <= bbox[3]
-            and other_cell_bbox[3] >= bbox[1]
+            other_cell_bbox[0] <= self.bbox[2]
+            and other_cell_bbox[2] >= self.bbox[0]
+            and other_cell_bbox[1] <= self.bbox[3]
+            and other_cell_bbox[3] >= self.bbox[1]
         ):
             return 0.0
 
+        if bbox is None:
+            # bbox = self.bbox
+            # Take the merged bbox of two cells
+            bbox = np.array(
+                [
+                    min(self.bbox[0], other_cell_bbox[0]),
+                    min(self.bbox[1], other_cell_bbox[1]),
+                    max(self.bbox[2], other_cell_bbox[2]),
+                    max(self.bbox[3], other_cell_bbox[3]),
+                ]
+            )
         mask = self.get_contour_mask(bbox=bbox).astype(bool)
         overlap_mask = self.compute_overlap_mask(other_cell, bbox=bbox)
         return np.sum(overlap_mask) / (
             np.sum(mask) + np.sum(other_cell.get_contour_mask(bbox=bbox).astype(bool)) - np.sum(overlap_mask)
+        )
+
+    def compute_iomin(self, other_cell: "SingleCellStatic", bbox=None):
+        # Compare bbox, if not overlap, return 0
+        other_cell_bbox = other_cell.bbox
+        if not (
+            other_cell_bbox[0] <= self.bbox[2]
+            and other_cell_bbox[2] >= self.bbox[0]
+            and other_cell_bbox[1] <= self.bbox[3]
+            and other_cell_bbox[3] >= self.bbox[1]
+        ):
+            return 0.0
+
+        if bbox is None:
+            # bbox = self.bbox
+            # Take the merged bbox of two cells
+            bbox = np.array(
+                [
+                    min(self.bbox[0], other_cell_bbox[0]),
+                    min(self.bbox[1], other_cell_bbox[1]),
+                    max(self.bbox[2], other_cell_bbox[2]),
+                    max(self.bbox[3], other_cell_bbox[3]),
+                ]
+            )
+        mask = self.get_contour_mask(bbox=bbox).astype(bool)
+        overlap_mask = self.compute_overlap_mask(other_cell, bbox=bbox)
+        return np.sum(overlap_mask) / min(
+            np.sum(mask.flatten()), np.sum(other_cell.get_contour_mask(bbox=bbox).astype(bool).flatten())
         )
 
     def update_regionprops(self):
