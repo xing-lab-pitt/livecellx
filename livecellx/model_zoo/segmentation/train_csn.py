@@ -101,12 +101,11 @@ def main_train():
         pass
     elif args.source == "underseg-all":
         print(">>> Using all underseg data")
-        underseg_cols = ["synthetic_underseg_overlap", "real_underseg_cases", "synthetic_underseg_nonoverlap_gauss"]
-        indexer = train_df["subdir"] == underseg_cols[0]
-        for col in underseg_cols[1:]:
-            indexer = indexer | (train_df["subdir"] == col)
-            assert (train_df["subdir"] == col).sum() > 0, f"no data found in train_df for {col}"
-
+        # underseg_cols = ["synthetic_underseg_overlap", "real_underseg_cases", "synthetic_underseg_nonoverlap_gauss"]
+        indexer = train_df["subdir"].contains("underseg")
+        # for col in underseg_cols[1:]:
+        #     indexer = indexer | (train_df["subdir"] == col)
+        #     assert (train_df["subdir"] == col).sum() > 0, f"no data found in train_df for {col}"
         train_df = train_df[indexer]
         print(">>> after filtering by underseg cases, df shape:", train_df.shape)
     elif args.source == "real-underseg":
