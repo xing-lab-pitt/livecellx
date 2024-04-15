@@ -9,7 +9,7 @@ from livecellx.core.sc_key_manager import SingleCellMetaKeyManager
 
 
 def process_scs_from_single_label_mask(
-    label_mask, img_dataset, time, bg_val=0, min_contour_len=10, label_mask_dataset=None
+    label_mask, img_dataset, time, bg_val=0, min_contour_len=10, label_mask_dataset=None, verbose=False
 ):
     labels = set(np.unique(label_mask))
     if bg_val in labels:
@@ -29,7 +29,7 @@ def process_scs_from_single_label_mask(
             if len(contour) >= min_contour_len:
                 filtered_label_contours.append(contour)
 
-        if len(filtered_label_contours) < len(label_contours):
+        if verbose and len(filtered_label_contours) < len(label_contours):
             main_info(
                 "at time {}, label {} has {} contours found by opencv, {} of them are filtered by contour length threshold: {}".format(
                     time,
@@ -42,7 +42,7 @@ def process_scs_from_single_label_mask(
 
         label_contours = filtered_label_contours
 
-        if len(label_contours) > 1:
+        if verbose and len(label_contours) > 1:
             main_warning("at time {}, label {} has {} contours".format(time, label, len(label_contours)))
             main_warning("lengths of each contour: {}".format([len(c) for c in label_contours]))
 
