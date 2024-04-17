@@ -131,6 +131,8 @@ class SingleCellStatic:
         else:
             self.tmp = dict()
 
+        self.cache_img_shape = None
+
     def __repr__(self) -> str:
         return f"SingleCellStatic(id={self.id}, timeframe={self.timeframe}, bbox={self.bbox})"
 
@@ -294,6 +296,9 @@ class SingleCellStatic:
 
         return img_crop
 
+    def get_center(self, crop=False):
+        return np.array(self.compute_regionprops(crop=crop).centroid)
+
     def get_img_crop(self, padding=0, bbox=None, **kwargs):
         if self.cache and SingleCellStatic.CACHE_IMG_CROP_KEY in self.uns:
             return self.uns[(SingleCellStatic.CACHE_IMG_CROP_KEY, padding)].copy()
@@ -306,6 +311,13 @@ class SingleCellStatic:
         if self.cache:
             self.uns[(SingleCellStatic.CACHE_IMG_CROP_KEY, padding)] = img_crop
         return img_crop
+
+    def get_img_shape(self, use_cache=True):
+        if use_cache and self.cache_img_shape:
+            return self.cache_img_shape
+        else:
+            self.cache_img_shape = self.get_img().shape
+            return self.cache_img_shape
 
     def get_mask_crop(self, bbox=None, dtype=bool, **kwargs):
         # TODO: enable in RAM mode
@@ -524,7 +536,7 @@ class SingleCellStatic:
 
     @staticmethod
     def write_single_cells_json(
-        single_cells: List["SingleCellStatic"], path: str, dataset_dir: str = None, return_list=False
+        single_cells: List["SingleCellStatic"], path: Union[str, Path], dataset_dir: str = None, return_list=False
     ):
         """write a json file containing a list of single cells
 
@@ -644,16 +656,16 @@ class SingleCellStatic:
         from skimage.draw import line, polygon
 
         assert img is not None or shape is not None, "either img or shape must be provided"
-        if bbox is None:
-            if crop:
-                bbox = SingleCellStatic.get_bbox_from_contour(contour)
-            else:
-                bbox = [0, 0, img.shape[0], img.shape[1]]
-
         if shape is None:
             res_shape = img.shape
         else:
             res_shape = shape
+
+        if bbox is None:
+            if crop:
+                bbox = SingleCellStatic.get_bbox_from_contour(contour)
+            else:
+                bbox = [0, 0, res_shape[0], res_shape[1]]
 
         res_mask = np.zeros(res_shape, dtype=dtype)
         rows, cols = polygon(contour[:, 0], contour[:, 1])
@@ -664,13 +676,13 @@ class SingleCellStatic:
     def get_contour_mask(self, padding=0, crop=True, bbox=None, dtype=bool) -> np.array:
         contour = self.contour
         return SingleCellStatic.gen_contour_mask(
-            contour, self.get_img(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
+            contour, shape=self.get_img_shape(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
         )
 
     def get_contour_label_mask(self, padding=0, crop=True, bbox=None, dtype=int) -> np.array:
         contour = self.contour
         return SingleCellStatic.gen_contour_mask(
-            contour, self.get_img(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
+            contour, shape=self.get_img_shape(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
         )
 
     def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.array:
@@ -744,6 +756,13 @@ class SingleCellStatic:
         if contour_sample_num is not None:
             contour = contour[::slice_step]
         return self.get_napari_shape_vec(contour)
+
+    def sample_contour_point(self, max_contour_num):
+        """sample contour points from the trajectory and modify contour attr"""
+        contour = self.contour
+        if len(contour) > max_contour_num:
+            contour = contour[:: int(len(contour) / max_contour_num)]
+        self.contour = contour
 
     def segment_by_detectron(self):
         pass
@@ -822,9 +841,6 @@ class SingleCellStatic:
         import copy
 
         return copy.copy(self)
-
-    def get_center(self, crop=False):
-        return np.array(self.compute_regionprops(crop=crop).centroid)
 
     def _sc_matplotlib_bbox_patch(self, edgecolor="r", linewidth=1, **kwargs) -> patches.Rectangle:
         """
@@ -1779,10 +1795,16 @@ def filter_boundary_cells(scs: List[SingleCellStatic], dist_to_boundary=30):
     return not_boundary_scs
 
 
-def create_label_mask_from_scs(scs: List[SingleCellStatic], labels=None, dtype=np.int32):
-    label_mask = np.zeros(scs[0].get_mask().shape, dtype=dtype)
+def create_label_mask_from_scs(scs: List[SingleCellStatic], labels=None, dtype=np.int32, bbox=None):
+    label_mask = np.zeros(scs[0].get_mask_crop(bbox=bbox).shape, dtype=dtype)
+    if len(scs) == 0:
+        return label_mask
     if labels is None:
         labels = list(range(1, len(scs) + 1))  # Bg label is 0
+    if bbox is None:
+        shape = scs[0].get_img_shape()
+        bbox = [0, 0, shape[0], shape[1]]
+
     for idx, sc in enumerate(scs):
-        label_mask[sc.get_mask()] = labels[idx]
+        label_mask[sc.get_mask_crop(bbox=bbox)] = labels[idx]
     return label_mask
