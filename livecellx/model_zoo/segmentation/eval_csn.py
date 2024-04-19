@@ -97,8 +97,8 @@ def match_label_mask_by_iou(out_label_mask, gt_label_mask, bg_label=0, match_thr
         label_gt2out[gt_label] = []
 
         for out_label in out_labels:
-            out_mask = out_label_mask == out_label
-            iou = np.sum(out_mask & gt_mask) / np.sum(out_mask | gt_mask)
+            _out_mask = out_label_mask == out_label
+            iou = np.sum(_out_mask & gt_mask) / np.sum(_out_mask | gt_mask)
             gt_out_iou_list.append((gt_label, out_label, iou))
             if iou > match_threshold:
                 label_gt2out[gt_label].append(out_label)
@@ -129,6 +129,9 @@ def evaluate_sample_v3_underseg(
 ):
     assert len(gt_iou_match_thresholds) > 0
     out_mask = model(sample["input"].unsqueeze(0).cuda())
+    if gt_label_mask is None:
+        gt_label_mask = sample["gt_label_mask"].numpy().squeeze()
+
     if isinstance(model, CorrectSegNetAux):
         seg_out_mask = out_mask[0]
         aux_out = out_mask[1]
@@ -245,17 +248,17 @@ def compute_metrics(
 ):
     res_metrics = {}
     for i, sample in enumerate(tqdm.tqdm(dataset)):
-        if gt_label_masks is not None:
-            gt_label_mask = gt_label_masks[i]
-        elif isinstance(dataset, torch.utils.data.Subset):
-            assert whole_dataset is not None, "whole_dataset must be provided when <dataset> function arg is a Subset"
-            origin_idx = dataset.indices[i]
-            gt_label_mask = whole_dataset.get_gt_label_mask(origin_idx)
-        else:
-            gt_label_mask = dataset.get_gt_label_mask(i)
+        # if gt_label_masks is not None:
+        #     gt_label_mask = gt_label_masks[i]
+        # elif isinstance(dataset, torch.utils.data.Subset):
+        #     assert whole_dataset is not None, "whole_dataset must be provided when <dataset> function arg is a Subset"
+        #     origin_idx = dataset.indices[i]
+        #     gt_label_mask = whole_dataset.get_gt_label_mask(origin_idx)
+        # else:
+        #     gt_label_mask = dataset.get_gt_label_mask(i)
 
         single_sample_metrics = evaluate_sample_v3_underseg(
-            sample, model, out_threshold=out_threshold, gt_label_mask=gt_label_mask
+            sample, model, out_threshold=out_threshold, gt_label_mask=None  # From sample directly
         )
         for metric, value in single_sample_metrics.items():
             if metric not in res_metrics:
