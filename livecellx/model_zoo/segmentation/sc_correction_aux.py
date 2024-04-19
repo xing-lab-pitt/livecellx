@@ -82,6 +82,7 @@ class CorrectSegNetAux(LightningModule):
         log_progress_bar=LOG_PROGRESS_BAR,
         use_aux=True,
         aux_loss_weight=0.5,
+        lr_scheduler_type=None,
     ):
         """_summary_
 
@@ -167,6 +168,7 @@ class CorrectSegNetAux(LightningModule):
         self.exclude_raw_input_bg = exclude_raw_input_bg
 
         self.log_progress_bar = log_progress_bar
+        self.lr_scheduler_type = lr_scheduler_type
 
     def forward(self, x: torch.Tensor):
         # print("[in forward] x shape: ", x.shape)
@@ -453,7 +455,13 @@ class CorrectSegNetAux(LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        return optimizer
+        if self.lr_scheduler_type is None:
+            pass
+        elif self.lr_scheduler_type == "ReduceLROnPlateau":
+            lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.1, patience=10)
+            return {"optimizer": optimizer, "lr_scheduler": lr_scheduler, "monitor": "val_loss"}
+        else:
+            assert False, f"lr_scheduler_type:{self.lr_scheduler_type} not implemented"
 
     def setup(self, stage=None):
         ################### datasets settings ###################
