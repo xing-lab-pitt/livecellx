@@ -102,7 +102,7 @@ def main_train():
     elif args.source == "underseg-all":
         print(">>> Using all underseg data")
         # underseg_cols = ["synthetic_underseg_overlap", "real_underseg_cases", "synthetic_underseg_nonoverlap_gauss"]
-        indexer = train_df["subdir"].contains("underseg")
+        indexer = train_df["subdir"].str.contains("underseg")
         # for col in underseg_cols[1:]:
         #     indexer = indexer | (train_df["subdir"] == col)
         #     assert (train_df["subdir"] == col).sum() > 0, f"no data found in train_df for {col}"
@@ -129,6 +129,8 @@ def main_train():
         train_transforms = csn_configs.gen_train_transform_v5(degrees, translation_range, args.aug_scale)
     elif args.aug_ver == "v6":
         train_transforms = csn_configs.gen_train_transform_v6(degrees, translation_range, args.aug_scale)
+    elif args.aug_ver == "v7":
+        train_transforms = csn_configs.gen_train_transform_v7(degrees, translation_range, args.aug_scale)
     else:
         raise ValueError("Unknown augmentation version")
 
