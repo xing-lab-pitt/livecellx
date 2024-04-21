@@ -286,6 +286,8 @@ def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0
     out_mask = out_mask[0]
     if model.loss_type == "CE" or model.loss_type == "BCE":
         out_mask = model.output_to_logits(out_mask)
+    elif model.loss_type == "MSE":
+        out_mask = out_mask[0]
     out_mask = out_mask.cpu().detach().numpy()
     fig, axes = plt.subplots(1, 12, figsize=(12 * 7, 6))
 
@@ -374,7 +376,7 @@ def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0
         plt.close()
 
 
-def viz_sample_only(sample):
+def viz_one_sample(sample):
     fig, axes = plt.subplots(1, 7, figsize=(3 * 7, 6))
     ax_idx = 0
     ax = axes[ax_idx]
