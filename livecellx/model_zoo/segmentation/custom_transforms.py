@@ -128,12 +128,6 @@ class CustomTransformEdtV8:
             ]
         )
 
-        self.edt_norm = transforms.Compose(
-            [
-                transforms.Normalize([1], [5]),
-            ]
-        )
-
     def apply_mask_transforms(self, tensor):
         # Assuming tensor is a PyTorch tensor, you might need to convert it to PIL Image first
         # Depending on your specific setup, conversion between PIL Images and tensors may be required
@@ -158,7 +152,14 @@ class CustomTransformEdtV8:
         # for i in range(2): # Adjust this range based on how many images you have that need these transformations
         transformed_image = self.apply_image_transforms(concat_img[:2])
 
-        # Normalize EDT channel
-        transformed_image[7, :] = self.edt_norm(transformed_image[7])
         concat_img = torch.cat((transformed_image, transformed_mask), dim=0)
+        # Normalize EDT channel: [1, max_edt]
+        max_edt = 4
+        edt_img = concat_img[7]
+        max_val = edt_img.max()
+        factor = max_val / max_edt
+        edt_pos_mask = edt_img >= 1
+        edt_img[edt_pos_mask] = edt_img[edt_pos_mask] / factor + 1
+        concat_img[7] = edt_img
+
         return concat_img
