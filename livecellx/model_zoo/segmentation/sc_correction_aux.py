@@ -218,6 +218,7 @@ class CorrectSegNetAux(LightningModule):
         elif self.loss_type == "MSE":
             total_loss = 0
             num_classes = seg_output.shape[1]
+            # assert len(self.class_weights) == num_classes
             for cat_dim in range(0, num_classes):
                 temp_target = target[:, cat_dim, ...]
                 temp_output = seg_output[:, cat_dim, ...]
@@ -454,9 +455,9 @@ class CorrectSegNetAux(LightningModule):
             return output
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         if self.lr_scheduler_type is None:
-            pass
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+            return optimizer
         elif self.lr_scheduler_type == "ReduceLROnPlateau":
             lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.1, patience=10)
             return {"optimizer": optimizer, "lr_scheduler": lr_scheduler, "monitor": "val_loss"}
