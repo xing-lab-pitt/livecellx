@@ -4,7 +4,11 @@ from torchvision import transforms
 from torchvision import transforms
 from typing import Tuple
 
-from livecellx.model_zoo.segmentation.custom_transforms import CustomTransformV5, CustomTransformV7
+from livecellx.model_zoo.segmentation.custom_transforms import (
+    CustomTransformV5,
+    CustomTransformV7,
+    CustomTransformEdtV8,
+)
 
 
 def gen_train_transform_v0(
@@ -259,4 +263,28 @@ def gen_train_transform_v7(
     """
 
     train_transforms = CustomTransformV7(degrees=degrees, translation_range=translation_range, scale=scale)
+    return train_transforms
+
+
+def gen_train_transform_edt_v8(
+    degrees: float, translation_range: Tuple[float, float] = None, scale: Tuple[float, float] = None, gauss_sigma=30
+) -> CustomTransformV5:
+    """Generate the training data transformation.
+
+    Parameters
+    ----------
+    degrees : float
+        The range of degrees to rotate the image.
+    translation_range : Tuple[float, float]
+        The range of translation in pixels.
+    scale : Tuple[float, float]
+        The range of scale factors.
+
+    Returns
+    -------
+    transforms.Compose
+        The composed transformation for training data.
+    """
+
+    train_transforms = CustomTransformEdtV8(degrees=degrees, translation_range=translation_range, scale=scale)
     return train_transforms

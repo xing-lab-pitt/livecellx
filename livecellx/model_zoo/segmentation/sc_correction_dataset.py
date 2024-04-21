@@ -59,6 +59,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         normalize_uint8=False,
         bg_val=0,
         use_gt_pixel_weight=False,
+        force_no_edt_aug=False,
     ):
         """_summary_
 
@@ -123,6 +124,8 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
                 str(Path(path).parent.parent / "gt_pixel_weight" / (str(Path(path).stem) + "_weight.npy"))
                 for path in self.gt_mask_paths
             ]
+
+        self.force_no_edt_aug = force_no_edt_aug
 
     def get_raw_seg(self, idx) -> np.array:
         return np.array(Image.open(self.raw_seg_paths[idx]))
@@ -240,7 +243,15 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask[gt_mask > 0.5] = 1
         gt_mask[gt_mask <= 0.5] = 0
         gt_binary = gt_mask
-        gt_mask_edt = concat_img[7, :, :]
+
+        # Deprecated and wrong gt mask edt below if resize
+        if self.force_no_edt_aug:
+            # Calculate gt_mask_edt based on augmented gt label mask
+            gt_mask_edt = label_mask_to_edt_mask(augmented_gt_label_mask.cpu().numpy(), bg_val=self.bg_val)
+            gt_mask_edt = torch.tensor(gt_mask_edt).float()
+        else:
+            # Use the augmented version of GT. Whether it is normed depends on train norm passed in.
+            gt_mask_edt = concat_img[7, :, :]
 
         # apply edt to each label in gt label mask, and normalize edt to [0, 1]
         if self.apply_gt_seg_edt:
