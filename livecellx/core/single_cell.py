@@ -46,10 +46,12 @@ class SingleCellStatic:
         meta: Optional[Dict[str, object]] = None,
         uns: Optional[Dict[str, object]] = None,
         id: Optional[int] = None,  # TODO: automatically assign id (incremental or uuid),
-        cache: Optional[Dict[str, object]] = None,  # TODO: now only image crop is cached
+        cache: Optional[Dict] = None,  # TODO: now only image crop is cached
         update_mask_dataset_by_contour=False,
         empty_cell=False,
         tmp=None,
+        use_cache_contour_mask=False,
+        use_img_crop_cache=False,
     ) -> None:
         """_summary_
 
@@ -71,7 +73,11 @@ class SingleCellStatic:
         empty_cell: bool
             use when intend to create an empty cell object. suppress the empty warning.
         """
-        self.cache = cache
+        if cache is None:
+            self.cache = dict()
+        else:
+            self.cache = cache
+
         self.regionprops = regionprops
         self.timeframe = timeframe
         self.img_dataset = img_dataset
@@ -132,6 +138,8 @@ class SingleCellStatic:
             self.tmp = dict()
 
         self.cache_img_shape = None
+        self.enable_cache_contour_mask = use_cache_contour_mask
+        self.enable_img_crop_cache = use_img_crop_cache
 
     def __repr__(self) -> str:
         return f"SingleCellStatic(id={self.id}, timeframe={self.timeframe}, bbox={self.bbox})"
@@ -300,16 +308,17 @@ class SingleCellStatic:
         return np.array(self.compute_regionprops(crop=crop).centroid)
 
     def get_img_crop(self, padding=0, bbox=None, **kwargs):
-        if self.cache and SingleCellStatic.CACHE_IMG_CROP_KEY in self.uns:
-            return self.uns[(SingleCellStatic.CACHE_IMG_CROP_KEY, padding)].copy()
+        cache_key = (SingleCellStatic.CACHE_IMG_CROP_KEY, padding, tuple(bbox if bbox is not None else [-1]))
+        if self.enable_img_crop_cache and SingleCellStatic.CACHE_IMG_CROP_KEY in self.uns:
+            return self.cache[cache_key].copy()
         if bbox is None:
             bbox = self.bbox
         img_crop = SingleCellStatic.gen_skimage_bbox_img_crop(bbox=bbox, img=self.get_img(), padding=padding, **kwargs)
         # TODO: enable in RAM mode
         # if self.img_crop is None:
         #     self.img_crop = img_crop
-        if self.cache:
-            self.uns[(SingleCellStatic.CACHE_IMG_CROP_KEY, padding)] = img_crop
+        if self.enable_img_crop_cache:
+            self.cache[cache_key] = img_crop
         return img_crop
 
     def get_img_shape(self, use_cache=True):
@@ -340,8 +349,16 @@ class SingleCellStatic:
         # self.img_crop = None
         # self.mask_crop = None
 
+    def clear_contour_cache(self):
+        for key in self.cache:
+            if key[0] == "contour_mask":
+                self.cache.pop(key, None)
+            elif key[0] == "contour_label_mask":
+                self.cache.pop(key, None)
+
     def update_contour(self, contour, update_bbox=True, update_mask_dataset=True, dtype=int):
         self.contour = np.array(contour, dtype=dtype)
+        self.clear_contour_cache()
         if update_mask_dataset:
             new_mask = SingleCellStatic.gen_contour_mask(self.contour, img=self.get_img(), crop=False, dtype=bool)
             self.mask_dataset = SingleImageDataset(new_mask)
@@ -674,16 +691,28 @@ class SingleCellStatic:
         return res_mask
 
     def get_contour_mask(self, padding=0, crop=True, bbox=None, dtype=bool) -> np.array:
+        hash_key: Tuple = ("contour_mask", padding, crop, tuple(bbox if bbox is not None else [-1]))
+        if self.enable_cache_contour_mask and hash_key in self.cache:
+            return self.cache[hash_key]
         contour = self.contour
-        return SingleCellStatic.gen_contour_mask(
+        res = SingleCellStatic.gen_contour_mask(
             contour, shape=self.get_img_shape(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
         )
+        if self.enable_cache_contour_mask:
+            self.cache[hash_key] = res
+        return res
 
     def get_contour_label_mask(self, padding=0, crop=True, bbox=None, dtype=int) -> np.array:
+        hash_key: Tuple = ("contour_mask", padding, crop, tuple(bbox if bbox is not None else [-1]))
+        if self.enable_cache_contour_mask and hash_key in self.cache:
+            return self.cache[hash_key]
         contour = self.contour
-        return SingleCellStatic.gen_contour_mask(
+        res = SingleCellStatic.gen_contour_mask(
             contour, shape=self.get_img_shape(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
         )
+        if self.enable_cache_contour_mask:
+            self.cache[hash_key] = res
+        return res
 
     def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.array:
         """return a contour image with background set to background_val"""
@@ -762,7 +791,7 @@ class SingleCellStatic:
         contour = self.contour
         if len(contour) > max_contour_num:
             contour = contour[:: int(len(contour) / max_contour_num)]
-        self.contour = contour
+        self.update_contour(contour)
 
     def segment_by_detectron(self):
         pass
@@ -955,8 +984,8 @@ class SingleCellTrajectory:
         for sc in iter(self.timeframe_to_single_cell.values()):
             sc.add_feature(feature_key, func(sc))
 
-    def add_single_cell(self, timeframe, cell: SingleCellStatic):
-        self.timeframe_to_single_cell[timeframe] = cell
+    def add_single_cell(self, timeframe, sc: SingleCellStatic):
+        self.timeframe_to_single_cell[timeframe] = sc
         self.timeframe_set.add(timeframe)
         self.times = sorted(self.timeframe_set)
 
@@ -1287,6 +1316,30 @@ class SingleCellTrajectoryCollection:
             raise ValueError("trajectory with track_id {} already exists".format(trajectory.track_id))
         self[trajectory.track_id] = trajectory
 
+    def filter_trajectories(self, filter_func: Callable[[SingleCellTrajectory], bool], inplace=False):
+        if inplace:
+            self.track_id_to_trajectory = {
+                track_id: trajectory for track_id, trajectory in self if filter_func(trajectory)
+            }
+            return self
+        else:
+            new_sctc = SingleCellTrajectoryCollection()
+            for track_id, trajectory in self:
+                if filter_func(trajectory):
+                    new_sctc.add_trajectory(trajectory)
+            return new_sctc
+
+    def filter_trajectories_by_length(self, min_length=None, max_length=None, inplace=False):
+        def filter_func(trajectory):
+            length = len(trajectory)
+            if min_length is not None and length < min_length:
+                return False
+            if max_length is not None and length > max_length:
+                return False
+            return True
+
+        return self.filter_trajectories(filter_func, inplace=inplace)
+
     def get_trajectory(self, track_id) -> SingleCellTrajectory:
         return self.track_id_to_trajectory[track_id]
 
@@ -1372,6 +1425,8 @@ class SingleCellTrajectoryCollection:
         all_traj_lengths = np.array([_traj.get_timeframe_span_length() for _traj in id_to_sc_trajs.values()])
         if ax is None:
             ax = sns.countplot(x=all_traj_lengths, **kwargs)
+        else:
+            ax = sns.countplot(x=all_traj_lengths, ax=ax, **kwargs)
         for container in ax.containers:
             ax.bar_label(container)
         ax.set(xlabel="Trajectory Length")
@@ -1388,11 +1443,16 @@ class SingleCellTrajectoryCollection:
                 feature_table = pd.concat([feature_table, sc_feature_table])
         return feature_table
 
-    def get_time_span(self):
-        res_time_span = (0, np.inf)
+    def get_time_span(self) -> [int, int]:
+        res_time_span = (None, None)
         for track_id, trajectory in self:
             _tmp_time_span = trajectory.get_time_span()
-            res_time_span = (min(res_time_span[0], _tmp_time_span[0]), max(res_time_span[1], _tmp_time_span[1]))
+            if res_time_span[0] is None:
+                res_time_span = _tmp_time_span
+            else:
+                res_time_span = (min(res_time_span[0], _tmp_time_span[0]), max(res_time_span[1], _tmp_time_span[1]))
+        if res_time_span[0] is None:
+            return (-np.inf, -np.inf)
         return res_time_span
 
     def subset(self, track_ids):
@@ -1517,7 +1577,7 @@ def show_sct_on_grid(
     nc : int, optional
         Number of columns in the grid, by default 4.
     start : int, optional
-        The starting timeframe, by default 0.
+        The starting timeframe, and will be replaced by the first timeframe of the trajectory if it is smaller than the first timeframe. by default 0.
     interval : int, optional
         The interval between timeframes, by default 5.
     padding : int, optional
@@ -1780,16 +1840,18 @@ def sample_samples_from_sctc(
     return normal_samples, normal_samples_extra_info
 
 
-def filter_boundary_cells(scs: List[SingleCellStatic], dist_to_boundary=30):
+def filter_boundary_cells(scs: List[SingleCellStatic], dist_to_boundary=30, bbox_bounds=None):
     not_boundary_scs = []
-    dim = scs[0].get_img().shape[:2]
+    if bbox_bounds is None:
+        dim = scs[0].get_img().shape[:2]
+        bbox_bounds = [0, 0, dim[0], dim[1]]
     for sc in scs:
         bbox = sc.get_bbox()
         if (
-            bbox[0] > dist_to_boundary
-            and bbox[1] > dist_to_boundary
-            and bbox[2] < dim[0] - dist_to_boundary
-            and bbox[3] < dim[1] - dist_to_boundary
+            bbox[0] > bbox_bounds[0] + dist_to_boundary
+            and bbox[1] > bbox_bounds[1] + dist_to_boundary
+            and bbox[2] < bbox_bounds[2] - dist_to_boundary
+            and bbox[3] < bbox_bounds[3] - dist_to_boundary
         ):
             not_boundary_scs.append(sc)
     return not_boundary_scs
