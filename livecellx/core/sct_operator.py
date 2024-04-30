@@ -56,6 +56,10 @@ class SctOperator:
             sc_operators = []
         self.sc_operators = sc_operators
         self.img_dataset = img_dataset
+        if self.img_dataset is None:
+            main_warning(
+                "img_dataset is None, please set img_dataset, otherwise adding/editing scs may not work properly!"
+            )
         self.time_span = time_span
         self.created_objects = []
         if meta is None:

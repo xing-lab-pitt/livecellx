@@ -299,9 +299,7 @@ class ScSegOperator:
         if clip:
             main_info("Limiting the contour coordinates to the image height and width.", indent_level=2)
             main_debug("contour before clipping:" + str(contour.shape), indent_level=2)
-            image = self.sc.get_img()
-            image_dim = image.shape
-
+            image_dim = self.sc.get_img_shape()
             # Clipping algorithm
             contour = clip_polygon(contour, image_dim[0], image_dim[1])
 
