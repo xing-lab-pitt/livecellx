@@ -64,6 +64,22 @@ class TestTutorialGeneralUse(unittest.TestCase):
         assert len(single_cells_by_time[1]) == 14
         assert len(single_cells_by_time[2]) == 15
 
+    def test_sc_label_mask_retrieval(self):
+        sc = self.single_cells[0]
+        mask = sc.get_label_mask()
+
+        assert mask is not None
+        assert mask.shape == sc.get_img().shape
+        print("length of mask", len(np.unique(mask)))
+        assert len(np.unique(mask)) >= 3, "Mask should have at least three unique values"
+
+    def test_sc_bin_mask_retrieval(self):
+        sc = self.single_cells[0]
+        mask = sc.get_mask().astype(bool)
+        assert mask is not None
+        assert mask.shape == sc.get_img().shape
+        assert len(np.unique(mask)) == 2, "Mask should have exactly two unique values"
+
     def test_visualize_single_cell(self):
         sc = self.single_cells[0]
         assert isinstance(sc, SingleCellStatic)
