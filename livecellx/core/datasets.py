@@ -8,7 +8,7 @@ import time
 from collections import deque
 from datetime import timedelta
 from pathlib import Path, PurePosixPath, WindowsPath, PureWindowsPath
-from typing import Callable, List, Dict, Union
+from typing import Callable, List, Dict, Mapping, Union
 
 import numpy as np
 import pandas as pd
@@ -78,7 +78,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         dir_path=None,
-        time2url: Dict[int, Union[str, Path]] = None,
+        time2url: Mapping[int, Union[str, Path]] = None,
         name=None,  # "livecell-base",
         ext="tif",
         max_cache_size=50,
