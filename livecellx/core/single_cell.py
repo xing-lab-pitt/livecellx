@@ -1857,8 +1857,8 @@ def filter_boundary_cells(scs: List[SingleCellStatic], dist_to_boundary=30, bbox
     return not_boundary_scs
 
 
-def create_label_mask_from_scs(scs: List[SingleCellStatic], labels=None, dtype=np.int32, bbox=None):
-    label_mask = np.zeros(scs[0].get_mask_crop(bbox=bbox).shape, dtype=dtype)
+def create_label_mask_from_scs(scs: List[SingleCellStatic], labels=None, dtype=np.int32, bbox=None, padding=None):
+    label_mask = np.zeros(scs[0].get_mask_crop(bbox=bbox, padding=padding).shape, dtype=dtype)
     if len(scs) == 0:
         return label_mask
     if labels is None:
@@ -1868,5 +1868,5 @@ def create_label_mask_from_scs(scs: List[SingleCellStatic], labels=None, dtype=n
         bbox = [0, 0, shape[0], shape[1]]
 
     for idx, sc in enumerate(scs):
-        label_mask[sc.get_mask_crop(bbox=bbox)] = labels[idx]
+        label_mask[sc.get_mask_crop(bbox=bbox, padding=padding)] = labels[idx]
     return label_mask
