@@ -258,7 +258,7 @@ class SingleCellStatic:
     def get_mask(self, dtype=bool):
         if isinstance(self.mask_dataset, SingleImageDataset) or isinstance(self.mask_dataset, LiveCellImageDataset):
             try:
-                return self.mask_dataset.get_img_by_time()
+                return self.mask_dataset.get_img_by_time(time=self.timeframe)
             except Exception as e:
                 main_exception(
                     f"Error getting mask for single cell {self.id} at timeframe {self.timeframe} from presented mask dataset. Using contour mask instead."
