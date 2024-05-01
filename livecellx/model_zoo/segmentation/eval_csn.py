@@ -117,7 +117,7 @@ def match_label_mask_by_iou(out_label_mask, gt_label_mask, bg_label=0, match_thr
     return matched_num, out_num, gt_num
 
 
-def evaluate_sample_v3_underseg(
+def evaluate_sample_v3(
     sample: dict,
     model: CorrectSegNet,
     raw_seg=None,
@@ -243,8 +243,7 @@ def compute_metrics(
     dataset: Union[CorrectSegNetDataset, torch.utils.data.Subset],
     model,
     out_threshold=0.6,
-    whole_dataset: CorrectSegNetDataset = None,
-    gt_label_masks: List[np.ndarray] = None,
+    gt_iou_match_thresholds=[0.5, 0.8, 0.9, 0.95],
 ):
     res_metrics = {}
     for i, sample in enumerate(tqdm.tqdm(dataset)):
@@ -257,8 +256,12 @@ def compute_metrics(
         # else:
         #     gt_label_mask = dataset.get_gt_label_mask(i)
 
-        single_sample_metrics = evaluate_sample_v3_underseg(
-            sample, model, out_threshold=out_threshold, gt_label_mask=None  # From sample directly
+        single_sample_metrics = evaluate_sample_v3(
+            sample,
+            model,
+            out_threshold=out_threshold,
+            gt_label_mask=None,  # From sample directly
+            gt_iou_match_thresholds=gt_iou_match_thresholds,
         )
         for metric, value in single_sample_metrics.items():
             if metric not in res_metrics:
