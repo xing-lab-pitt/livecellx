@@ -30,7 +30,7 @@ def parse_args():
         help="The model version. Used in tensorboard to save your model file and train/val/test results.",
     )
     parser.add_argument("--kernel_size", dest="kernel_size", type=int, default=1)
-    parser.add_argument("--model", dest="model_file", type=str)
+    parser.add_argument("--backbone", dest="backbone", type=str, choices=["deeplabV3", "unet_aux"], default="deeplabV3")
     parser.add_argument("--model_ckpt", dest="model_ckpt", type=str, default=None)
     parser.add_argument("--lr", dest="lr", type=float, default=1e-3)
     parser.add_argument("--batch_size", dest="batch_size", type=int, default=2)
@@ -210,6 +210,7 @@ def main_train():
             apply_gt_seg_edt=args.apply_gt_seg_edt,
             exclude_raw_input_bg=args.exclude_raw_input_bg,
             aux_loss_weight=args.aux_loss_weight,
+            backbone=args.backbone,
         )
     else:
         model = CorrectSegNet(

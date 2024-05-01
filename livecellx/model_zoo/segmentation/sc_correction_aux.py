@@ -19,6 +19,7 @@ from torch.utils import data
 from torch.utils import data
 from livecellx.core.datasets import LiveCellImageDataset
 from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
+from livecellx.model_zoo.segmentation.unet_with_aux import UNetWithAux
 
 TEST_LOADER_IN_VAL_LOADER_LIST_IDX = 1
 
@@ -83,6 +84,7 @@ class CorrectSegNetAux(LightningModule):
         use_aux=True,
         aux_loss_weight=0.5,
         lr_scheduler_type=None,
+        backbone="deeplabV3",
     ):
         """_summary_
 
@@ -111,9 +113,12 @@ class CorrectSegNetAux(LightningModule):
         self.class_weights = class_weights
         self.model_type = model_type
         # self.model = torchvision.models.segmentation.deeplabv3_resnet50(weights="DeepLabV3_ResNet50_Weights.DEFAULT")
-        self.model = torchvision.models.segmentation.deeplabv3_resnet50(pretrained=True)
-        self.model.classifier[4] = nn.Conv2d(256, num_classes, kernel_size=kernel_size, stride=(1, 1))
-
+        if backbone == "deeplabV3":
+            self.model = torchvision.models.segmentation.deeplabv3_resnet50(pretrained=True)
+            self.model.classifier[4] = nn.Conv2d(256, num_classes, kernel_size=kernel_size, stride=(1, 1))
+        elif backbone == "unet_aux":
+            self.model = UNetWithAux(n_channels=3, n_classes=num_classes)
+        self.backbone = backbone
         # Auxiliary classifier
         self.aux_classifier = None
         self.aux_loss_weight = aux_loss_weight
@@ -174,13 +179,17 @@ class CorrectSegNetAux(LightningModule):
         # print("[in forward] x shape: ", x.shape)
         input_shape = x.shape[-2:]
         ori_x = x.clone()
-        x = self.model(x)
-        x = x["out"]
+        model_output = self.model(x)
+        x = model_output["out"]
         # return nn.functional.softmax(x, dim=1)
-        if self.use_aux:
+        if self.use_aux and self.backbone == "deeplabV3":
             features = self.model.backbone(ori_x)
             aux_result = self.aux_classifier(features["aux"])
             # aux_result = nn.functional.interpolate(aux_result, size=input_shape, mode='bilinear', align_corners=False)
+            return x, aux_result
+        elif self.use_aux and self.backbone == "unet_aux":
+            # print("[forward] model_output aux input shape: ", model_output["aux"].shape)
+            aux_result = self.aux_classifier(model_output["aux"])
             return x, aux_result
         else:
             return x
@@ -205,6 +214,7 @@ class CorrectSegNetAux(LightningModule):
 
         aux_loss = 0
         seg_output = output
+
         if aux_out is not None and aux_target is not None:
             # Calculate crossEntropyLoss
             aux_loss = F.cross_entropy(aux_out, aux_target)
@@ -425,7 +435,6 @@ class CorrectSegNetAux(LightningModule):
                 subdir_samples,
                 self,
                 out_threshold=self.threshold,
-                gt_label_masks=subdir_batch["gt_label_mask"].cpu().numpy(),
             )
             log_metrics = [
                 "out_matched_num_gt_iou_0.5_percent",
