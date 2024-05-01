@@ -256,7 +256,7 @@ class SingleCellStatic:
         return self.img_dataset.get_img_by_time(self.timeframe)
 
     def get_mask(self, dtype=bool):
-        if isinstance(self.mask_dataset, SingleImageDataset):
+        if isinstance(self.mask_dataset, SingleImageDataset) or isinstance(self.mask_dataset, LiveCellImageDataset):
             try:
                 return self.mask_dataset.get_img_by_time()
             except Exception as e:
