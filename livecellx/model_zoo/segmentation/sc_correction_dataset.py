@@ -153,6 +153,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask = Image.open(self.gt_mask_paths[idx])
         augmented_raw_transformed_img = Image.open(self.raw_transformed_img_paths[idx])
         aug_diff_img = Image.open(self.aug_diff_img_paths[idx])
+        gt_label_mask__np = np.array(Image.open(self.gt_label_mask_paths[idx]))
         if "ou_aux" in self.raw_df.columns:
             ou_aux_label = self.raw_df["ou_aux"].iloc[idx]
         else:
@@ -166,7 +167,6 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_mask = torch.tensor(np.array(gt_mask)).long()
         augmented_raw_transformed_img = torch.tensor(np.array(augmented_raw_transformed_img)).float()
         aug_diff_img = torch.tensor(np.array(aug_diff_img)).float()
-        gt_label_mask__np = np.array(Image.open(self.gt_label_mask_paths[idx]))
         gt_label_mask = torch.tensor(gt_label_mask__np.copy()).long()
 
         if self.use_gt_pixel_weight:
