@@ -1,4 +1,6 @@
 from typing import Dict, List
+
+import tqdm
 from livecellx.core.datasets import LiveCellImageDataset
 from livecellx.core.single_cell import (
     SingleCellStatic,
@@ -139,9 +141,9 @@ def update_traj_collection_by_SORT_tracker_detection(
             matched_old_sc = _match_sc_by_bbox(bbox, scs)
             cid = matched_old_sc.id if matched_old_sc is not None else None
             if cid is None:
-                main_warning("fail to find matched sc for bbox: " + str(bbox))
+                main_warning("[Tracking by SORT] fail to find re-matched sc for bbox: " + str(bbox))
         sc = None
-        if sc_inplace:
+        if sc_inplace or (matched_old_sc is None):
             sc = SingleCellStatic(
                 id=cid,
                 timeframe=timeframe,
@@ -164,12 +166,13 @@ def track_SORT_bbox_from_contours(
     min_hits=3,
     sc_kwargs=dict(),
     scs=None,
+    sc_inplace=False,
 ):
     tracker = Sort(max_age=max_age, min_hits=min_hits)
     traj_collection = SingleCellTrajectoryCollection()
     all_track_bbs = []
     sorted_times = sorted(time2contours.keys())
-    for timeframe in sorted_times:
+    for timeframe in tqdm.tqdm(sorted_times, desc="SORT tracking..."):
         # TODO: fix in the future only for windows... somehow json lib saved double slashes
         contours = time2contours[timeframe]["contours"]
 
@@ -189,6 +192,7 @@ def track_SORT_bbox_from_contours(
             raw_img_dataset=raw_imgs,
             sc_kwargs=sc_kwargs,
             scs=scs_at_time,
+            sc_inplace=sc_inplace,
         )
     return traj_collection
 
@@ -199,6 +203,7 @@ def track_SORT_bbox_from_scs(
     mask_dataset: LiveCellImageDataset = None,
     max_age=5,
     min_hits=3,
+    sc_inplace=False,
 ):
     time2contours = {}
     for sc in single_cells:
@@ -212,5 +217,5 @@ def track_SORT_bbox_from_scs(
         "mask_dataset": mask_dataset,
     }
     return track_SORT_bbox_from_contours(
-        time2contours, raw_imgs, max_age, min_hits, sc_kwargs=sc_kwargs, scs=single_cells
+        time2contours, raw_imgs, max_age, min_hits, sc_kwargs=sc_kwargs, scs=single_cells, sc_inplace=sc_inplace
     )
