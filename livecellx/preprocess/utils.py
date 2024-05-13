@@ -11,6 +11,25 @@ import cv2 as cv
 from livecellx.preprocess.correct_bg import correct_background_bisplrep, correct_background_polyfit
 
 
+def normalize_edt(edt_img, edt_max=4):
+    """
+    Normalize the input Euclidean Distance Transform (EDT) image.
+
+    Parameters:
+    - edt_img (ndarray): The input EDT image.
+    - edt_max (float): The maximum value to which the EDT image will be normalized. Default is 4.
+
+    Returns:
+    - normalized_edt_img (ndarray): The normalized EDT image.
+
+    """
+    max_val = edt_img.max()
+    factor = max_val / edt_max
+    edt_pos_mask = edt_img >= 1
+    edt_img[edt_pos_mask] = edt_img[edt_pos_mask] / factor + 1
+    return edt_img
+
+
 def normalize_features_zscore(features: np.array) -> np.array:
     """normalize features to z score
 
