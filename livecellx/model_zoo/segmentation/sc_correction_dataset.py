@@ -24,7 +24,7 @@ from torch.utils.data import DataLoader, random_split
 import scipy.ndimage
 import skimage.measure
 from livecellx.core.utils import label_mask_to_edt_mask
-from livecellx.preprocess.utils import normalize_img_to_uint8
+from livecellx.preprocess.utils import normalize_img_to_uint8, normalize_edt
 
 # class CorrectSegNetData(data.Dataset):
 #     def __init__(self, livecell_dataset: LiveCellImageDataset, segnet_dataset: LiveCellImageDataset):
@@ -219,6 +219,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         elif self.input_type == "edt_v0":
             # TODO edt transform already done before the transform
             # augmented_scaled_seg_mask = scipy.ndimage.distance_transform_edt(augmented_scaled_seg_mask)
+            augmented_scaled_seg_mask = normalize_edt(augmented_scaled_seg_mask, edt_max=4)
             input_img = torch.stack(
                 [augmented_raw_transformed_img, augmented_raw_transformed_img, augmented_scaled_seg_mask], dim=0
             )
