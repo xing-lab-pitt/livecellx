@@ -205,6 +205,8 @@ def divide_single_cell_watershed(
 
     # edt transform
     edt_distance = ndimage.distance_transform_edt(contour_mask)
+    assert edt_distance is not None, "edt_distance should not be None"
+
     if normalize_edt:
         edt_flattened = edt_distance.flatten()
         edt_distance = (edt_distance - np.min(edt_flattened)) / (np.max(edt_flattened) - np.min(edt_flattened))
@@ -251,6 +253,24 @@ def divide_single_cell_watershed(
         mask = np.zeros(edt_distance.shape, dtype=bool)
         mask[tuple(coords.T)] = True
         markers, _ = ndi.label(mask)
+
+    # labels = watershed(edt_distance, markers, mask=contour_mask)
+    label_mask = watershed(-edt_distance, markers, mask=contour_mask)
+
+    # # print shapes
+    # print("markers shape:", markers.shape)
+    # print("markers unique values:", np.unique(markers))
+    # print(np.where(markers > 0))
+
+    # print("labels shape:", label_mask.shape)
+    # print("labels unique values:", np.unique(label_mask))
+    # plt.clf()
+    # plt.imshow(label_mask)
+    # plt.title("labels")
+    # plt.show()
+    if return_all:
+        return raw_crop, label_mask, edt_distance, markers
+    return label_mask
 
 
 def gen_synthetic_overseg(sc, num_samples=10, max_try=20, **kwargs) -> List[Tuple[np.ndarray, np.ndarray, dict]]:
