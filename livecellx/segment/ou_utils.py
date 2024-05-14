@@ -25,6 +25,47 @@ import pandas as pd
 from livecellx.preprocess.utils import dilate_or_erode_mask, dilate_or_erode_label_mask
 
 
+def create_ou_input_from_scs(
+    scs: List[SingleCellStatic],
+    padding_pixels: int = 0,
+    dtype=float,
+    remove_bg=True,
+    one_object=True,
+    scale=0,
+    bbox=None,
+    normalize_img_level=True,
+):
+    if len(scs) == 0:
+        print("Length of scs is 0, returning None")
+        return None
+
+    if normalize_img_level:
+        norm_func = normalize_img_to_uint8
+
+    sc = scs[0]
+    if bbox is None:
+        bbox = sc.get_bbox()
+    if remove_bg:
+        img_crop = sc.get_contour_img(padding=padding_pixels, bbox=bbox, preprocess_img_func=norm_func).astype(dtype)
+    else:
+        img_crop = sc.get_img_crop(padding=padding_pixels, bbox=bbox, preprocess_img_func=norm_func).astype(dtype)
+
+    # TODO: issue: during training, we normalize on the entire image...
+    img_crop = normalize_img_to_uint8(img_crop).astype(dtype)
+
+    combined_mask = np.zeros(img_crop.shape).astype(bool)
+    for sc in scs:
+        if one_object:
+            sc_mask = sc.get_contour_mask(padding=padding_pixels, bbox=bbox)
+            sc_mask = dilate_or_erode_mask(sc_mask.astype(np.uint8), scale_factor=scale).astype(bool)
+        else:
+            # May contain *multiple objects/cells* based on how the mask is generated from sc object and corresponding mask datasets
+            sc_mask = sc.get_mask_crop(padding=padding_pixels, bbox=bbox)
+        combined_mask = np.logical_or(combined_mask, sc_mask > 0)
+    img_crop[~(combined_mask > 0)] *= -1
+    return img_crop
+
+
 def create_ou_input_from_sc(
     sc: SingleCellStatic,
     padding_pixels: int = 0,
@@ -35,24 +76,16 @@ def create_ou_input_from_sc(
     bbox=None,
     normalize_img_level=True,
 ):
-    if normalize_img_level:
-        norm_func = normalize_img_to_uint8
-    if bbox is None:
-        bbox = sc.get_bbox()
-    if remove_bg:
-        img_crop = sc.get_contour_img(padding=padding_pixels, bbox=bbox, preprocess_img_func=norm_func).astype(dtype)
-    else:
-        img_crop = sc.get_img_crop(padding=padding_pixels, bbox=bbox, preprocess_img_func=norm_func).astype(dtype)
-
-    # TODO: issue: during training, we normalize on the entire image...
-    img_crop = normalize_img_to_uint8(img_crop).astype(dtype)
-    if one_object:
-        sc_mask = sc.get_contour_mask(padding=padding_pixels, bbox=bbox)
-        sc_mask = dilate_or_erode_mask(sc_mask.astype(np.uint8), scale_factor=scale).astype(bool)
-        img_crop[~sc_mask] *= -1
-    else:
-        img_crop[sc.get_mask_crop(padding=padding_pixels, bbox=bbox) == 0] *= -1
-    return img_crop
+    return create_ou_input_from_scs(
+        [sc],
+        padding_pixels=padding_pixels,
+        dtype=dtype,
+        remove_bg=remove_bg,
+        one_object=one_object,
+        scale=scale,
+        bbox=bbox,
+        normalize_img_level=normalize_img_level,
+    )
 
 
 def create_ou_input_from_img_mask(img: npt.ArrayLike, mask, normalize=True, dtype=float):
@@ -328,28 +361,24 @@ def csn_augment_helper(
         if np.unique(seg_label_crop).shape[0] > 256:
             print("[WARNING] skip: (%d, %d) due to more than 256 unique seg labels" % (img_id, seg_label))
             continue
-        seg_label_crop = seg_label_crop.astype(np.uint8)
 
-        # seg_crop should only contains one label
+        # seg_label_crop = seg_label_crop.astype(int)
         # TODO: the condition commented above should be a postcondition of underseg_overlay_gt_masks
-        # seg_label_crop[seg_label_crop > 0] = 1
-        # aug_seg_crop = dilate_or_erode_mask(seg_label_crop, scale_factor=scale)
-        aug_seg_crop = dilate_or_erode_label_mask(seg_label_crop, scale_factor=scale)
-        aug_values = np.unique(aug_seg_crop)
-        assert (
-            len(aug_values) <= 2
-        ), "Only two values should be present in aug masks, for over/under-seg cases. You may remove this assertion if working on multi-underseg cases."
-        aug_seg_crop[aug_seg_crop > 0] = 1
-        aug_seg_crop[aug_seg_crop < 0] = 0  # not necessary, check math
-        save_tiff(aug_seg_crop, augmented_seg_path)
 
-        aug_diff_mask = gen_aug_diff_mask(aug_seg_crop, combined_gt_binary_mask)
+        bin_aug_seg_crop = dilate_or_erode_label_mask(seg_label_crop, scale_factor=scale)
+        bin_aug_seg_crop[bin_aug_seg_crop > 0] = 1
+        bin_aug_seg_crop[bin_aug_seg_crop < 0] = 0  # not necessary, check math
+        # aug_values = np.unique(bin_aug_seg_crop)
+
+        save_tiff(bin_aug_seg_crop, augmented_seg_path)
+
+        aug_diff_mask = gen_aug_diff_mask(bin_aug_seg_crop, combined_gt_binary_mask)
         save_tiff(aug_diff_mask, augmented_diff_seg_path, mode="I")
 
         filename_pattern_aug = "aug-%d-" + filename_pattern
         raw_transformed_img_path = raw_transformed_img_dir / (filename_pattern_aug % (idx, img_id, seg_label))
         raw_transformed_img_crop = img_crop.copy().astype(int)
-        raw_transformed_img_crop[aug_seg_crop == 0] *= -1
+        raw_transformed_img_crop[bin_aug_seg_crop == 0] *= -1
         save_tiff(raw_transformed_img_crop, raw_transformed_img_path, mode="I")
 
         train_path_tuples.append(
@@ -373,7 +402,7 @@ def csn_augment_helper(
                 "seg_label": seg_label,
                 "gt_label": gt_label,
                 "combined_gt_mask": combined_gt_binary_mask,
-                "aug_seg_crop": aug_seg_crop,
+                "aug_seg_crop": bin_aug_seg_crop,
                 "aug_diff_mask": aug_diff_mask,
                 "combined_gt_label_mask": combined_gt_label_mask,
                 "raw_transformed_img_crop": raw_transformed_img_crop,

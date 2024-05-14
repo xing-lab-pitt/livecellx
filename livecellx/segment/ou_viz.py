@@ -1,3 +1,4 @@
+from typing import Tuple
 import torch
 from torchvision import transforms
 import matplotlib.pyplot as plt
@@ -28,7 +29,12 @@ def viz_ou_sc_outputs(
     show=True,
 ):
     ou_input = create_ou_input_from_sc(
-        sc, padding_pixels=padding_pixels, dtype=dtype, remove_bg=remove_bg, one_object=one_object, scale=scale
+        sc,
+        padding_pixels=padding_pixels,
+        dtype=dtype,
+        remove_bg=remove_bg,
+        one_object=one_object,
+        scale=scale,
     )
     viz_ou_outputs(
         ou_input,
@@ -43,14 +49,35 @@ def viz_ou_sc_outputs(
 
 
 def viz_ou_outputs(
-    ou_input, original_mask, model, input_transforms, out_threshold, show=True, original_img=None, save_path=None
-):
-    original_shape = ou_input.shape
-    original_ou_input = ou_input.copy()
-    ou_input = input_transforms(torch.tensor([ou_input]))
-    ou_input = torch.stack([ou_input, ou_input, ou_input], dim=1)
+    augmented_ou_crop,
+    original_mask,
+    model,
+    input_transforms,
+    out_threshold,
+    show=True,
+    original_img=None,
+    save_path=None,
+    has_aux=True,
+    title=None,
+    input_type="raw_aug_duplicate",
+    edt_mask=None,
+) -> Tuple:
+    original_shape = augmented_ou_crop.shape
+    original_ou_input = augmented_ou_crop.copy()
+    ou_input = input_transforms(torch.tensor([augmented_ou_crop]))
+    if input_type == "raw_aug_duplicate":
+        ou_input = torch.stack([ou_input, ou_input, ou_input], dim=1)
+    elif input_type == "edt_v0":
+        # normalize_edt(augmented_scaled_seg_mask, edt_max=4)
+        assert edt_mask is not None
+        ou_input = torch.stack([ou_input, ou_input, edt_mask], dim=1)
+
     ou_input = ou_input.float().cuda()
-    output = model(ou_input)
+    if has_aux:
+        seg_output, aux_output = model(ou_input)
+    else:
+        seg_output = model(ou_input)
+        aux_output = None
 
     # transform (resize) output to original shape
     back_transforms = transforms.Compose(
@@ -58,22 +85,23 @@ def viz_ou_outputs(
             transforms.Resize(size=(original_shape[0], original_shape[1])),
         ]
     )
-    output = back_transforms(output)
+    seg_output = back_transforms(seg_output)
 
     # perform watershed on output
     marker_method = "hmax"
-    h_threshold = 20
+    h_threshold = 1
 
     # marker_method = "local"
     # peak_distance = 50
     markers = None
-    edt_distance = output.cpu().detach().numpy()[0, 0]
+    edt_distance = seg_output.cpu().detach().numpy()[0, 0]
 
     if markers is None and marker_method == "hmax":
         # local_hmax = h_maxima(raw_crop, h_threshold)
         local_hmax = h_maxima(edt_distance, h_threshold)
         markers = skimage.measure.label(local_hmax, connectivity=1)
     elif markers is None and marker_method == "local":
+        peak_distance = 50
         # use local peak as default markers
         coords = peak_local_max(edt_distance, min_distance=peak_distance, footprint=np.ones((3, 3)))
         mask = np.zeros(edt_distance.shape, dtype=bool)
@@ -101,24 +129,30 @@ def viz_ou_outputs(
         fig, axes = plt.subplots(1, num_figures, figsize=(15, 5))
         axes[0].imshow(original_ou_input)
         axes[0].set_title("input")
-        axes[1].imshow(output[0, 0].cpu().detach().numpy())
+        axes[1].imshow(seg_output[0, 0].cpu().detach().numpy())
         axes[1].set_title("output c0")
-        axes[2].imshow(output[0, 1].cpu().detach().numpy())
+        axes[2].imshow(seg_output[0, 1].cpu().detach().numpy())
         axes[2].set_title("output c1")
-        axes[3].imshow(output[0, 2].cpu().detach().numpy())
+        axes[3].imshow(seg_output[0, 2].cpu().detach().numpy())
         axes[3].set_title("output c2")
         axes[4].imshow(original_mask)
         axes[4].set_title("original mask")
-        axes[5].imshow(output[0, 0].cpu().detach().numpy() > out_threshold)
+        axes[5].imshow(seg_output[0, 0].cpu().detach().numpy() > out_threshold)
         axes[5].set_title("output c0 > 1")
         axes[6].imshow(watershed_mask)
         axes[6].set_title("watershed mask")
         if original_img is not None:
             axes[7].imshow(enhance_contrast(normalize_img_to_uint8(original_img)))
             axes[7].set_title("original img")
+    if title:
+        plt.suptitle(title)
     if show:
         plt.show()
     if save_path is not None:
         plt.savefig(save_path)
+    plt.close()
 
-    return output, watershed_mask
+    if has_aux:
+        return seg_output, aux_output, watershed_mask
+
+    return seg_output, watershed_mask
