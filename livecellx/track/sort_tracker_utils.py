@@ -168,6 +168,21 @@ def track_SORT_bbox_from_contours(
     scs=None,
     sc_inplace=False,
 ):
+    """
+    Tracks bounding boxes using the SORT algorithm based on contours.
+
+    Args:
+        time2contours (Dict[str, np.array]): A dictionary mapping timeframes to contours.
+        raw_imgs (LiveCellImageDataset): The raw image dataset.
+        max_age (int, optional): The maximum age of a track before it is deleted. Defaults to 5.
+        min_hits (int, optional): The minimum number of hits required for a track to be considered valid. Defaults to 3.
+        sc_kwargs (dict, optional): Additional keyword arguments for single cell tracking. Defaults to an empty dictionary.
+        scs (list, optional): A list of single cells. Defaults to None.
+        sc_inplace (bool, optional): Whether to update the single cell objects in-place. Defaults to False.
+
+    Returns:
+        SingleCellTrajectoryCollection: The collection of single cell trajectories.
+    """
     tracker = Sort(max_age=max_age, min_hits=min_hits)
     traj_collection = SingleCellTrajectoryCollection()
     all_track_bbs = []
@@ -205,6 +220,21 @@ def track_SORT_bbox_from_scs(
     min_hits=3,
     sc_inplace=False,
 ):
+    """
+    Tracks the bounding boxes of single cells using the SORT algorithm based on the given single cell objects.
+
+    Args:
+        single_cells (List[SingleCellStatic]): A list of SingleCellStatic objects representing the single cells to track.
+        raw_imgs (LiveCellImageDataset): The raw image dataset containing the frames for tracking.
+        mask_dataset (LiveCellImageDataset, optional): The mask image dataset used for segmentation. Defaults to None.
+        max_age (int, optional): The maximum number of frames a track can be inactive before it is deleted. Defaults to 5.
+        min_hits (int, optional): The minimum number of hits (overlapping detections) required to initiate a track. Defaults to 3.
+        sc_inplace (bool, optional): Whether to modify the SingleCellStatic objects in-place or generate new single cell objects. Defaults to False.
+
+    Returns:
+        List[SingleCellStatic]: A list of newly generated or existing SingleCellStatic objects, based on args, with updated bounding box coordinates.
+    """
+
     time2contours = {}
     for sc in single_cells:
         timeframe = sc.timeframe
