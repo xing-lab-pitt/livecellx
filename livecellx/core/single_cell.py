@@ -1870,3 +1870,20 @@ def create_label_mask_from_scs(scs: List[SingleCellStatic], labels=None, dtype=n
     for idx, sc in enumerate(scs):
         label_mask[sc.get_mask_crop(bbox=bbox, padding=padding)] = labels[idx]
     return label_mask
+
+
+def largest_bbox(scs):
+    if len(scs) == 0:
+        return [0, 0, 0, 0]
+    largest_bbox = [np.inf, np.inf, -np.inf, -np.inf]
+    for sc in scs:
+        bbox = sc.bbox
+        if bbox[0] < largest_bbox[0]:
+            largest_bbox[0] = bbox[0]
+        if bbox[1] < largest_bbox[1]:
+            largest_bbox[1] = bbox[1]
+        if bbox[2] > largest_bbox[2]:
+            largest_bbox[2] = bbox[2]
+        if bbox[3] > largest_bbox[3]:
+            largest_bbox[3] = bbox[3]
+    return largest_bbox
