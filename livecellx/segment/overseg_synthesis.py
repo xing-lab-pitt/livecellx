@@ -181,12 +181,16 @@ def divide_single_cell_watershed(
     gauss_std=8,
     num_gauss_areas=2,
     return_all=False,
+    one_object=True,
 ):
     contour_points = sample_sc.get_contour_coords_on_img_crop()
     contour_mask = sample_sc.get_contour_mask()
 
     if raw_crop is None:
-        raw_crop = sample_sc.get_contour_img()
+        if one_object:
+            raw_crop = sample_sc.get_contour_img()
+        else:
+            raw_crop = sample_sc.get_img_crop()
     else:
         raw_crop = raw_crop.copy()
 
@@ -321,3 +325,22 @@ def process_sc_synthetic_overseg_crops(
         sc.uns[overseg_uns_key].extend(label_masks_and_params_hmax)
         sc.uns[overseg_uns_key].extend(label_masks_and_params_local)
     return sc
+
+
+def parallel_process_scs_synthetic_overseg_crops(
+    scs, overseg_uns_key="overseg_imgs", num_samples=5, num_gauss_areas=np.arange(2, 6), cores=None
+):
+    from multiprocessing import Pool
+    from livecellx.core.parallel import parallelize
+
+    inputs = [
+        {
+            "sc": sc,
+            "overseg_uns_key": overseg_uns_key,
+            "num_samples": num_samples,
+            "num_gauss_areas": num_gauss_areas,
+        }
+        for sc in scs
+    ]
+    res_single_cells = parallelize(process_sc_synthetic_overseg_crops, inputs, cores=cores)
+    return res_single_cells
