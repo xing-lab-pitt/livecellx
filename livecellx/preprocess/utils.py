@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image, ImageSequence, ImageEnhance
 from tqdm import tqdm
 import cv2 as cv
+from livecellx.core.io_utils import save_png
 from livecellx.preprocess.correct_bg import correct_background_bisplrep, correct_background_polyfit
 
 
@@ -93,6 +94,42 @@ def overlay(image, mask, mask_channel_rgb_val=100, img_channel_rgb_val_factor=1)
     return res
 
 
+def overlay_by_color(image, mask, color=(100, 0, 0), alpha=0.5):
+    """
+    Overlay a color mask onto a grayscale image.
+
+    Args:
+        image (numpy.ndarray): Grayscale input image.
+        mask (numpy.ndarray): Mask image, usually binary.
+        color (tuple): Color to overlay in BGR format (default is green).
+        alpha (float): Opacity of the overlay (default is 0.5).
+
+    Returns:
+        numpy.ndarray: Resulting image with the overlay.
+    """
+    image = normalize_img_to_uint8(image)
+    # Convert the grayscale image to BGR for overlaying
+    image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+
+    # Convert the mask to a 3-channel image with alpha channel
+    mask = mask.astype(np.uint8)
+    mask_rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+    mask_rgb = np.concatenate([mask_rgb, alpha * mask[:, :, np.newaxis]], axis=-1)
+
+    # Apply the color to the mask region
+    overlay = np.zeros_like(image_bgr, dtype=np.uint8)
+
+    # Blend the overlay onto the image using the mask
+    result = cv2.addWeighted(image_bgr, 1.0, overlay, alpha, 0.0)
+
+    # Apply the masked region from the mask_rgb to the result, with color
+    result = result * (1 - alpha) + mask_rgb[..., :3] * color * alpha
+    result = np.clip(result, 0, 255).astype(np.uint8)
+    # result = result * (1 - mask_rgb[:, :, 3:] / 255) + mask_rgb[:, :, :3] * (mask_rgb[:, :, 3:] / 255)
+
+    return result.astype(np.uint8)
+
+
 # TODO: add tests and note if scale * raw_image exceeds type boundaries such as 255
 def reserve_img_by_pixel_percentile(raw_img: np.array, percentile: float, target_val: float = None, scale: float = 1):
     """
@@ -128,12 +165,6 @@ def reserve_img_by_pixel_percentile(raw_img: np.array, percentile: float, target
         raise ValueError("Must specify either target_val or scale")
     flattened_img[np.logical_not(is_above_threshold)] = 0
     return flattened_img.reshape(raw_img.shape)
-
-
-def _enhance_contrast(im: Image, factor=5):
-    enhancer = ImageEnhance.Contrast(im)
-    im_output = enhancer.enhance(factor)
-    return im_output
 
 
 def enhance_contrast(img: np.array, factor=5):
