@@ -16,16 +16,7 @@ from livecellx.track.utils_CMU_C2C12 import *
 from livecellx.core.datasets import LiveCellImageDatasetManager, LiveCellImageDataset
 
 
-argparser = argparse.ArgumentParser(description="Process annotation for CMU C2C12 dataset")
-argparser.add_argument("--xml_path", type=str, help="Path to the xml file")
-argparser.add_argument("--out_dir", type=str, help="Output directory", required=True)
-argparser.add_argument("--img_dir", type=str, help="Path to the image directory", required=True)
-argparser.add_argument("--classes", type=list, help="List of classes", default=["mitosis", "normal"])
-argparser.add_argument("--force_recalculate", action="store_true", help="Force recalculate")
-args = argparser.parse_args()
-
-
-def scs_from_CMU_frame_cell_data(cell_data, dataset: LiveCellImageDataset):
+def scs_from_CMU_frame_cell_data(cell_data, dataset: LiveCellImageDataset, src=None):
     scs = []
     for i, timeframe in enumerate(cell_data["timepoints"]):
         y, x = cell_data["xcoords"][i], cell_data["ycoords"][i]
@@ -41,7 +32,11 @@ def scs_from_CMU_frame_cell_data(cell_data, dataset: LiveCellImageDataset):
         sc.meta["cmu_x"] = x
         sc.meta["cmu_y"] = y
         sc.meta["cmu_cell_id"] = cell_data["cellID"]
-        sc.meta["src_dir"] = str(dataset.data_dir_path)
+
+        if src is None:
+            src = str(dataset.data_dir_path)
+        sc.meta["src_dir"] = src
+
         scs.append(sc)
     return scs
 
@@ -89,7 +84,7 @@ def any_mitosis_in_sct(sct: SingleCellTrajectory) -> bool:
     return False
 
 
-def main():
+def main(args):
     xml_path = Path(args.xml_path)
     if not xml_path.exists():
         raise FileNotFoundError(f"{xml_path} does not exist")
@@ -237,4 +232,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    argparser = argparse.ArgumentParser(description="Process annotation for CMU C2C12 dataset")
+    argparser.add_argument("--xml_path", type=str, help="Path to the xml file")
+    argparser.add_argument("--out_dir", type=str, help="Output directory", required=True)
+    argparser.add_argument("--img_dir", type=str, help="Path to the image directory", required=True)
+    argparser.add_argument("--classes", type=list, help="List of classes", default=["mitosis", "normal"])
+    argparser.add_argument("--force_recalculate", action="store_true", help="Force recalculate")
+    args = argparser.parse_args()
+    main(args)

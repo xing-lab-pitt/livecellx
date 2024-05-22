@@ -99,7 +99,7 @@ def overlay_by_color(image, mask, color=(100, 0, 0), alpha=0.5):
     Overlay a color mask onto a grayscale image.
 
     Args:
-        image (numpy.ndarray): Grayscale input image.
+        image (numpy.ndarray): If grayscale input image, converted to RGB.
         mask (numpy.ndarray): Mask image, usually binary.
         color (tuple): Color to overlay in BGR format (default is green).
         alpha (float): Opacity of the overlay (default is 0.5).
@@ -109,21 +109,26 @@ def overlay_by_color(image, mask, color=(100, 0, 0), alpha=0.5):
     """
     image = normalize_img_to_uint8(image)
     # Convert the grayscale image to BGR for overlaying
-    image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    if len(image.shape) == 2:
+        image_bgr = cvcvtColor(image, cvCOLOR_GRAY2BGR)
+    else:
+        image_bgr = image
 
     # Convert the mask to a 3-channel image with alpha channel
     mask = mask.astype(np.uint8)
-    mask_rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-    mask_rgb = np.concatenate([mask_rgb, alpha * mask[:, :, np.newaxis]], axis=-1)
+    mask_rgb = cvcvtColor(mask, cvCOLOR_GRAY2BGR)
+
+    # Add the alpha channel to the mask if required?
+    # mask_rgb = np.concatenate([mask_rgb, alpha * mask[:, :, np.newaxis]], axis=-1)
 
     # Apply the color to the mask region
     overlay = np.zeros_like(image_bgr, dtype=np.uint8)
 
     # Blend the overlay onto the image using the mask
-    result = cv2.addWeighted(image_bgr, 1.0, overlay, alpha, 0.0)
+    result = cvaddWeighted(image_bgr, 1.0, overlay, alpha, 0.0)
 
     # Apply the masked region from the mask_rgb to the result, with color
-    result = result * (1 - alpha) + mask_rgb[..., :3] * color * alpha
+    result[mask > 0] = result[mask > 0, :3] * (1 - alpha) + mask_rgb[mask > 0, :3] * color * alpha
     result = np.clip(result, 0, 255).astype(np.uint8)
     # result = result * (1 - mask_rgb[:, :, 3:] / 255) + mask_rgb[:, :, :3] * (mask_rgb[:, :, 3:] / 255)
 
