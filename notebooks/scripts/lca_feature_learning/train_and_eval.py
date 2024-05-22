@@ -3,7 +3,7 @@ import pandas as pd
 import argparse
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, classification_report, precision_recall_fscore_support
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
@@ -34,30 +34,44 @@ def evaluate_model(model, X_train_scaled, y_train, X_test_scaled, y_test, hela_X
     accuracy_hela = accuracy_score(hela_y, y_pred_hela)
     metrics_hela = precision_recall_fscore_support(hela_y, y_pred_hela, average="weighted")
 
-    return accuracy_test, metrics_test, accuracy_hela, metrics_hela
+    # Create DataFrames for predictions
+    test_results = pd.DataFrame(
+        {"True Label": y_test, "Predicted Label": y_pred_test, "Correct": y_test == y_pred_test}
+    )
+    hela_results = pd.DataFrame(
+        {"True Label": hela_y, "Predicted Label": y_pred_hela, "Correct": hela_y == y_pred_hela}
+    )
+
+    return accuracy_test, metrics_test, accuracy_hela, metrics_hela, test_results, hela_results
 
 
-def save_results(directory, results, start_time=None, end_time=None):
+def save_results(out_dir, results, test_results, hela_results):
     results_df = pd.DataFrame(results)
-    subdir = f"start-{start_time}_end-{end_time}" if start_time is not None or end_time is not None else "default"
-    out_path = Path(f"{directory}/{subdir}")
-    out_path.mkdir(parents=True, exist_ok=True)
-    results_df.to_csv(out_path / "classifier_report.csv", index=False)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    results_df.to_csv(out_dir / "classifier_report.csv", index=False)
+    test_results.to_csv(out_dir / "test_predictions.csv", index=False)
+    hela_results.to_csv(out_dir / "hela_predictions.csv", index=False)
 
 
 def main(args):
-    directory = args.directory
-    X_train, X_test, y_train, y_test, hela_X, hela_y, all_df = load_data(directory)
+    directory = Path(args.directory)
+    start_time = args.start_time
+    end_time = args.end_time
+    subdir = f"start-{start_time}_end-{end_time}" if start_time is not None or end_time is not None else "default"
+    out_dir = Path(f"{directory}/{subdir}")
+
+    X_train, X_test, y_train, y_test, hela_X, hela_y, X_all = load_data(directory)
     if args.start_time is not None or args.end_time is not None:
         args.start_time = args.start_time if args.start_time is not None else float("-inf")
         args.end_time = args.end_time if args.end_time is not None else float("inf")
 
         print(">>> Filtering data and re-creating X_train, X_test, y_train, y_test")
-        mitosis_df = all_df[all_df["label"] == 0]
-        mitosis_df = all_df[
-            (all_df["mitosis_relative_time"] >= args.start_time) & (all_df["mitosis_relative_time"] <= args.end_time)
+        mitosis_df = X_all[X_all["label"] == 0]
+        mitosis_df = X_all[
+            (X_all["mitosis_relative_time"] >= args.start_time) & (X_all["mitosis_relative_time"] <= args.end_time)
         ]
-        non_mitosis_df = all_df[all_df["label"] == 1]
+        non_mitosis_df = X_all[X_all["label"] == 1]
         filtered_all_df = pd.concat([mitosis_df, non_mitosis_df])
         # Drop all the columns not start tieh skimage_
         y = filtered_all_df["label"]
@@ -66,7 +80,7 @@ def main(args):
         X = filtered_all_df
         # Resplit X and y into train and test
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        print(">>> Original shape of all_df:", all_df.shape)
+        print(">>> Original shape of all_df:", X_all.shape)
         print(">>> New shape of all_df:", filtered_all_df.shape)
         print(
             ">>> Done filtering data and re-creating X_train, X_test, y_train, y_test, shape of X_train, X_test, y_train, y_test",
@@ -75,6 +89,11 @@ def main(args):
             y_train.shape,
             y_test.shape,
         )
+        # Write the new filtered data to the directory
+        X_train.to_csv(out_dir / "X_train_used.csv", index=False)
+        X_test.to_csv(out_dir / "X_test_used.csv", index=False)
+        y_train.to_csv(out_dir / "y_train_used.csv", index=False)
+        y_test.to_csv(out_dir / "y_test_used.csv", index=False)
 
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
@@ -101,7 +120,7 @@ def main(args):
 
     for name, model in models.items():
         print(">>> Evaluating", name)
-        accuracy_test, metrics_test, accuracy_hela, metrics_hela = evaluate_model(
+        accuracy_test, metrics_test, accuracy_hela, metrics_hela, test_results, hela_results = evaluate_model(
             model, X_train_scaled, y_train, X_test_scaled, y_test, hela_X_scaled, hela_y
         )
 
@@ -123,7 +142,11 @@ def main(args):
         results["F1-Score"].append(metrics_hela[2])
         results["Support"].append(metrics_hela[3])  # This is a placeholder
 
-    save_results(directory, results, args.start_time, args.end_time)
+        # Save prediction results for downstream analysis
+        test_results.to_csv(out_dir / f"{name}_test_predictions.csv", index=False)
+        hela_results.to_csv(out_dir / f"{name}_hela_predictions.csv", index=False)
+
+    save_results(out_dir, results, test_results, hela_results)
 
 
 if __name__ == "__main__":
