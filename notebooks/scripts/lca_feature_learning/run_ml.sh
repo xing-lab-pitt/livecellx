@@ -1,0 +1,1 @@
+python train_and_eval.py --directory=/home/ken67/LiveCellTracker-dev/notebooks/figure_mitosis_trajs_viz_Nikon_and_CXA
