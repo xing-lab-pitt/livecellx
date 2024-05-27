@@ -715,7 +715,7 @@ class SingleCellStatic:
         return res
 
     def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.array:
-        """return a contour image with background set to background_val"""
+        """return a contour image with out of self cell region set to background_val"""
 
         # TODO: filter kwargs for contour mask case. (currently using the same kwargs as self.gen_skimage_bbox_img_crop)
         # Do not preprocess the mask when generating the sc image
