@@ -62,21 +62,12 @@ class RandomMaskCentroid:
             properties.sort(key=lambda x: x.area, reverse=True)
             props = properties[0]
             centroid = props.centroid
-            # centroid_box = np.array(
-            #     [
-            #         centroid[0] - centroid_box_width / 2,
-            #         centroid[1] - centroid_box_width / 2,
-            #         centroid[0] + centroid_box_width / 2,
-            #         centroid[1] + centroid_box_width / 2,
-            #     ]
-            # )
-
             centroid_box = np.array(
                 [
-                    centroid[1] - centroid_box_width / 2,
                     centroid[0] - centroid_box_width / 2,
-                    centroid[1] + centroid_box_width / 2,
+                    centroid[1] - centroid_box_width / 2,
                     centroid[0] + centroid_box_width / 2,
+                    centroid[1] + centroid_box_width / 2,
                 ]
             )
 
@@ -88,7 +79,7 @@ class RandomMaskCentroid:
 
             # Draw centroid box via corrected_mask mass weight
             new_mask = np.zeros(corrected_mask.shape)
-            new_mask[int(centroid_box[1]) : int(centroid_box[3]), int(centroid_box[0]) : int(centroid_box[2])] = 1
+            new_mask[int(centroid_box[0]) : int(centroid_box[2]), int(centroid_box[1]) : int(centroid_box[3])] = 1
             new_mask = new_mask.astype(int)
 
             new_img[:, :, 0] = new_mask
