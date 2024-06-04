@@ -511,7 +511,7 @@ class SingleCellStatic:
 
     @staticmethod
     # TODO: check forward declaration change: https://peps.python.org/pep-0484/#forward-references
-    def load_single_cells_json(path: str, verbose=False) -> List["SingleCellStatic"]:
+    def load_single_cells_json(path: Union[Path, str], verbose=False) -> List["SingleCellStatic"]:
         """load a json file containing a list of single cells
 
         Parameters
@@ -1703,7 +1703,7 @@ def show_sct_on_grid(
     return fig, axes
 
 
-def combine_scs_label_masks(scs: SingleCellStatic, scs_labels: list = None, original_meta_label_key=None):
+def combine_scs_label_masks(scs: List[SingleCellStatic], scs_labels: list = None, original_meta_label_key=None):
     """Generate a label mask from a list of single cell objects."""
     label_mask = np.zeros(scs[0].get_mask().shape, dtype=np.int32)
     if scs_labels is None and original_meta_label_key is None:
