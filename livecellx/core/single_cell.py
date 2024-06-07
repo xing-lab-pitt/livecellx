@@ -955,7 +955,8 @@ class SingleCellTrajectory:
         return f"SingleCellTrajectory(track_id={self.track_id}, #timeframe set={len(self)})"
 
     def __len__(self):
-        return self.get_timeframe_span_length()
+        # return self.get_timeframe_span_length()
+        return len(self.timeframe_to_single_cell)
 
     def __getitem__(self, timeframe: int) -> SingleCellStatic:
         if timeframe not in self.timeframe_set:
@@ -1402,7 +1403,10 @@ class SingleCellTrajectoryCollection:
         self._post_load_trajectories()
         return self
 
-    def write_json(self, path, dataset_json_dir=None):
+
+    def write_json(self, path, dataset_json_dir=None, filter_empty=True):
+        if filter_empty:
+            self.remove_empty_sct(inplace=True)
         with open(path, "w+") as f:
             json.dump(self.to_json_dict(dataset_json_dir=dataset_json_dir), f, cls=LiveCellEncoder)
 
@@ -1473,7 +1477,7 @@ class SingleCellTrajectoryCollection:
             return 0
         return max(self.get_track_ids()) + 1
 
-    def remove_empty_sct(self):
+    def remove_empty_sct(self, inplace=True):
         remove_tids = []
         remove_scs = []
         for tid, sct in self:
@@ -1486,9 +1490,17 @@ class SingleCellTrajectoryCollection:
             if to_be_removed:
                 remove_tids.append(tid)
                 remove_scs.extend(_tmp_scs)
-        for tid in remove_tids:
-            self.pop_trajectory(tid)
-
+        if inplace:
+            for tid in remove_tids:
+                self.pop_trajectory(tid)
+            return self
+        else:
+            new_sctc = SingleCellTrajectoryCollection()
+            for tid, sct in self:
+                if tid not in remove_tids:
+                    new_sctc.add_trajectory(sct)
+            return new_sctc
+    
 
 def create_sctc_from_scs(scs: List[SingleCellStatic]) -> SingleCellTrajectoryCollection:
     temp_sc_trajs = SingleCellTrajectoryCollection()
@@ -1887,3 +1899,4 @@ def largest_bbox(scs):
         if bbox[3] > largest_bbox[3]:
             largest_bbox[3] = bbox[3]
     return largest_bbox
+

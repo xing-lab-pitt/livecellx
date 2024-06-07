@@ -51,3 +51,20 @@ class TestSctc(unittest.TestCase):
         for _, sct in new_sctc:
             for timeframe in sct.timeframe_set:
                 self.assertTrue(0 <= timeframe <= 1, f"Timeframe {timeframe} is outside of the span (0, 1)")
+
+    def test_filter_empty_case_sc_empty_contour(self):
+        new_sctc = SingleCellTrajectoryCollection()
+        new_sct = SingleCellTrajectory()
+        empty_sc = SingleCellStatic(contour=[])
+        new_sct.add_single_cell(timeframe=1, sc=empty_sc)
+        new_sctc.add_trajectory(new_sct)
+        new_sctc.remove_empty_sct(inplace=True)
+        self.assertEqual(len(new_sctc), 0)
+
+
+    def test_filter_empty_case_empty_sct(self):
+        new_sctc = SingleCellTrajectoryCollection()
+        new_sct = SingleCellTrajectory()
+        new_sctc.add_trajectory(new_sct)
+        new_sctc.remove_empty_sct(inplace=True)
+        self.assertEqual(len(new_sctc), 0)
