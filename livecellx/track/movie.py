@@ -21,6 +21,20 @@ def generate_scs_movie(
     video_only=False,
     use_all_imgs=True,
 ):
+    """
+    Generate a movie from a list of SingleCellStatic objects and an image dataset.
+    Note: pip install imageio[ffmpeg] imageio[pyav] is required, read https://github.com/OpenTalker/SadTalker/issues/276
+
+    Args:
+        scs (List[SingleCellStatic]): List of SingleCellStatic objects representing the cells to be tracked.
+        img_dataset (LiveCellImageDataset): Image dataset containing the images corresponding to the cells.
+        save_dir (str): Directory to save the generated movie.
+        fps (int, optional): Frames per second of the generated movie. Defaults to 3.
+        factor (float, optional): Factor to adjust the intensity of the cells in the movie. Defaults to 0.5.
+        video_only (bool, optional): Flag indicating whether to save only the video file without individual frames. Defaults to False.
+        use_all_imgs (bool, optional): Flag indicating whether to use all images in the dataset or only the ones corresponding to the tracked cells. Defaults to True.
+    """
+
     time2scs = get_time2scs(scs)
     if use_all_imgs:
         times = img_dataset.times
