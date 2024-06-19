@@ -1052,11 +1052,11 @@ class SingleCellTrajectory:
             "meta": self.meta,
         }
 
-        if self.img_dataset is not None and res.get("img_dataset_json_path") is not None:
-            img_dataset_dir = os.path.dirname(res.get("img_dataset_json_path"))
+        if self.img_dataset is not None and res["meta"].get("img_dataset_json_path") is not None:
+            img_dataset_dir = os.path.dirname(res["meta"].get("img_dataset_json_path"))
             self.img_dataset.write_json(out_dir=img_dataset_dir, overwrite=False)
-        if self.mask_dataset is not None and res.get("mask_dataset_json_path") is not None:
-            mask_dataset_dir = os.path.dirname(res.get("mask_dataset_json_path"))
+        if self.mask_dataset is not None and res["meta"].get("mask_dataset_json_path") is not None:
+            mask_dataset_dir = os.path.dirname(res["meta"].get("mask_dataset_json_path"))
             self.mask_dataset.write_json(out_dir=mask_dataset_dir, overwrite=False)
 
         return res
@@ -1403,10 +1403,13 @@ class SingleCellTrajectoryCollection:
         self._post_load_trajectories()
         return self
 
-
     def write_json(self, path, dataset_json_dir=None, filter_empty=True):
         if filter_empty:
             self.remove_empty_sct(inplace=True)
+
+        if dataset_json_dir is None:
+            dataset_json_dir = os.path.dirname(path)
+
         with open(path, "w+") as f:
             json.dump(self.to_json_dict(dataset_json_dir=dataset_json_dir), f, cls=LiveCellEncoder)
 
@@ -1500,7 +1503,7 @@ class SingleCellTrajectoryCollection:
                 if tid not in remove_tids:
                     new_sctc.add_trajectory(sct)
             return new_sctc
-    
+
 
 def create_sctc_from_scs(scs: List[SingleCellStatic]) -> SingleCellTrajectoryCollection:
     temp_sc_trajs = SingleCellTrajectoryCollection()
@@ -1899,4 +1902,3 @@ def largest_bbox(scs):
         if bbox[3] > largest_bbox[3]:
             largest_bbox[3] = bbox[3]
     return largest_bbox
-
