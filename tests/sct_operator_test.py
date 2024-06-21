@@ -22,19 +22,23 @@ from livecellx.track.sort_tracker_utils import (
     track_SORT_bbox_from_scs,
 )
 from livecellx.core.sct_operator import SctOperator
+from livecellx.core.sc_seg_operator import ScSegOperator, create_sc_seg_napari_ui
+from livecellx.livecell_logger import main_warning, main_info, main_critical
 
 
 class SctOperatorTest(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
 
-        # Skip the entire test class
-        pytest.skip("Skipping SctOperatorTest")
+    #     # Skip the entire test class
+    #     pytest.skip("Skipping SctOperatorTest")
 
     @classmethod
     def setUpClass(cls):
         dic_dataset, mask_dataset = sample_data.tutorial_three_image_sys()
         cls.single_cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
+        # Store a real SingleCellStatic instance for testing
+        cls.sc = cls.single_cells[0]
         cls.traj_collection = track_SORT_bbox_from_scs(
             cls.single_cells, dic_dataset, mask_dataset=mask_dataset, max_age=1, min_hits=1
         )
@@ -46,6 +50,9 @@ class SctOperatorTest(unittest.TestCase):
         )
         self.sct_operator = SctOperator(self.traj_collection, self.shape_layer, self.viewer)
 
+        self.sample_dir = Path("./test_sample_dir")
+        if not self.sample_dir.exists():
+            self.sample_dir.mkdir(parents=True)
         self.sample_dir = Path("./test_sample_dir")
         if not self.sample_dir.exists():
             self.sample_dir.mkdir(parents=True)
@@ -69,6 +76,9 @@ class SctOperatorTest(unittest.TestCase):
         all_track_ids = self.traj_collection.get_all_tids()
         all_track_ids.remove(track_id_to_delete)
 
+        all_track_ids = self.traj_collection.get_all_tids()
+        all_track_ids.remove(track_id_to_delete)
+
         # When: Deleting selected trajectory
         self.sct_operator.delete_selected_sct()
 
@@ -80,8 +90,11 @@ class SctOperatorTest(unittest.TestCase):
         self.assertEqual(self.sct_operator.select_info, [])  # Assuming select_info is cleared after deletion
 
         # 3. Check if the only shape related to the deleted trajectory has been removed from the shape_layer
+        # 3. Check if the only shape related to the deleted trajectory has been removed from the shape_layer
         shape_track_ids = self.sct_operator.shape_layer.properties["track_id"]
         self.assertNotIn(track_id_to_delete, shape_track_ids)
+        for tid in all_track_ids:
+            self.assertIn(tid, shape_track_ids)
         for tid in all_track_ids:
             self.assertIn(tid, shape_track_ids)
 
@@ -90,8 +103,10 @@ class SctOperatorTest(unittest.TestCase):
         # Use the first few SingleCellStatic instances for the test
         sample_cells = self.single_cells[:5]
 
-        self.sct_operator.annotate_click_samples = {"mitosis": [{"sample": sample_cells, "sample_id": uuid.uuid4()}]}
-
+        self.sct_operator.cls2annotated_sample_infos = {
+            "mitosis": [{"sample": sample_cells, "sample_id": str(uuid.uuid4())}]
+        }
+        print(self.sct_operator.cls2annotated_sample_infos)
         # When: Calling save_annotations method
         saved_sample_paths = self.sct_operator.save_annotations(self.sample_dir)
 
@@ -118,9 +133,66 @@ class SctOperatorTest(unittest.TestCase):
                 # 2. Verify each item in the list is a dictionary representing a SingleCellStatic instance
                 for sc_dict in data:
                     self.assertTrue(isinstance(sc_dict, dict))
+                for sc_dict in data:
+                    self.assertTrue(isinstance(sc_dict, dict))
                     # Example checks for the expected keys in each dictionary
                     for key in ["id", "timeframe", "bbox", "contour", "meta", "dataset_json_dir"]:
                         self.assertIn(key, sc_dict)
+
+    @patch("livecellx.core.sct_operator.main_warning")
+    def test_edit_selected_sc_no_shape_selected(self, mock_main_warning):
+        # Set up with no shapes selected
+        self.shape_layer.selected_data = set()
+
+        # Call the method under test
+        sc_operator = self.sct_operator.edit_selected_sc()
+
+        # Assert that no ScSegOperator was created
+        self.assertIsNone(sc_operator)
+
+        # Assert that the main_warning function was called
+        mock_main_warning.assert_called_with("Please select a shape to edit its properties.")
+
+    @patch("livecellx.core.sct_operator.ScSegOperator")
+    @patch("livecellx.core.sct_operator.create_sc_seg_napari_ui")
+    def test_edit_selected_sc_shape_selected(self, create_ui_mock, ScSegOperatorMock):
+        # Test the case where a shape is selected
+        selected_shape_id = 0
+        self.shape_layer.selected_data = {selected_shape_id}
+
+        # Set up the mock ScSegOperator
+        ScSegOperatorMock.return_value = MagicMock()
+        sc_operator = self.sct_operator.edit_selected_sc()
+
+        # Assert that the shape layer visibility is toggled
+        self.assertFalse(self.sct_operator.shape_layer.visible)
+
+        # Assert that ScSegOperator was instantiated and added to the sc_operators list
+        ScSegOperatorMock.assert_called_once()
+        self.assertIn(ScSegOperatorMock.return_value, self.sct_operator.sc_operators)
+
+        # Assert that the UI was created for the ScSegOperator
+        create_ui_mock.assert_called_once_with(ScSegOperatorMock.return_value)
+
+    @patch("livecellx.core.sct_operator.ScSegOperator")
+    @patch("livecellx.core.sct_operator.create_sc_seg_napari_ui")
+    def test_edit_sc(self, create_ui_mock, ScSegOperatorMock):
+        cur_sc = self.sc
+        cur_sc.id = self.sc.id
+
+        ScSegOperatorMock.return_value = MagicMock()
+        sc_operator = self.sct_operator.edit_sc(cur_sc)
+
+        # Assert that ScSegOperator was instantiated with the correct arguments
+        ScSegOperatorMock.assert_called_once_with(
+            cur_sc, viewer=self.viewer, create_sc_layer=True, sct_observers=[self.sct_operator]
+        )
+
+        # Assert that the UI was created for the ScSegOperator
+        create_ui_mock.assert_called_once_with(ScSegOperatorMock.return_value)
+
+        # Assert that the ScSegOperator was added to the sc_operators list
+        self.assertIn(ScSegOperatorMock.return_value, self.sct_operator.sc_operators)
 
     def tearDown(self):
         # Cleanup: Delete all files and directories recursively
