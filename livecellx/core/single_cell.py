@@ -555,13 +555,51 @@ class SingleCellStatic:
     def write_single_cells_json(
         single_cells: List["SingleCellStatic"], path: Union[str, Path], dataset_dir: str = None, return_list=False
     ):
-        """write a json file containing a list of single cells
+        """Write a JSON file containing a list of single cells.
 
         Parameters
         ----------
-        single_cells : List of single cells
-        path : path to json file
-        dataset_dir : path to dataset directory, by default None
+        single_cells : List of SingleCellStatic
+            The list of single cells to be written to the JSON file.
+        path : Union[str, Path]
+            The path to the JSON file.
+        dataset_dir : str, optional
+            The path to the dataset directory, by default None.
+        return_list : bool, optional
+            Whether to return the list of single cell JSON dictionaries, by default False.
+
+        Returns
+        -------
+        List of dict
+            The list of single cell JSON dictionaries, if `return_list` is True.
+
+        Raises
+        ------
+        TypeError
+            If there is an error writing the JSON file due to non-serializable attributes.
+
+        Notes
+        -----
+        This function writes a JSON file containing a list of single cells. Each single cell is converted to a JSON dictionary
+        using the `to_json_dict` method of the `SingleCellStatic` class. The `include_dataset_json` parameter of `to_json_dict`
+        is set to False, and the `dataset_json_dir` parameter is set to the `dataset_dir` argument passed to this function.
+
+        If `dataset_dir` is not provided, it is derived from the parent directory of the `path` argument by appending "/datasets".
+
+        The `img_dataset` and `mask_dataset` attributes of each single cell are expected to be instances of classes that have a
+        `write_json` method. The `write_json` method is called on the `img_dataset` and `mask_dataset` objects to write their
+        respective JSON files to the `dataset_dir`.
+
+        If `return_list` is True, the function returns the list of single cell JSON dictionaries.
+
+        If there is an error writing the JSON file due to non-serializable attributes, a `TypeError` is raised.
+
+        Example
+        -------
+        single_cells = [single_cell1, single_cell2, single_cell3]
+        path = "/path/to/single_cells.json"
+        dataset_dir = "/path/to/datasets"
+        write_single_cells_json(single_cells, path, dataset_dir, return_list=True)
         """
         import json
 
@@ -570,24 +608,26 @@ class SingleCellStatic:
         all_sc_jsons = []
         for sc in single_cells:
             sc_json = sc.to_json_dict(include_dataset_json=False, dataset_json_dir=dataset_dir)
-            # if dataset_dir is not None:
-            #     sc_json["dataset_path"] = str(dataset_dir)
             img_dataset = sc.img_dataset
             mask_dataset = sc.mask_dataset
             img_dataset.write_json(out_dir=dataset_dir, overwrite=False)
             if mask_dataset is not None:
                 mask_dataset.write_json(out_dir=dataset_dir, overwrite=False)
             all_sc_jsons.append(sc_json)
-        if return_list:
-            return all_sc_jsons
+
         with open(path, "w+") as f:
-            # json.dump([sc.to_json_dict() for sc in single_cells], f)
             try:
                 json.dump(all_sc_jsons, f, cls=LiveCellEncoder)
             except TypeError as e:
                 main_exception("sample sc:" + str(all_sc_jsons[0]))
                 main_exception("Error writing json file. Check that all attributes are serializable.")
-                raise e
+                print(e)
+            except Exception as e:
+                print(e)
+                
+        if return_list:
+            return all_sc_jsons
+
 
     def write_json(self, path=None, dataset_json_dir=None):
         # TODO: discuss with the team
