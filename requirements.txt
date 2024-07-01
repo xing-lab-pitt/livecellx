@@ -22,7 +22,7 @@ pycocotools
 # conda install pytorch torchvision -c pytorch
 
 # [TODO] remove later: required by CSN (correct segmentation network)
-pytorch-lightning==2.1.0
+pytorch-lightning==2.3.1
 
 # note we need to use multitracker in cv2 legacy
 Augmentor
