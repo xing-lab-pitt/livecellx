@@ -49,19 +49,19 @@ def save_general(img: np.array, path: str, mode="L"):
     if mode == "L" and np.unique(img).shape[0] >= 256:
         mode = "I"
         print(
-            "Warning: saving image with more than 256 unique values as 8-bit, use I mode to save as 32-bit signed integer"
+            "Warning: saving image with more than 256 unique values as 8-bit, switching to I mode to save as 32-bit signed integer"
         )
     elif mode == "L" and (img < 0).any():
         mode = "I"
         print(
-            "Warning: saving image with negative values as unsigned 8-bit, will use I mode to save as 32-bit signed integer instead"
+            "Warning: saving image with negative values as unsigned 8-bit, will switching to I mode to save as 32-bit signed integer instead"
         )
     elif mode == "L":
         img = img.astype(np.uint8)
 
     ext = str(path).split(".")[-1]
     if ext == "png" and mode == "I":
-        print("Warning: png format does not support 32-bit pixel values, will use 16-bit mode instead")
+        print("Warning: png format does not support 32-bit pixel values, switching to 16-bit mode instead")
         mode = "I;16"
 
     if mode == "I":
