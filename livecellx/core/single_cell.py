@@ -624,10 +624,9 @@ class SingleCellStatic:
                 print(e)
             except Exception as e:
                 print(e)
-                
+
         if return_list:
             return all_sc_jsons
-
 
     def write_json(self, path=None, dataset_json_dir=None):
         # TODO: discuss with the team
@@ -1448,7 +1447,9 @@ class SingleCellTrajectoryCollection:
             self.remove_empty_sct(inplace=True)
 
         if dataset_json_dir is None:
-            dataset_json_dir = os.path.dirname(path)
+            dataset_json_dir = Path(os.path.dirname(path)) / "datasets"
+            # Create the directory if it doesn't exist
+            dataset_json_dir.mkdir(parents=True, exist_ok=True)
 
         with open(path, "w+") as f:
             json.dump(self.to_json_dict(dataset_json_dir=dataset_json_dir), f, cls=LiveCellEncoder)
