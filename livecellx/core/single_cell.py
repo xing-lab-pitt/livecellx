@@ -104,9 +104,7 @@ class SingleCellStatic:
         # self.raw_img = self.get_img()
         # self.img_crop = None
         # self.mask_crop = None
-        self.meta: Dict = meta
-        if self.meta is None:
-            self.meta = dict()
+        self.meta: Dict = meta if meta is not None else dict()
 
         self.uns: dict = uns
         if self.uns is None:
