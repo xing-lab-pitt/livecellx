@@ -71,3 +71,44 @@ def split_mitosis_sample(
         return cur_trajs, break_time_idx
     else:
         return cur_trajs
+
+
+def make_pseudo_square_contour(sc, x=None, y=None, bbox_size=20, dim_thresholds=None):
+    if x is None or y is None:
+        regionprop = sc.compute_regionprops(crop=False)
+        # Get the coordinates of the region
+        coords = regionprop.coords
+        # Calculate the geometric center (mean of the coordinates)
+        geometric_center = coords.mean(axis=0)
+        # Round the geometric center to get integer coordinates
+        geometric_center_rounded = np.round(geometric_center).astype(int)
+
+        # x, y = regionprop.centroid
+        x, y = geometric_center_rounded
+
+    # contour = np.array([[x-5, y-5], [x+5, y-5], [x+5, y+5], [x-5, y+5]], dtype=int)
+    contour = np.array(
+        [
+            [x - bbox_size, y - bbox_size],
+            [x + bbox_size, y - bbox_size],
+            [x + bbox_size, y + bbox_size],
+            [x - bbox_size, y + bbox_size],
+        ],
+        dtype=int,
+    )
+    if dim_thresholds is not None:
+        contour[:, 0] = np.clip(contour[:, 0], 0, dim_thresholds[0] - 1)
+        contour[:, 1] = np.clip(contour[:, 1], 0, dim_thresholds[1] - 1)
+    sc.update_contour(contour)
+    return sc
+
+
+def make_pseudo_square_contour_sct(sct: SingleCellTrajectory, bbox_size=20):
+    for t, sc in sct:
+        make_pseudo_square_contour(sc, None, None, bbox_size=bbox_size)
+    return sct
+
+
+def make_pseudo_square_contour_wrapper(sc, dim_thresholds=None):
+    make_pseudo_square_contour(sc, dim_thresholds=dim_thresholds)
+    return sc
