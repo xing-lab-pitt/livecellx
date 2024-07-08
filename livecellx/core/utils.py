@@ -89,7 +89,7 @@ def get_cv2_bbox(label_mask: np.array):
     return bboxes_cv2
 
 
-def label_mask_to_edt_mask(label_mask, bg_val=0, dtype=np.uint8):
+def label_mask_to_edt_mask(label_mask, bg_val=0, dtype=np.uint8, normalize_func=normalize_img_to_uint8):
     labels = np.unique(label_mask)
     # remvoe bg_val
     labels = labels[labels != bg_val]
@@ -98,7 +98,7 @@ def label_mask_to_edt_mask(label_mask, bg_val=0, dtype=np.uint8):
         tmp_mask = label_mask == label
         # perform euclidean distance transform and normalize
         tmp_mask = ndimage.distance_transform_edt(tmp_mask)
-        normalized_mask = normalize_img_to_uint8(tmp_mask)
+        normalized_mask = normalize_func(tmp_mask)
         tmp_mask[tmp_mask != bg_val] = normalized_mask[tmp_mask != bg_val]
         edt_mask += tmp_mask
 
