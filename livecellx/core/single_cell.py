@@ -210,6 +210,7 @@ class SingleCellStatic:
                     max(self.bbox[3], other_cell_bbox[3]),
                 ]
             )
+
         mask = self.get_contour_mask(bbox=bbox).astype(bool)
         overlap_mask = self.compute_overlap_mask(other_cell, bbox=bbox)
         return np.sum(overlap_mask) / (
@@ -823,12 +824,12 @@ class SingleCellStatic:
             contour = contour[::slice_step]
         return self.get_napari_shape_vec(contour)
 
-    def sample_contour_point(self, max_contour_num):
+    def sample_contour_point(self, max_contour_num, update_mask_dataset=False):
         """sample contour points from the trajectory and modify contour attr"""
         contour = self.contour
         if len(contour) > max_contour_num:
             contour = contour[:: int(len(contour) / max_contour_num)]
-        self.update_contour(contour)
+        self.update_contour(contour, update_mask_dataset=False)
 
     def segment_by_detectron(self):
         pass
