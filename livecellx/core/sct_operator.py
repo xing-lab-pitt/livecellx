@@ -1167,6 +1167,11 @@ def create_sctc_edit_viewer_by_interval(
             QApplication.processEvents()
         except Exception as e:
             progress.close()
+
+            import traceback
+
+            # Print traceback
+            traceback.print_exc()
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setText(str(e))
