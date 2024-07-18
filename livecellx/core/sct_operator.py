@@ -897,6 +897,7 @@ def create_scts_operator_viewer(
     time_span=None,
     contour_sample_num=20,
     skip_add_shapes=False,
+    img_layer_name="img_data",
 ) -> SctOperator:
     import napari
     from livecellx.core.napari_visualizer import NapariVisualizer
@@ -924,7 +925,7 @@ def create_scts_operator_viewer(
         main_info("viewer is None, creating a new viewer...")
         if img_dataset is not None:
             main_info("Creating a new viewer with the img_dataset...")
-            viewer = napari.view_image(img_dataset.to_dask(), name="img_image", cache=True)
+            viewer = napari.view_image(img_dataset.to_dask(), name=img_layer_name, cache=True)
         else:
             main_info("Creating a new viewer because img_dataset is None...")
             viewer = napari.Viewer()
