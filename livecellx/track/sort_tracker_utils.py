@@ -20,38 +20,6 @@ def is_SORT_tracker_result_empty(sort_tracker):
     return sort_tracker.time_since_update is not None
 
 
-def convert_sort_bbox_results_to_single_cell_trajs(all_track_bboxes, raw_img_dataset):
-    """convert raw bbox tracking results from SORT to a dictionary
-
-    Parameters
-    ----------
-    all_track_bboxes : _type_
-        _description_
-    raw_img_dataset : _type_
-        _description_
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
-    id_to_sc_trajs = {}
-    for timeframe, objects in enumerate(all_track_bboxes):
-        for obj in objects:
-            track_id = obj[-1]
-            if not int(track_id) == track_id:
-                print("[SORT] warning: track_id is not integer: " + str(track_id))
-            track_id = int(track_id)
-            if not (track_id in id_to_sc_trajs):
-                new_traj = SingleCellTrajectory(raw_img_dataset, track_id=track_id)
-                id_to_sc_trajs[track_id] = new_traj
-            # final column is track_id, ignore as we only need bbox here
-            sc = SingleCellStatic(timeframe, bbox=obj[:4], img_dataset=raw_img_dataset)
-            _traj = id_to_sc_trajs[track_id]
-            _traj.add_single_cell(timeframe, sc)
-    return id_to_sc_trajs
-
-
 def get_bbox_from_contour(contour: list) -> np.array:
     """get bboxes from a contour
 
