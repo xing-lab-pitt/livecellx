@@ -151,10 +151,16 @@ class SingleCellStatic:
         )
 
         # TODO: multiple cell parts? WARNING in the future
-        if not ignore_errors:
-            assert (
-                len(props) == 1
-            ), "contour mask should contain only one region. You can set ignore_errors=True to ignore this error/check."
+        if len(props) != 1:
+            if not ignore_errors:
+                assert (
+                    len(props) == 1
+                ), "contour mask should contain only one region. You can set ignore_errors=True to ignore this error/check."
+            else:
+                main_warning(
+                    "contour mask should contain only one region. ignore_errors=True and livecellx ignores this error/check."
+                )
+
         return props[0]
 
     # TODO: optimize compute overlap mask functions by taking union of two single cell's merged bboxes and then only operate on the union region to make the process faster
@@ -928,6 +934,18 @@ class SingleCellStatic:
             edgecolor=edgecolor,
             **kwargs,
         )
+
+    @staticmethod
+    def assign_uuid(exclude_set: Optional[Set[uuid.UUID]] = None, max_try=50) -> uuid.UUID:
+        if exclude_set is None:
+            exclude_set = set()
+        while True:
+            new_uuid = uuid.uuid4()
+            if new_uuid not in exclude_set:
+                return new_uuid
+            max_try -= 1
+            if max_try <= 0:
+                raise ValueError("Cannot generate a new uuid that is not in the exclude set.")
 
 
 class SingleCellTrajectory:
@@ -1893,23 +1911,6 @@ def sample_samples_from_sctc(
     print("# of generated samples:", len(normal_samples))
     print("# of generated samples extra info:", len(normal_samples_extra_info))
     return normal_samples, normal_samples_extra_info
-
-
-def filter_boundary_cells(scs: List[SingleCellStatic], dist_to_boundary=30, bbox_bounds=None):
-    not_boundary_scs = []
-    if bbox_bounds is None:
-        dim = scs[0].get_img().shape[:2]
-        bbox_bounds = [0, 0, dim[0], dim[1]]
-    for sc in scs:
-        bbox = sc.get_bbox()
-        if (
-            bbox[0] > bbox_bounds[0] + dist_to_boundary
-            and bbox[1] > bbox_bounds[1] + dist_to_boundary
-            and bbox[2] < bbox_bounds[2] - dist_to_boundary
-            and bbox[3] < bbox_bounds[3] - dist_to_boundary
-        ):
-            not_boundary_scs.append(sc)
-    return not_boundary_scs
 
 
 def create_label_mask_from_scs(scs: List[SingleCellStatic], labels=None, dtype=np.int32, bbox=None, padding=None):
