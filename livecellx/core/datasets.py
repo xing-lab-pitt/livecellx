@@ -32,6 +32,27 @@ def read_img_default(url: str, **kwargs) -> np.ndarray:
     return img
 
 
+def interpolate_time_data(time2data, max_time=None, fill_mode="blank", shape=None):
+    """Interpolate the times in the array"""
+    import dask.array as da
+    from dask import delayed
+
+    if len(time2data) == None:
+        return None
+    if fill_mode == "blank":
+        shape = list(time2data.items())[1].shape if shape is None else shape
+        blank_img = da.from_delayed(delayed(np.zeros)(shape), shape=shape, dtype=int)
+        res_arr = []
+        for time in range(max_time + 1):
+            if time in time2data:
+                res_arr.append(time2data[time])
+            else:
+                res_arr.append(blank_img)
+        return res_arr
+    else:
+        raise NotImplementedError()
+
+
 class LiveCellImageDatasetManager:
     def __init__(
         self, name2cache: Dict[str, "LiveCellImageDataset"] = None, path2cache: Dict[str, "LiveCellImageDataset"] = None
@@ -163,6 +184,8 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         # randomly generate a name
         if name is None:
             self.name = str(uuid.uuid4())
+        else:
+            self.name = name
 
     def reindex_time2url_sequential(self):
         """Reindex the time2url dictionary"""
@@ -319,7 +342,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             json_dict = json.load(f)
         return LiveCellImageDataset().load_from_json_dict(json_dict, **kwargs)
 
-    def to_dask(self, times=None, ram=False):
+    def to_dask(self, times=None, ram=False, interpolate_missing=True):
         """convert to a dask array for napari visualization"""
         import dask.array as da
         from dask import delayed
@@ -327,12 +350,23 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         if times is None:
             times = self.times
         if ram:
-            return da.stack([da.from_array(self.time2url[time]) for time in times])
+            time2arr = {time: da.from_array(self.time2url[time]) for time in times}
+            filled_arr = interpolate_time_data(time2arr, max_time=max(times))
+            return da.stack(filled_arr)
+        # TODO interpolate missing time points
 
         lazy_reader = delayed(self.read_img_url_func)
         lazy_arrays = [lazy_reader(self.time2url[time]) for time in times]
         img_shape = self.infer_shape()
-        dask_arrays = [da.from_delayed(lazy_array, shape=img_shape, dtype=int) for lazy_array in lazy_arrays]
+
+        if interpolate_missing:
+            time2lazy_array = {
+                time: da.from_delayed(lazy_array, shape=img_shape, dtype=int)
+                for time, lazy_array in zip(times, lazy_arrays)
+            }
+            dask_arrays = interpolate_time_data(time2lazy_array, max_time=max(times), shape=img_shape)
+        else:
+            dask_arrays = [da.from_delayed(lazy_array, shape=img_shape, dtype=int) for lazy_array in lazy_arrays]
         return da.stack(dask_arrays)
 
     def get_img_by_idx(self, idx):
