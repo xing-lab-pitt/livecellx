@@ -714,6 +714,45 @@ class SingleCellStatic:
         contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255, dtype=bool
     ) -> np.array:  #
         # TODO: optimize: we do not need img here but shape of img.
+        from PIL import Image, ImageDraw
+        import numpy as np
+
+        assert img is not None or shape is not None, "either img or shape must be provided"
+        if shape is None:
+            res_shape = img.shape
+        else:
+            res_shape = shape
+
+        if bbox is None:
+            if crop:
+                bbox = SingleCellStatic.get_bbox_from_contour(contour)
+            else:
+                bbox = [0, 0, res_shape[0], res_shape[1]]
+
+        # Create a blank image (mask) with the same dimensions as the input image
+        mask_image = Image.new("L", (res_shape[0], res_shape[1]), 0)
+        draw = ImageDraw.Draw(mask_image)
+
+        # Adjust contour for PIL drawing
+        # PIL expects a sequence of tuples [(x1, y1), (x2, y2), ...]
+        pil_contour = list(map(tuple, contour))
+
+        # Swapping x, y for PIL convention
+        pil_contour = [(y, x) for x, y in pil_contour]
+
+        # Draw the contour on the mask
+        draw.polygon(pil_contour, outline=mask_val, fill=mask_val)
+
+        # Convert the PIL image to a numpy array
+        res_mask = np.array(mask_image, dtype=dtype)
+        res_mask = SingleCellStatic.gen_skimage_bbox_img_crop(bbox, res_mask, padding=padding)
+        return res_mask
+
+    @staticmethod
+    def gen_contour_mask_skimage_deprecated(
+        contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255, dtype=bool
+    ) -> np.array:  #
+        # TODO: optimize: we do not need img here but shape of img.
         from skimage.draw import line, polygon
 
         assert img is not None or shape is not None, "either img or shape must be provided"
