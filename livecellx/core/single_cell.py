@@ -730,7 +730,7 @@ class SingleCellStatic:
                 bbox = [0, 0, res_shape[0], res_shape[1]]
 
         # Create a blank image (mask) with the same dimensions as the input image
-        mask_image = Image.new("L", (res_shape[0], res_shape[1]), 0)
+        mask_image = Image.new("L", (res_shape[1], res_shape[0]), 0)
         draw = ImageDraw.Draw(mask_image)
 
         # Adjust contour for PIL drawing
