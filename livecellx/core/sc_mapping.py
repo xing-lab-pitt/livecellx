@@ -195,11 +195,11 @@ def process_dt_scs_wrapper(
                 "scs_2": scs_2,
                 "zero_map_viz_dir": zero_map_dir,
                 "multi_map_viz_dir": multi_map_dir,
-                "metric_key": "iomin",
                 "multimap_metric_threshold": 0.2,
                 "zeromap_metric_threshold": 0.8,
                 "save_viz_check": True,
                 "metric": metric,
+                "metric_key": metric,
             }
         )
     print("# inputs:", len(inputs))
