@@ -162,6 +162,7 @@ def process_mapping_by_time(
 
 def process_dt_scs_wrapper(
     scs_by_time,
+    metric="iomin",
     dt=1,
     total_time=None,
     interval=1,
@@ -198,6 +199,7 @@ def process_dt_scs_wrapper(
                 "multimap_metric_threshold": 0.2,
                 "zeromap_metric_threshold": 0.8,
                 "save_viz_check": True,
+                "metric": metric,
             }
         )
     print("# inputs:", len(inputs))
