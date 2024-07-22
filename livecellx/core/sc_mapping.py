@@ -58,16 +58,21 @@ def find_maps(
     scs_from: List[SingleCellStatic],
     scs_to: List[SingleCellStatic],
     metric_threshold=0.3,
-    metric_key="iomin",
+    metric_key=None,
     min_map_num=None,
     metric="iomin",
 ):
     if metric == "iou":
+        if metric_key is None:
+            metric_key = "iou"
         compute_scs_iou(scs_from, scs_to, metric_key)
     elif metric == "iomin":
+        if metric_key is None:
+            metric_key = "iomin"
         compute_scs_iomin(scs_from, scs_to, metric_key)
     else:
         raise ValueError(f"Unknown metric: {metric}")
+
     scs_map = {}
     for sc1 in scs_from:
         scs_map[sc1] = []
