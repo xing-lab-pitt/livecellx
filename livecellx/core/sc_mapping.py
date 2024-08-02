@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import os
 from pathlib import Path
 import pandas as pd
-from typing import List
+from typing import Dict, List
 
 import glob
 from PIL import Image, ImageSequence
@@ -212,9 +212,9 @@ def process_dt_scs_wrapper(
     return outputs
 
 
-def extend_zero_map(sc: SingleCellStatic, scs_by_time: List[SingleCellStatic], threshold):
+def extend_zero_map(sc: SingleCellStatic, scs_by_time: Dict[int, List[SingleCellStatic]], threshold):
     """
-    Extends the zero map by creating new SingleCellStatic objects for consecutive timeframes until a mapping is found.
+    Extends the zero mapped cell by creating new SingleCellStatic objects for consecutive timeframes until a mapping is found.
 
     Args:
         sc (SingleCellStatic): The initial SingleCellStatic object.
@@ -224,7 +224,6 @@ def extend_zero_map(sc: SingleCellStatic, scs_by_time: List[SingleCellStatic], t
     Returns:
         List[SingleCellStatic]: A list of SingleCellStatic objects representing the extended zero map.
     """
-    sc.show_panel(padding=50)
     cur_time = sc.timeframe
     max_time = max([sc.timeframe for time in scs_by_time for sc in scs_by_time[time]])
     res_scs = [sc]
