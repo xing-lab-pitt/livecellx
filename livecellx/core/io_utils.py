@@ -1,3 +1,4 @@
+from typing import Union
 from PIL import Image, ImageSequence
 import glob
 import numpy as np
@@ -18,7 +19,7 @@ class LiveCellEncoder(JSONEncoder):
         return JSONEncoder.default(self, obj)
 
 
-def save_png(path: str, img: np.array, mode="L"):
+def save_png(img: np.array, path: Union[str, Path], mode="L"):
     """save image to png file
 
     Parameters
@@ -31,7 +32,7 @@ def save_png(path: str, img: np.array, mode="L"):
     save_general(path=path, img=img, mode=mode)
 
 
-def save_tiff(img: np.array, path: str, mode="L"):
+def save_tiff(img: np.array, path: Union[str, Path], mode="L"):
     save_general(path=path, img=img, mode=mode)
 
 
