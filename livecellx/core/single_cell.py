@@ -298,14 +298,10 @@ class SingleCellStatic:
 
         # pad the image if the bbox is too close to the edge
         if pad_zeros:
-            if min_x == 0:
-                img_crop = np.pad(img_crop, ((padding, 0), (0, 0), (0, 0)), mode="constant")
-            if min_y == 0:
-                img_crop = np.pad(img_crop, ((0, 0), (padding, 0), (0, 0)), mode="constant")
-            if max_x + padding > img.shape[0]:
-                img_crop = np.pad(img_crop, ((0, padding), (0, 0), (0, 0)), mode="constant")
-            if max_y + padding > img.shape[1]:
-                img_crop = np.pad(img_crop, ((0, 0), (0, padding), (0, 0)), mode="constant")
+            img_crop = img[min_x:max_x, min_y:max_y, ...]
+            img_crop = np.pad(
+                img_crop, ((padding, padding), (padding, padding), (0, 0)), mode="constant", constant_values=0
+            )
 
         return img_crop
 
