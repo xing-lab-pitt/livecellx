@@ -137,12 +137,9 @@ def compute_watershed(edt_mask__np: np.ndarray, h_threshold=1, edt_positive_thre
     Returns:
     - watershed_mask (np.ndarray): The segmented mask obtained from watershed algorithm.
     """
-
-    # perform watershed on output
     marker_method = "hmax"
-
     # marker_method = "local"
-    # peak_distance = 50
+
     markers = None
 
     if markers is None and marker_method == "hmax":
@@ -150,6 +147,7 @@ def compute_watershed(edt_mask__np: np.ndarray, h_threshold=1, edt_positive_thre
         local_hmax = h_maxima(edt_mask__np, h_threshold)
         markers = skimage.measure.label(local_hmax, connectivity=1)
     elif markers is None and marker_method == "local":
+        # TODO: support local peak method
         peak_distance = 50
         # use local peak as default markers
         coords = peak_local_max(edt_mask__np, min_distance=peak_distance, footprint=np.ones((3, 3)))
