@@ -47,7 +47,7 @@ def plot_sctc(
 
             # Save the image as PNG
             if save_whole:
-                save_png(out_dir / f"{prefix}_whole_{tid}_{time}.png", sc_img)
+                save_png(sc_img, out_dir / f"{prefix}_whole_{tid}_{time}.png")
             # overlayed = overlay(sc_img, sc_img_crop, mask_channel_rgb_val=100, img_channel_rgb_val_factor=1)
             # Draw the image on the plot
             # axes[idx].imshow(sc_img, cmap='gray')

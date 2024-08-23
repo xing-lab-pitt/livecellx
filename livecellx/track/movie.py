@@ -68,7 +68,7 @@ def generate_scs_movie(
             img = img.astype(np.uint8)
             # Save image as png
             # Mode should be corresponding RGBA code in PIL
-            save_png(img_dir / (str(time) + ".png"), img, mode="RGBA")
+            save_png(img, img_dir / (str(time) + ".png"), mode="RGBA")
             # Append the image to the movie file
             writer.append_data(img)
 

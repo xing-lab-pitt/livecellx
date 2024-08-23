@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import os
 from pathlib import Path
 import pandas as pd
-from typing import List
+from typing import Dict, List
 
 import glob
 from PIL import Image, ImageSequence
@@ -210,3 +210,42 @@ def process_dt_scs_wrapper(
     print("Max cell pair count for map computation:", counter)
     outputs = parallelize(process_mapping_by_time, inputs, cores=cores)  # Max num of cores
     return outputs
+
+
+def extend_zero_map(sc: SingleCellStatic, scs_by_time: Dict[int, List[SingleCellStatic]], threshold):
+    """
+    Extends the zero mapped cell by creating new SingleCellStatic objects for consecutive timeframes until a mapping is found.
+
+    Args:
+        sc (SingleCellStatic): The initial SingleCellStatic object.
+        scs_by_time (List[SingleCellStatic]): A list of SingleCellStatic objects grouped by timeframe.
+        threshold: The threshold value used to determine if a mapping exists between two SingleCellStatic objects.
+
+    Returns:
+        List[SingleCellStatic]: A list of SingleCellStatic objects representing the extended zero map.
+    """
+    cur_time = sc.timeframe
+    max_time = max([sc.timeframe for time in scs_by_time for sc in scs_by_time[time]])
+    res_scs = [sc]
+    for time in range(cur_time + 1, max_time + 1):
+        if time not in scs_by_time:
+            continue
+        scs = scs_by_time[time]
+        has_mapping = False
+        for sc_t1 in scs:
+            # [TODO]: discuss whether to use iou or iomin
+            iomin = sc.compute_iomin(sc_t1)
+            if iomin > threshold:
+                has_mapping = True
+                break
+        if has_mapping:
+            break
+        else:
+            sc_new = SingleCellStatic(
+                timeframe=time,
+                img_dataset=sc.img_dataset,
+                mask_dataset=sc.mask_dataset,
+                contour=sc.contour,
+            )
+            res_scs.append(sc_new)
+    return res_scs
