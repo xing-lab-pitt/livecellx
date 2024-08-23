@@ -17,6 +17,13 @@ import pandas as pd
 import os
 import time
 import random
+from skimage.segmentation import watershed
+from skimage.feature import peak_local_max
+from scipy import ndimage as ndi
+import skimage
+from skimage.morphology import local_maxima, h_maxima
+from skimage.measure import regionprops, label
+
 from livecellx.model_zoo.segmentation.sc_correction import CorrectSegNet
 from livecellx.model_zoo.segmentation.sc_correction_aux import CorrectSegNetAux
 from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
@@ -114,7 +121,44 @@ def match_label_mask_by_iou(out_label_mask, gt_label_mask, bg_label=0, match_thr
     out_num = len(out_labels)
     if return_iou_list:
         return matched_num, out_num, gt_num, np.array(gt_out_iou_list)
-    return matched_num, out_num, gt_num
+    else:
+        return matched_num, out_num, gt_num
+
+
+def compute_watershed(edt_mask__np: np.ndarray, h_threshold=1, edt_positive_threshold=0.9):
+    """
+    Perform watershed segmentation on the input EDT mask.
+
+    Parameters:
+    - edt_mask__np (np.ndarray): The input Euclidean Distance Transform (EDT) mask.
+    - h_threshold (float): The threshold value for h-maxima transform. Default is 1.
+    - edt_positive_threshold (float): The threshold value for the EDT mask to consider as positive. Default is 0.9.
+
+    Returns:
+    - watershed_mask (np.ndarray): The segmented mask obtained from watershed algorithm.
+    """
+
+    # perform watershed on output
+    marker_method = "hmax"
+
+    # marker_method = "local"
+    # peak_distance = 50
+    markers = None
+
+    if markers is None and marker_method == "hmax":
+        # local_hmax = h_maxima(raw_crop, h_threshold)
+        local_hmax = h_maxima(edt_mask__np, h_threshold)
+        markers = skimage.measure.label(local_hmax, connectivity=1)
+    elif markers is None and marker_method == "local":
+        peak_distance = 50
+        # use local peak as default markers
+        coords = peak_local_max(edt_mask__np, min_distance=peak_distance, footprint=np.ones((3, 3)))
+        mask = np.zeros(edt_mask__np.shape, dtype=bool)
+        mask[tuple(coords.T)] = True
+        markers, _ = ndi.label(mask)
+
+    watershed_mask = watershed(-edt_mask__np, markers, mask=edt_mask__np > edt_positive_threshold)
+    return watershed_mask
 
 
 def evaluate_sample_v3(
@@ -126,6 +170,7 @@ def evaluate_sample_v3(
     gt_label_mask=None,
     gt_iou_match_thresholds=[0.5, 0.8, 0.9, 0.95],  # eval on a range of thresholds
     return_outs_and_sample=False,
+    apply_watershed=True,
 ):
     assert len(gt_iou_match_thresholds) > 0
     out_mask = model(sample["input"].unsqueeze(0).cuda())
@@ -158,9 +203,9 @@ def evaluate_sample_v3(
     original_cell_count = len(np.unique(original_label_mask)) - 1  # -1 for bg
 
     assert gt_label_mask is not None, "gt_label_mask is required for evaluation"
-    assert (
-        len(set(np.unique(gt_seg_mask).tolist())) <= 2
-    ), "More than two labels in the gt masks. Please remove this assertation if you are working on mapping cases with more than 2 gt cells (the case in LCA paper)."
+    # assert (
+    #     len(set(np.unique(gt_seg_mask).tolist())) <= 2
+    # ), "More than two labels in the gt masks. Please remove this assertation if you are working on mapping cases with more than 2 gt cells (the case in LCA paper)."
 
     combined_over_under_seg = np.zeros([3] + list(seg_out_mask.shape[1:]))
     combined_over_under_seg[0, seg_out_mask[1, :] > out_threshold] = 1
@@ -173,7 +218,10 @@ def evaluate_sample_v3(
     out_mask_predicted = out_mask_predicted.astype(bool)
 
     # match gt label mask with out label mask
-    out_label_mask = skimage.measure.label(out_mask_predicted)
+    if apply_watershed:
+        out_label_mask = compute_watershed(seg_out_mask[0])
+    else:
+        out_label_mask = skimage.measure.label(out_mask_predicted)
 
     # Resize out_label_mask to match gt_label_mask (example: (412, 412) to (136, 172)) if GT label is not enhanced during dataset preparation
     # [TODO] Remvoe if label masks are augmented during dataset preparation
