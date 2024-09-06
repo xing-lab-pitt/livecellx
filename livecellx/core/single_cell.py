@@ -298,10 +298,14 @@ class SingleCellStatic:
 
         # pad the image if the bbox is too close to the edge
         if pad_zeros:
-            img_crop = img[min_x:max_x, min_y:max_y, ...]
-            img_crop = np.pad(
-                img_crop, ((padding, padding), (padding, padding), (0, 0)), mode="constant", constant_values=0
-            )
+            if min_x == 0:
+                img_crop = np.pad(img_crop, ((padding, 0), (0, 0), (0, 0)), mode="constant")
+            if min_y == 0:
+                img_crop = np.pad(img_crop, ((0, 0), (padding, 0), (0, 0)), mode="constant")
+            if max_x + padding > img.shape[0]:
+                img_crop = np.pad(img_crop, ((0, padding), (0, 0), (0, 0)), mode="constant")
+            if max_y + padding > img.shape[1]:
+                img_crop = np.pad(img_crop, ((0, 0), (0, padding), (0, 0)), mode="constant")
 
         return img_crop
 
@@ -549,6 +553,7 @@ class SingleCellStatic:
             single_cells = SingleCellStatic.load_single_cells_json(path=path)
             for sc in single_cells:
                 sc.meta["src_json"] = path
+
             all_scs.extend(single_cells)
         return all_scs
 
@@ -726,7 +731,7 @@ class SingleCellStatic:
                 bbox = [0, 0, res_shape[0], res_shape[1]]
 
         # Create a blank image (mask) with the same dimensions as the input image
-        mask_image = Image.new("L", (res_shape[1], res_shape[0]), 0)
+        mask_image = Image.new("L", (res_shape[0], res_shape[1]), 0)
         draw = ImageDraw.Draw(mask_image)
 
         # Adjust contour for PIL drawing
@@ -1201,7 +1206,9 @@ class SingleCellTrajectory:
                 raise Warning(f"mask_dataset_json_path {mask_dataset_json_path} does not exist")
 
         if self.img_dataset is None:
-            main_warning("[SCT loading] img_dataset is None after attempting to load it")
+            # Allow img_dataset to be None
+            pass
+            # main_warning("[SCT loading] img_dataset is None after attempting to load it")
             # raise ValueError("img_dataset is None after attempting to load it")
 
         self.img_total_timeframe = len(self.img_dataset) if self.img_dataset is not None else 0
