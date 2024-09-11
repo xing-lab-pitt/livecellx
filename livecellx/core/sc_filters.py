@@ -20,20 +20,29 @@ from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecellx.core.single_cell import SingleCellStatic
 
 
-def filter_boundary_cells(scs: List[SingleCellStatic], dist_to_boundary=30, bbox_bounds=None):
+def filter_boundary_cells(scs: List[SingleCellStatic], dist_to_boundary=30, bbox_bounds=None, use_box_center=True):
     not_boundary_scs = []
     if bbox_bounds is None:
         dim = scs[0].get_img().shape[:2]
         bbox_bounds = [0, 0, dim[0], dim[1]]
     for sc in scs:
         bbox = sc.get_bbox()
-        if (
+        if use_box_center and (
+            (bbox[0] + bbox[2]) / 2 > bbox_bounds[0] + dist_to_boundary
+            and (bbox[1] + bbox[3]) / 2 > bbox_bounds[1] + dist_to_boundary
+            and (bbox[0] + bbox[2]) / 2 < bbox_bounds[2] - dist_to_boundary
+            and (bbox[1] + bbox[3]) / 2 < bbox_bounds[3] - dist_to_boundary
+        ):
+            not_boundary_scs.append(sc)
+        elif (
             bbox[0] > bbox_bounds[0] + dist_to_boundary
             and bbox[1] > bbox_bounds[1] + dist_to_boundary
             and bbox[2] < bbox_bounds[2] - dist_to_boundary
             and bbox[3] < bbox_bounds[3] - dist_to_boundary
         ):
             not_boundary_scs.append(sc)
+        else:
+            pass
     return not_boundary_scs
 
 
