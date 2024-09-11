@@ -1,7 +1,7 @@
 import argparse
 import glob
 from pathlib import Path
-from typing import List, Union
+from typing import List, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import skimage
@@ -30,7 +30,11 @@ from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNet
 
 
 def assemble_dataset(
-    df: pd.DataFrame, apply_gt_seg_edt=False, exclude_raw_input_bg=False, input_type=None, use_gt_pixel_weight=False
+    df: pd.DataFrame,
+    apply_gt_seg_edt=False,
+    exclude_raw_input_bg=False,
+    input_type=None,
+    use_gt_pixel_weight=False,
 ):
     assert input_type is not None
     raw_img_paths = list(df["raw"])
@@ -85,8 +89,23 @@ def assemble_train_test_dataset(train_df, test_df, model, split_seed=237):  # de
     return train_dataset, val_dataset, test_dataset, dataset
 
 
-def match_label_mask_by_iou(out_label_mask, gt_label_mask, bg_label=0, match_threshold=0.8, return_iou_list=True):
-    assert out_label_mask.shape == gt_label_mask.shape
+def match_label_mask_by_iou(
+    out_label_mask, gt_label_mask, bg_label=0, match_threshold=0.8, return_iou_list=True
+) -> Union[Tuple[int, int, int], Tuple[int, int, int, np.ndarray]]:
+    """
+    Matches labels in the output label mask to labels in the ground truth label mask based on Intersection over Union (IoU) scores.
+
+    Args:
+        out_label_mask (ndarray): Output label mask.
+        gt_label_mask (ndarray): Ground truth label mask.
+        bg_label (int, optional): Background label value. Defaults to 0.
+        match_threshold (float, optional): IoU threshold for matching labels. Defaults to 0.8.
+        return_iou_list (bool, optional): Whether to return the IoU list. Defaults to True.
+
+    Returns:
+        Union[Tuple[int, int, int], Tuple[int, int, int, ndarray]]: If return_iou_list is True, returns a tuple containing the number of matched labels, the number of labels in the output mask, the number of labels in the ground truth mask, and an array of IoU scores for each matched label pair. If return_iou_list is False, returns a tuple containing the number of matched labels, the number of labels in the output mask, and the number of labels in the ground truth mask.
+    """
+    assert out_label_mask.shape == gt_label_mask.shape, "out_label_mask and gt_label_mask must have the same shape"
 
     out_labels = np.unique(out_label_mask)
     gt_labels = np.unique(gt_label_mask)
@@ -227,7 +246,10 @@ def evaluate_sample_v3(
     original_label_mask = skimage.transform.resize(original_label_mask, gt_label_mask.shape, order=0, mode="reflect")
 
     out_matched_num, out_cell_count, gt_cell_num, gt_out_iou_list = match_label_mask_by_iou(
-        out_label_mask, gt_label_mask, match_threshold=gt_iou_match_thresholds[0], return_iou_list=True
+        out_label_mask,
+        gt_label_mask,
+        match_threshold=gt_iou_match_thresholds[0],
+        return_iou_list=True,
     )
     origin_matched_num, origin_cell_count, gt_cell_num, gt_origin_iou_list = match_label_mask_by_iou(
         original_label_mask, gt_label_mask, return_iou_list=True
@@ -255,17 +277,19 @@ def evaluate_sample_v3(
     metrics_dict["abs_original_count_diff"] = abs(gt_cell_num - original_cell_count)
     metrics_dict["matched_num"] = out_matched_num
 
+    # Calculate metrics for out label mask
     for threshold in gt_iou_match_thresholds:
         _matched_num = gt_out_iou_list[:, 2] > threshold if len(gt_out_iou_list) > 0 else np.array([0, 0])
         metrics_dict[f"out_matched_num_gt_iou_{threshold}"] = _matched_num.sum()
         metrics_dict[f"out_matched_num_gt_iou_{threshold}_percent"] = _matched_num.sum() / gt_cell_num
-        metrics_dict[f"out_matched_num_gt_iou_total_match"] = _matched_num.sum() == gt_cell_num
+        metrics_dict[f"out_matched_num_gt_iou_{threshold}_total_match"] = _matched_num.sum() == gt_cell_num
 
+    # Calculate metrics for original label mask
     for threshold in gt_iou_match_thresholds:
         _matched_num = gt_origin_iou_list[:, 2] > threshold if len(gt_origin_iou_list) > 0 else np.array([0, 0])
         metrics_dict[f"origin_matched_num_gt_origin_{threshold}"] = _matched_num.sum()
         metrics_dict[f"origin_matched_num_gt_origin_{threshold}_percent"] = _matched_num.sum() / gt_cell_num
-        metrics_dict[f"origin_matched_num_gt_iou_total_match"] = _matched_num.sum() == gt_cell_num
+        metrics_dict[f"origin_matched_num_gt_iou_{threshold}_total_match"] = _matched_num.sum() == gt_cell_num
 
     # metrics_dict["gt_iou_match_threshold"] = gt_iou_match_threshold
     # metrics_dict["gt_out_iou_list"] = gt_out_iou_list
@@ -319,7 +343,15 @@ def compute_metrics(
     return res_metrics
 
 
-def viz_sample_v3(sample: dict, model, raw_seg=None, scale=None, out_threshold=0.6, save_path=None, close_on_save=True):
+def viz_sample_v3(
+    sample: dict,
+    model,
+    raw_seg=None,
+    scale=None,
+    out_threshold=0.6,
+    save_path=None,
+    close_on_save=True,
+):
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     def add_colorbar(im, ax, fig):
@@ -471,7 +503,10 @@ def parse_eval_args() -> argparse.Namespace:
     parser.add_argument("--train_dir", type=str, help="./notebook_results/a549_ccp_vim/train_data_v4/")
     parser.add_argument("--test_dir", type=str, help="./notebook_results/a549_ccp_vim/test_data_v4/")
     parser.add_argument(
-        "--pl_dir", type=str, help="a directory containing  ./checkpoints/epoch=xxxx-step=xxxx.ckpt", default=None
+        "--pl_dir",
+        type=str,
+        help="a directory containing  ./checkpoints/epoch=xxxx-step=xxxx.ckpt",
+        default=None,
     )
     parser.add_argument(
         "--out_threshold",
@@ -481,7 +516,12 @@ def parse_eval_args() -> argparse.Namespace:
     )
     parser.add_argument("--save_dir", type=str, default="./eval_results/")
     parser.add_argument("--debug", dest="debug", default=False, action="store_true")
-    parser.add_argument("--wait_for_gpu_mem", dest="wait_for_gpu_mem", default=False, action="store_true")
+    parser.add_argument(
+        "--wait_for_gpu_mem",
+        dest="wait_for_gpu_mem",
+        default=False,
+        action="store_true",
+    )
     parser.add_argument(
         "--viz_pred",
         dest="viz_pred",
@@ -521,7 +561,11 @@ def eval_main(cuda=True):
     elif not (args.pl_dir is None):
         matched_files = glob.glob(os.path.join(args.pl_dir, "checkpoints", "*ckpt"))
         # sort based on epoch=xx-step=xx.ckpt
-        matched_files = sorted(matched_files, key=lambda x: int(x.split("-")[0].split("=")[1]), reverse=True)
+        matched_files = sorted(
+            matched_files,
+            key=lambda x: int(x.split("-")[0].split("=")[1]),
+            reverse=True,
+        )
         if len(matched_files) == 0:
             raise ValueError("No checkpoint found in %s" % args.pl_dir)
         elif len(matched_files) > 1:
@@ -557,8 +601,18 @@ def eval_main(cuda=True):
 
     # compute metrics
     print("[EVAL] computing metrics with threshold {}".format(args.out_threshold))
-    train_metrics = compute_metrics(train_dataset, model, out_threshold=args.out_threshold, whole_dataset=whole_dataset)
-    val_metrics = compute_metrics(val_dataset, model, out_threshold=args.out_threshold, whole_dataset=whole_dataset)
+    train_metrics = compute_metrics(
+        train_dataset,
+        model,
+        out_threshold=args.out_threshold,
+        whole_dataset=whole_dataset,
+    )
+    val_metrics = compute_metrics(
+        val_dataset,
+        model,
+        out_threshold=args.out_threshold,
+        whole_dataset=whole_dataset,
+    )
     test_metrics = compute_metrics(test_dataset, model, out_threshold=args.out_threshold, whole_dataset=None)
 
     # save metrics
@@ -583,7 +637,10 @@ def eval_main(cuda=True):
     def _viz_samples(dataset, save_path):
         for i, sample in enumerate(tqdm.tqdm(dataset)):
             viz_sample_v3(
-                sample, model, out_threshold=args.out_threshold, save_path=save_path / "sample-{}.png".format(i)
+                sample,
+                model,
+                out_threshold=args.out_threshold,
+                save_path=save_path / "sample-{}.png".format(i),
             )
 
     viz_fig_path = result_dir / "sample_viz"
