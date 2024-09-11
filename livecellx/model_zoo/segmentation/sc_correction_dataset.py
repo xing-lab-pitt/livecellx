@@ -148,6 +148,24 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         return res_edt
 
     def __getitem__(self, idx):
+        """
+        Get the item at the given index.
+
+        Args:
+            idx (int): The index of the item to retrieve.
+
+        Returns:
+            dict: A dictionary containing the following keys:
+                - "input": The input image tensor.
+                - "seg_mask": The segmented mask tensor. If input is edt_v0, this is the edt version.
+                - "gt_mask_binary": The binary ground truth mask tensor.
+                - "gt_mask": The combined ground truth tensor.
+                - "idx": The index of the item.
+                - "gt_label_mask": The ground truth label mask tensor.
+                - "ou_aux": The auxiliary output tensor.
+                - "gt_pixel_weight": The ground truth pixel weight tensor.
+                - "gt_mask_edt" (optional): The ground truth mask tensor with Euclidean Distance Transform applied.
+        """
         augmented_raw_img = Image.open(self.raw_img_paths[idx])
         scaled_seg_mask = Image.open(self.scaled_seg_mask_paths[idx])
         gt_mask = Image.open(self.gt_mask_paths[idx])
@@ -278,7 +296,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             "input": input_img,
             # "raw_img": augmented_raw_img,
             # "raw_transformed": augmented_raw_transformed_img,
-            "seg_mask": augmented_scaled_seg_mask,
+            "seg_mask": augmented_scaled_seg_mask,  # If edt, this is the edt version
             "gt_mask_binary": gt_binary,
             "gt_mask": combined_gt,
             "idx": idx,
