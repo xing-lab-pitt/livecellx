@@ -19,31 +19,31 @@ class LiveCellEncoder(JSONEncoder):
         return JSONEncoder.default(self, obj)
 
 
-def save_png(img: np.array, path: Union[str, Path], mode="L"):
+def save_png(img: np.ndarray, path: Union[str, Path], mode="L"):
     """save image to png file
 
     Parameters
     ----------
     path : str
         path to save the image
-    img : np.array
+    img : np.ndarray
         image to save
     """
     save_general(path=path, img=img, mode=mode)
 
 
-def save_tiff(img: np.array, path: Union[str, Path], mode="L"):
+def save_tiff(img: np.ndarray, path: Union[str, Path], mode="L"):
     save_general(path=path, img=img, mode=mode)
 
 
-def save_general(img: np.array, path: str, mode="L"):
+def save_general(img: np.ndarray, path: str, mode="L"):
     """save image to img file
 
     Parameters
     ----------
     path : str
         path to save the image
-    img : np.array
+    img : np.ndarray
         image to save
     """
     # TODO: discuss whether it is caller's responsibility to make img's mode correct
