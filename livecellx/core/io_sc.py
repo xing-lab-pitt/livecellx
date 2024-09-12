@@ -67,7 +67,7 @@ def process_scs_from_single_label_mask(
 
 
 # TODO: fix the function below
-def process_scs_from_label_mask(label_mask_dataset, img_dataset, time, bg_val=0, min_contour_len=10):
+def process_scs_from_label_mask_dataset(label_mask_dataset, img_dataset, time, bg_val=0, min_contour_len=10):
     """process single cells from one label mask. Store labels of single cells in their meta data.
 
     Parameters
@@ -98,7 +98,7 @@ def process_scs_from_label_mask(label_mask_dataset, img_dataset, time, bg_val=0,
 
 
 def process_mask_wrapper(args):
-    return process_scs_from_label_mask(*args)
+    return process_scs_from_label_mask_dataset(*args)
 
 
 # TODO: use parallelize function in the future
