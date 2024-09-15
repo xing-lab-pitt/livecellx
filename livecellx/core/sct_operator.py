@@ -705,7 +705,7 @@ class SctOperator:
             "track_id": new_sc_layer_track_properties,
             "status": new_sc_layer_status_properties,
         }
-        sc_dummy_napari_data = [np.array([[new_sc.timeframe, -50, -50], [new_sc.timeframe, -10, -10]])]
+        sc_dummy_napari_data = [np.array([[new_sc.timeframe, 1, 1], [new_sc.timeframe, 10, 10]])]
         # self.shape_layer.data = list(self.shape_layer.data) + sc_napari_data
         random_color = list(np.random.rand(4))
         random_color[-1] = 1.0
