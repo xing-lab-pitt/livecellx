@@ -52,6 +52,7 @@ class SingleCellStatic:
         tmp=None,
         use_cache_contour_mask=False,
         use_img_crop_cache=False,
+        cached_img_shape=None,
     ) -> None:
         """_summary_
 
@@ -135,7 +136,7 @@ class SingleCellStatic:
         else:
             self.tmp = dict()
 
-        self.cache_img_shape = None
+        self.cached_img_shape = cached_img_shape
         self.enable_cache_contour_mask = use_cache_contour_mask
         self.enable_img_crop_cache = use_img_crop_cache
 
@@ -277,10 +278,25 @@ class SingleCellStatic:
         mask = self.get_mask(dtype=dtype)
         return mask
 
-    def get_bbox(self) -> np.array:
+    def get_bbox(self, padding=None) -> np.array:
+        # TODO: add unit test for this function
         if self.bbox is None:
             self.update_bbox()
-        return np.array(self.bbox)
+        if padding is None:
+            return np.array(self.bbox)
+        else:
+            # Handle <0 case
+            # TODO: > dimension case is not handled here.
+            # numpy array style [start_idx:someLargeIndex] is handled by numpy itself.
+            img_shape = self.get_img_shape()
+            return np.array(
+                [
+                    max(0, self.bbox[0] - padding),
+                    max(0, self.bbox[1] - padding),
+                    min(self.bbox[2] + padding, img_shape[0]),
+                    min(self.bbox[3] + padding, img_shape[1]),
+                ]
+            )
 
     @staticmethod
     def gen_skimage_bbox_img_crop(bbox, img, padding=0, pad_zeros=False, preprocess_img_func=None):
@@ -327,11 +343,11 @@ class SingleCellStatic:
         return img_crop
 
     def get_img_shape(self, use_cache=True):
-        if use_cache and self.cache_img_shape:
-            return self.cache_img_shape
+        if use_cache and self.cached_img_shape:
+            return self.cached_img_shape
         else:
-            self.cache_img_shape = self.get_img().shape
-            return self.cache_img_shape
+            self.cached_img_shape = self.get_img().shape
+            return self.cached_img_shape
 
     def get_mask_crop(self, bbox=None, dtype=bool, **kwargs):
         # TODO: enable in RAM mode
