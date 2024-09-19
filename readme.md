@@ -8,16 +8,7 @@
 [![Documentation Status](https://readthedocs.org/projects/livecellx/badge/?version=latest)](https://livecellx.readthedocs.io/en/latest/?badge=latest)
 
 LivecellX is a comprehensive deep learning live-cell analysis framework written in Python, designed specifically for segmenting, tracking, and analyzing single-cell trajectories in live-cell imaging datasets.  
-### High-level abstract
-single-cell; segmentation; correction; tracking; morphology; dynamics; biological process detection
 
-### Correct segmentation network
-We address incorrect segmentation cases, particularly over-segmentation and under-segmentation cases, using a correction segmentation network (CSN) that follows a whole-image level segmentation provided by deep learning segmentation methods. The CSN framework simplifies the data collection process through active learning and a human-in-the-loop approach. To the best of our knowledge, we are providing the community with the first microscopy imaging correct segmentation dataset for over- and under- segmentation. 
-
-### *LivecellAction: Guiding Deep Learning Models for Precise Detection of Rare Single-Cell Actions*
-We provide a tool for users to annotate live-cell imaging datasets in Napari, and generate videos for deep learning training on video related tasks based on CNN or vision transformer based models.  
-
-To classify biological processes, we design a framework to classify and detect biological processes. We show case how to apply this framework by applying it to the single-cell mitosis trajectory classification task. Our framework achieves near-perfect detection accuracy, exceeding 99.99%, on label-free live-cell mitosis classification task. You can follow our Jupyter notebooks in ./notebooks to reproduce our results and apply the pretrained models to detect mitosis events in your dataset. This framework can be applied to other biological processes. The models we include and benchmark in our paper: temporal segment netowrks, timeSformer, visual transformer (ViT) and resnet50. We designed a programming interface to apply trained models to our single cell trajectory data structures.
 
 For more information, installation instructions, and tutorials, please visit our [official documentation](https://livecellx.readthedocs.io/en/latest/).
 
@@ -73,6 +64,17 @@ python -m pip install -e detectron2
 ```bash
 conda install -c conda-forge ffmpeg
 ```
+### High-level abstract
+single-cell; segmentation; correction; tracking; morphology; dynamics; biological process detection
+
+### Correct segmentation network
+We address incorrect segmentation cases, particularly over-segmentation and under-segmentation cases, using a correction segmentation network (CSN) that follows a whole-image level segmentation provided by deep learning segmentation methods. The CSN framework simplifies the data collection process through active learning and a human-in-the-loop approach. To the best of our knowledge, we are providing the community with the first microscopy imaging correct segmentation dataset for over- and under- segmentation. 
+
+### *LivecellAction: Guiding Deep Learning Models for Precise Detection of Rare Single-Cell Actions*
+We provide a tool for users to annotate live-cell imaging datasets in Napari, and generate videos for deep learning training on video related tasks based on CNN or vision transformer based models.  
+
+To classify biological processes, we design a framework to classify and detect biological processes. We show case how to apply this framework by applying it to the single-cell mitosis trajectory classification task. Our framework achieves near-perfect detection accuracy, exceeding 99.99%, on label-free live-cell mitosis classification task. You can follow our Jupyter notebooks in ./notebooks to reproduce our results and apply the pretrained models to detect mitosis events in your dataset. This framework can be applied to other biological processes. The models we include and benchmark in our paper: temporal segment netowrks, timeSformer, visual transformer (ViT) and resnet50. We designed a programming interface to apply trained models to our single cell trajectory data structures.
+
 
 ## Precommit [Dev]  
 `pip install pre-commit`  
