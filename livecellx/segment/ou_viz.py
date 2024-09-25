@@ -62,6 +62,7 @@ def viz_ou_outputs(
     input_type="raw_aug_duplicate",
     edt_mask=None,
     edt_transform=None,
+    h_threshold=1,
 ) -> Tuple:
     original_shape = augmented_ou_crop.shape
     original_ou_input = augmented_ou_crop.copy()
@@ -96,7 +97,6 @@ def viz_ou_outputs(
 
     # perform watershed on output
     marker_method = "hmax"
-    h_threshold = 1
 
     # marker_method = "local"
     # peak_distance = 50
@@ -129,7 +129,7 @@ def viz_ou_outputs(
 
     # visualize the input and all 3 output channels
     if show or (save_path is not None):
-        total_figs = 7
+        total_figs = 8
         if original_img is not None:
             total_figs += 1
         if input_type == "edt_v0":
@@ -149,12 +149,14 @@ def viz_ou_outputs(
         axes[5].set_title("output c0 > 1")
         axes[6].imshow(watershed_mask)
         axes[6].set_title("watershed mask")
+        axes[7].imshow(np.abs(original_ou_input))
+        axes[7].set_title("original img")
 
-        pos = 6
+        pos = 7
         if original_img is not None:
             pos += 1
-            axes[7].imshow(enhance_contrast(normalize_img_to_uint8(original_img)))
-            axes[7].set_title("original img")
+            axes[pos].imshow(enhance_contrast(normalize_img_to_uint8(original_img)))
+            axes[pos].set_title("original img")
         if input_type == "edt_v0":
             pos += 1
             axes[pos].imshow(edt_mask)
