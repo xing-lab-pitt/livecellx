@@ -12,7 +12,7 @@ from livecellx.core.io_utils import save_png
 from livecellx.preprocess.correct_bg import correct_background_bisplrep, correct_background_polyfit
 
 
-def normalize_edt(edt_img, edt_max=4):
+def normalize_edt(edt_img, edt_max=5):
     """
     Normalize the input Euclidean Distance Transform (EDT) image.
 
@@ -25,10 +25,12 @@ def normalize_edt(edt_img, edt_max=4):
 
     """
     max_val = edt_img.max()
-    factor = max_val / edt_max
+    factor = max_val / (edt_max - 1)
     edt_pos_mask = edt_img >= 1
-    edt_img[edt_pos_mask] = edt_img[edt_pos_mask] / factor + 1
-    return edt_img
+    res_img = edt_img.copy()
+    res_img[edt_pos_mask] = edt_img[edt_pos_mask] / factor + 1
+    # edt_img[edt_pos_mask] = edt_img[edt_pos_mask] / factor + 1
+    return res_img
 
 
 def normalize_features_zscore(features: np.array) -> np.array:
