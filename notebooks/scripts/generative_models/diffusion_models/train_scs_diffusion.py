@@ -13,7 +13,7 @@ parser.add_argument("--results_folder", type=str, required=True, help="The path 
 parser.add_argument("--train_num_steps", type=int, default=100000, help="The number of training steps")
 parser.add_argument("--image_size", type=int, default=128, help="The image size")
 parser.add_argument("--batch_size", type=int, default=8, help="The batch size")
-parser.add_argument("--model_ckpt_path", type=str, required=True, help="The path to the model checkpoint")
+parser.add_argument("--model_ckpt_path", type=str, required=False, default=None, help="The path to the model checkpoint")
 
 # Parse the arguments
 args = parser.parse_args()
