@@ -5,7 +5,10 @@ from typing import Tuple
 
 class CustomTransformV5:
     def __init__(
-        self, degrees: float, translation_range: Tuple[float, float] = None, scale: Tuple[float, float] = None
+        self,
+        degrees: float,
+        translation_range: Tuple[float, float] = None,
+        scale: Tuple[float, float] = None,
     ):
         # Common transformations that should be applied to both images and masks
         self.common_transforms = transforms.Compose(
@@ -50,7 +53,10 @@ class CustomTransformV5:
 
 class CustomTransformV7:
     def __init__(
-        self, degrees: float, translation_range: Tuple[float, float] = None, scale: Tuple[float, float] = None
+        self,
+        degrees: float,
+        translation_range: Tuple[float, float] = None,
+        scale: Tuple[float, float] = None,
     ):
         self.common_transforms = transforms.Compose(
             [
@@ -104,13 +110,18 @@ class CustomTransformV7:
 
 class CustomTransformEdtV8:
     def __init__(
-        self, degrees: float, translation_range: Tuple[float, float] = None, scale: Tuple[float, float] = None
+        self,
+        degrees: float,
+        translation_range: Tuple[float, float] = None,
+        scale: Tuple[float, float] = None,
+        shear=10,
+        flip_p=0.5,
     ):
         self.common_transforms = transforms.Compose(
             [
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomVerticalFlip(),
-                transforms.RandomAffine(degrees=degrees, translate=translation_range, scale=scale, shear=10),
+                transforms.RandomHorizontalFlip(p=flip_p),
+                transforms.RandomVerticalFlip(p=flip_p),
+                transforms.RandomAffine(degrees=degrees, translate=translation_range, scale=scale, shear=shear),
             ]
         )
         # Common transformations that should be applied to both images and masks
@@ -127,6 +138,9 @@ class CustomTransformEdtV8:
                 transforms.Normalize([127], [30]),  # Adjust channel numbers according to your images
             ]
         )
+        self.degree = degrees
+        self.translation_range = translation_range
+        self.scale = scale
 
     def apply_mask_transforms(self, tensor):
         # Assuming tensor is a PyTorch tensor, you might need to convert it to PIL Image first
