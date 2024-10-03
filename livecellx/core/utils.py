@@ -105,7 +105,7 @@ def label_mask_to_edt_mask(label_mask, bg_val=0, dtype=np.uint8, normalize_func=
     # TODO: remove the guard below because it is unlikely that we will have a label mask with values > 255, but we should handle this case
     # The reason for "unlikely" is that the label mask is usually generated from a binary mask
     # And thus the normalization process in the loop above will ensure that the values are in the range [0, 255]
-    if edt_mask.max() > 255:
+    if edt_mask.max() > 255 and dtype == np.uint8:
         edt_mask = normalize_img_to_uint8(edt_mask)
 
     return edt_mask.astype(dtype)
