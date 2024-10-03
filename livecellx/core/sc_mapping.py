@@ -169,6 +169,7 @@ def process_dt_scs_wrapper(
     zero_map_dir=None,
     multi_map_dir=None,
     cores=16,
+    save_viz_check=False,
 ):
     # Ensure output directories exist
     if zero_map_dir is not None:
@@ -197,7 +198,7 @@ def process_dt_scs_wrapper(
                 "multi_map_viz_dir": multi_map_dir,
                 "multimap_metric_threshold": 0.2,
                 "zeromap_metric_threshold": 0.8,
-                "save_viz_check": True,
+                "save_viz_check": save_viz_check,
                 "metric": metric,
                 "metric_key": metric,
             }
