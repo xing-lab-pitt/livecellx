@@ -1400,8 +1400,11 @@ class SingleCellTrajectoryCollection:
     - _iter_index: An index used for iterating over the track ID to trajectory mapping.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, scts: Optional[List[SingleCellTrajectory]] = None) -> None:
         self.track_id_to_trajectory: Dict[float, SingleCellTrajectory] = dict()
+        if scts is not None:
+            for sct in scts:
+                self.add_trajectory(sct)
         self._iter_index = 0
 
     def __contains__(self, track_id):
