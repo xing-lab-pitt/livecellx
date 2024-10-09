@@ -182,15 +182,16 @@ def divide_single_cell_watershed(
     num_gauss_areas=2,
     return_all=False,
     one_object=True,
+    padding=0,
 ):
-    contour_points = sample_sc.get_contour_coords_on_img_crop()
-    contour_mask = sample_sc.get_contour_mask()
+    contour_points = sample_sc.get_contour_coords_on_img_crop(padding=padding)
+    contour_mask = sample_sc.get_contour_mask(padding=padding)
 
     if raw_crop is None:
         if one_object:
-            raw_crop = sample_sc.get_contour_img()
+            raw_crop = sample_sc.get_contour_img(padding=padding)
         else:
-            raw_crop = sample_sc.get_img_crop()
+            raw_crop = sample_sc.get_img_crop(padding=padding)
     else:
         raw_crop = raw_crop.copy()
 
@@ -277,14 +278,16 @@ def divide_single_cell_watershed(
     return label_mask
 
 
-def gen_synthetic_overseg(sc, num_samples=10, max_try=20, **kwargs) -> List[Tuple[np.ndarray, np.ndarray, dict]]:
+def gen_synthetic_overseg(
+    sc, num_samples=10, max_try=20, padding=0, **kwargs
+) -> List[Tuple[np.ndarray, np.ndarray, dict]]:
     res_label_masks_and_params = []
     num_gauss_area = kwargs["num_gauss_areas"]
     for _ in range(num_samples):
         counter = 0
         num_segs = -1
         while num_segs < num_gauss_area and counter < max_try:
-            label_mask = divide_single_cell_watershed(sc, **kwargs)
+            label_mask = divide_single_cell_watershed(sc, padding=padding, **kwargs)
             num_segs = len(np.unique(label_mask)) - 1
             counter += 1
         if num_segs < num_gauss_area:
@@ -292,13 +295,19 @@ def gen_synthetic_overseg(sc, num_samples=10, max_try=20, **kwargs) -> List[Tupl
             continue
         meta = kwargs.copy()
         meta["num_segs"] = num_segs
+        meta["padding"] = padding
         eroded_label_mask = dilate_or_erode_label_mask(label_mask, scale_factor=-0.1, bg_val=0)
         res_label_masks_and_params.append((label_mask, eroded_label_mask, meta))
     return res_label_masks_and_params
 
 
 def process_sc_synthetic_overseg_crops(
-    sc, overseg_uns_key="overseg_imgs", num_samples=5, num_gauss_areas=np.arange(2, 6)
+    sc,
+    overseg_uns_key="overseg_imgs",
+    num_samples=5,
+    num_gauss_areas=np.arange(2, 6),
+    padding=0,
+    return_label_masks=False,
 ):
     sc.uns[overseg_uns_key] = []
     for num_gauss_area in num_gauss_areas:
@@ -311,6 +320,7 @@ def process_sc_synthetic_overseg_crops(
             edt_gauss_center_val=10,
             gauss_std=16,
             h_threshold=1,
+            padding=padding,
         )
         label_masks_and_params_local = gen_synthetic_overseg(
             sc,
@@ -321,10 +331,20 @@ def process_sc_synthetic_overseg_crops(
             gauss_std=16,
             marker_method="local",
             gauss_center_val=150,
+            padding=padding,
         )
         sc.uns[overseg_uns_key].extend(label_masks_and_params_hmax)
         sc.uns[overseg_uns_key].extend(label_masks_and_params_local)
-    return sc
+    if return_label_masks:
+        return {
+            "sc": sc,
+            "overseg_uns_key": overseg_uns_key,
+            "num_samples": num_samples,
+            "num_gauss_areas": num_gauss_areas,
+            "padding": padding,
+        }
+    else:
+        return sc
 
 
 def parallel_process_scs_synthetic_overseg_crops(
