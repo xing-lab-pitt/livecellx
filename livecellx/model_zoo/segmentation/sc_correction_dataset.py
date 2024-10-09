@@ -104,10 +104,17 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         self.input_type = input_type
         self.apply_gt_seg_edt = apply_gt_seg_edt
         self.exclude_raw_input_bg = exclude_raw_input_bg
+
         if subdirs is None and raw_df is not None:
             self.subdirs = raw_df["subdir"].values
+        elif subdirs is None:
+            # Constrcut subdirs from raw_img_paths
+            self.subdirs = [str(Path(path).parent.name) for path in self.raw_img_paths]
+            self.subdirs = pd.Series(self.subdirs)
         else:
             self.subdirs = subdirs
+        assert self.subdirs is not None, "subdirs of samples must be provided."
+
         self.subdir_set = set(self.subdirs)
         self.raw_df = raw_df
         print("input type:", self.input_type)
@@ -134,7 +141,9 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         return self.scales[idx]
 
     def get_subdir(self, idx):
-        return self.subdirs.iloc[idx]
+        if isinstance(self.subdirs, pd.Series):
+            return self.subdirs.iloc[idx]
+        return self.subdirs[idx]
 
     def label_mask_to_edt(label_mask: np.array, bg_val=0):
         label_mask = label_mask.astype(np.uint8)
