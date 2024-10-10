@@ -228,7 +228,7 @@ def underseg_overlay_scs(
     return (img_crop, seg_crop, combined_gt_mask)
 
 
-def gen_aug_diff_mask(aug_mask: np.array, combined_gt_mask: np.array, dtype=np.int32) -> np.array:
+def gen_aug_diff_mask(aug_mask: np.ndarray, combined_gt_mask: np.ndarray, dtype=np.int32) -> np.ndarray:
     """generate a mask based on the difference between the augmented mask and the combined gt mask
     0: no difference
     -1: augmented mask is 0, combined gt mask is 1 -> over-segmentation
@@ -237,9 +237,9 @@ def gen_aug_diff_mask(aug_mask: np.array, combined_gt_mask: np.array, dtype=np.i
 
     Parameters
     ----------
-    aug_mask : np.array
+    aug_mask : np.ndarray
         _description_
-    combined_gt_mask : np.array
+    combined_gt_mask : np.ndarray
         _description_
 
     Returns

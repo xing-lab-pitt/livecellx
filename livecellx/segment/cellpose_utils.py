@@ -2,7 +2,7 @@ import numpy as np
 from livecellx.preprocess.utils import normalize_img_to_uint8
 
 
-def segment_single_image_by_cellpose(image, model, channels=[[0, 0]], diameter=150) -> np.array:
+def segment_single_image_by_cellpose(image, model, channels=[[0, 0]], diameter=150) -> np.ndarray:
     result_tuple = model.eval([image], diameter=diameter, channels=channels)
     masks = result_tuple[0]
     return np.array(masks[0])

@@ -60,7 +60,7 @@ class SingleCellStatic:
         ----------
         timeframe : int
             _description_
-        bbox : np.array, optional
+        bbox : np.ndarray, optional
             [x1, y1, x2, y2], by default None
             follwoing skimage convention: "Bounding box (min_row, min_col, max_row, max_col). Pixels belonging to the bounding box are in the half-open interval [min_row; max_row) and [min_col; max_col)."
         regionprops : RegionProperties, optional
@@ -255,7 +255,7 @@ class SingleCellStatic:
     def update_regionprops(self):
         self.regionprops = self.compute_regionprops()
 
-    def get_contour(self) -> np.array:
+    def get_contour(self) -> np.ndarray:
         return np.copy(self.contour)
 
     def get_img(self):
@@ -278,7 +278,7 @@ class SingleCellStatic:
         mask = self.get_mask(dtype=dtype)
         return mask
 
-    def get_bbox(self, padding=None) -> np.array:
+    def get_bbox(self, padding=None) -> np.ndarray:
         # TODO: add unit test for this function
         if self.bbox is None:
             self.update_bbox()
@@ -390,7 +390,7 @@ class SingleCellStatic:
         if update_bbox:
             self.bbox = self.get_bbox_from_contour(self.contour)
 
-    def update_sc_mask_by_crop(self, mask, padding_pixels=np.zeros(2, dtype=int), bbox: np.array = None):
+    def update_sc_mask_by_crop(self, mask, padding_pixels=np.zeros(2, dtype=int), bbox: np.ndarray = None):
         """
         Updates the single cell mask by cropping the input mask to the bounding box of the single cell and updating the contour.
 
@@ -684,7 +684,7 @@ class SingleCellStatic:
         contours = self.get_contour_coords_on_crop(bbox=bbox, padding=padding)
         return self.get_bbox_from_contour(contours)
 
-    def get_contour_coords_on_img_crop(self, padding=0) -> np.array:
+    def get_contour_coords_on_img_crop(self, padding=0) -> np.ndarray:
         """
         A utility function to calculate pixel coord in image crop's coordinate system
         to draw contours on an image crop.
@@ -703,7 +703,7 @@ class SingleCellStatic:
         ys = self.contour[:, 1] - max(0, self.bbox[1] - padding)
         return np.array([xs, ys]).T
 
-    def get_contour_mask_closed_form(self, padding=0, crop=True) -> np.array:
+    def get_contour_mask_closed_form(self, padding=0, crop=True) -> np.ndarray:
         """If contour points are pixel-wise closed, use this function to fill the contour."""
         import scipy.ndimage as ndimage
 
@@ -729,7 +729,7 @@ class SingleCellStatic:
     @staticmethod
     def gen_contour_mask(
         contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255, dtype=bool
-    ) -> np.array:  #
+    ) -> np.ndarray:  #
         # TODO: optimize: we do not need img here but shape of img.
         from PIL import Image, ImageDraw
         import numpy as np
@@ -768,7 +768,7 @@ class SingleCellStatic:
     @staticmethod
     def gen_contour_mask_skimage_deprecated(
         contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255, dtype=bool
-    ) -> np.array:  #
+    ) -> np.ndarray:  #
         # TODO: optimize: we do not need img here but shape of img.
         from skimage.draw import line, polygon
 
@@ -790,7 +790,7 @@ class SingleCellStatic:
         res_mask = SingleCellStatic.gen_skimage_bbox_img_crop(bbox, res_mask, padding=padding)
         return res_mask
 
-    def get_contour_mask(self, padding=0, crop=True, bbox=None, dtype=bool) -> np.array:
+    def get_contour_mask(self, padding=0, crop=True, bbox=None, dtype=bool) -> np.ndarray:
         hash_key: Tuple = ("contour_mask", padding, crop, tuple(bbox if bbox is not None else [-1]))
         if self.enable_cache_contour_mask and hash_key in self.cache:
             return self.cache[hash_key]
@@ -802,7 +802,7 @@ class SingleCellStatic:
             self.cache[hash_key] = res
         return res
 
-    def get_contour_label_mask(self, padding=0, crop=True, bbox=None, dtype=int) -> np.array:
+    def get_contour_label_mask(self, padding=0, crop=True, bbox=None, dtype=int) -> np.ndarray:
         hash_key: Tuple = ("contour_mask", padding, crop, tuple(bbox if bbox is not None else [-1]))
         if self.enable_cache_contour_mask and hash_key in self.cache:
             return self.cache[hash_key]
@@ -814,7 +814,7 @@ class SingleCellStatic:
             self.cache[hash_key] = res
         return res
 
-    def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.array:
+    def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.ndarray:
         """return a contour image with out of self cell region set to background_val"""
 
         # TODO: filter kwargs for contour mask case. (currently using the same kwargs as self.gen_skimage_bbox_img_crop)

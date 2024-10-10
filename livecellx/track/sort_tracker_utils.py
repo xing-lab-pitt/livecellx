@@ -20,7 +20,7 @@ def is_SORT_tracker_result_empty(sort_tracker):
     return sort_tracker.time_since_update is not None
 
 
-def get_bbox_from_contour(contour: list) -> np.array:
+def get_bbox_from_contour(contour: list) -> np.ndarray:
     """get bboxes from a contour
 
     Parameters

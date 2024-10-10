@@ -376,7 +376,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         img = self.read_img_url_func(url)
         return img
 
-    def get_img_by_time(self, time) -> np.array:
+    def get_img_by_time(self, time) -> np.ndarray:
         """Get an image by time"""
         return self.read_img_url_func(self.time2url[time])
 
@@ -473,7 +473,7 @@ class SingleImageDataset(LiveCellImageDataset):
     def read_single_img_from_mem(self, url):
         return self.img.copy()
 
-    def get_img_by_time(self, time=None) -> np.array:
+    def get_img_by_time(self, time=None) -> np.ndarray:
         return self.read_single_img_from_mem(self.url)
 
     def get_img_by_idx(self, idx=None):

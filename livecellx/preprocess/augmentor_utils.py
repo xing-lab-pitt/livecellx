@@ -2,14 +2,14 @@ import Augmentor
 import numpy as np
 
 
-def augment_images_by_augmentor(images: np.array, masks: np.array, crop_image_size: int, sampling_amount: int):
+def augment_images_by_augmentor(images: np.ndarray, masks: np.ndarray, crop_image_size: int, sampling_amount: int):
     """Augments images and masks using Augmentor library.
 
     Parameters
     ----------
-    images : np.array
+    images : np.ndarray
         N x w x h x channel
-    masks : np.array
+    masks : np.ndarray
         N x w x h x channel
     crop_image_size :
         size of the cropped image (outputs)

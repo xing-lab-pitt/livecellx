@@ -134,7 +134,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
 
         self.force_no_edt_aug = force_no_edt_aug
 
-    def get_raw_seg(self, idx) -> np.array:
+    def get_raw_seg(self, idx) -> np.ndarray:
         return np.array(Image.open(self.raw_seg_paths[idx]))
 
     def get_scale(self, idx):
@@ -145,7 +145,8 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             return self.subdirs.iloc[idx]
         return self.subdirs[idx]
 
-    def label_mask_to_edt(label_mask: np.array, bg_val=0):
+    @staticmethod
+    def label_mask_to_edt(label_mask: np.ndarray, bg_val=0):
         label_mask = label_mask.astype(np.uint8)
         labels = set(np.unique(label_mask))
         labels.remove(bg_val)
@@ -331,7 +332,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             "aug_diff_img": self.aug_diff_img_paths[idx] if self.aug_diff_img_paths else None,
         }
 
-    def get_gt_label_mask(self, idx) -> np.array:
+    def get_gt_label_mask(self, idx) -> np.ndarray:
         return np.array(Image.open(self.gt_label_mask_paths[idx]))
 
     def __len__(self):
