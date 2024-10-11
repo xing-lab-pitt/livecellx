@@ -39,6 +39,7 @@ def parse_args():
     parser.add_argument("--aug_scale", dest="aug_scale", type=str, default="0.5,1.5")
     parser.add_argument("--split_seed", dest="split_seed", type=int, default=237)
     parser.add_argument("--epochs", dest="epochs", type=int, default=1000)
+    parser.add_argument("--num_workers", dest="num_workers", type=int, default=8)
 
     parser.add_argument(
         "--input_type",
@@ -198,7 +199,7 @@ def main_train():
         model = CorrectSegNetAux(
             # train_input_paths=train_input_tuples,
             lr=args.lr,
-            num_workers=1,
+            num_workers=args.num_workers,
             batch_size=args.batch_size,
             train_transforms=train_transforms,
             train_dataset=train_dataset,
@@ -218,7 +219,7 @@ def main_train():
         model = CorrectSegNet(
             # train_input_paths=train_input_tuples,
             lr=args.lr,
-            num_workers=1,
+            num_workers=args.num_workers,
             batch_size=args.batch_size,
             train_transforms=train_transforms,
             train_dataset=train_dataset,
