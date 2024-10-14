@@ -255,6 +255,17 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             input_img = torch.stack(
                 [augmented_raw_transformed_img, augmented_raw_transformed_img, augmented_scaled_seg_mask], dim=0
             )
+        elif self.input_type == "edt_v1":
+            # TODO edt transform already done before the transform
+            # augmented_scaled_seg_mask = scipy.ndimage.distance_transform_edt(augmented_scaled_seg_mask)
+            if isinstance(augmented_scaled_seg_mask, torch.Tensor):
+                if augmented_scaled_seg_mask.is_cuda:
+                    augmented_scaled_seg_mask = augmented_scaled_seg_mask.cpu()
+                augmented_scaled_seg_mask = augmented_scaled_seg_mask.numpy()
+            augmented_scaled_seg_mask = torch.tensor(normalize_edt(augmented_scaled_seg_mask, edt_max=5))
+            input_img = torch.stack(
+                [augmented_raw_img, augmented_scaled_seg_mask, torch.zeros_like(augmented_scaled_seg_mask)], dim=0
+            )
         elif self.input_type == "raw_duplicate":
             input_img = torch.stack([augmented_raw_img, augmented_raw_img, augmented_raw_img], dim=0)
         else:
