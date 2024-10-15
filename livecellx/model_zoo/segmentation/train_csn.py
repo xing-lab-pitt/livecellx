@@ -46,7 +46,7 @@ def parse_args():
         dest="input_type",
         type=str,
         default="raw_aug_seg",
-        choices=["raw_aug_seg", "raw_aug_duplicate", "raw_duplicate", "edt_v0"],
+        choices=["raw_aug_seg", "raw_aug_duplicate", "raw_duplicate", "edt_v0", "edt_v1"],
     )
     parser.add_argument("--apply_gt_seg_edt", dest="apply_gt_seg_edt", default=False, action="store_true")
     parser.add_argument("--class-weights", dest="class_weights", type=str, default="1,1,1")
