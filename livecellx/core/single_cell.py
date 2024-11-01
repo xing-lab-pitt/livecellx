@@ -23,6 +23,18 @@ from livecellx.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
 from livecellx.livecell_logger import main_info, main_warning, main_exception
 
 
+def _assign_uuid(exclude_set: Optional[Set[uuid.UUID]] = None, max_try=50) -> uuid.UUID:
+    if exclude_set is None:
+        exclude_set = set()
+    while True:
+        new_uuid = uuid.uuid4()
+        if new_uuid not in exclude_set:
+            return new_uuid
+        max_try -= 1
+        if max_try <= 0:
+            raise ValueError("Cannot generate a new uuid that is not in the exclude set.")
+
+
 # TODO: possibly refactor load_from_json methods into a mixin class
 class SingleCellStatic:
     """Single cell at one time frame"""
@@ -838,6 +850,21 @@ class SingleCellStatic:
         self.feature_dict[name] = features
 
     def get_feature_pd_series(self):
+        """
+        Generate a pandas Series containing features for a single cell.
+
+        This method iterates over the feature dictionary (`self.feature_dict`) and converts each feature
+        into a pandas Series. The features can be of type list, numpy array, or pandas Series. Each feature
+        is prefixed with its name and concatenated into a single pandas Series. Additionally, the time frame
+        (`self.timeframe`) and single cell ID (`self.id`) are added to the resulting Series.
+
+        Returns:
+            pd.Series: A pandas Series containing all the features with their respective prefixes,
+                   along with the time frame and single cell ID.
+
+        Raises:
+            TypeError: If a feature is not of type list, numpy array, or pandas Series.
+        """
         res_series = None
         for feature_name in self.feature_dict:
             features = self.feature_dict[feature_name]
@@ -993,15 +1020,7 @@ class SingleCellStatic:
 
     @staticmethod
     def assign_uuid(exclude_set: Optional[Set[uuid.UUID]] = None, max_try=50) -> uuid.UUID:
-        if exclude_set is None:
-            exclude_set = set()
-        while True:
-            new_uuid = uuid.uuid4()
-            if new_uuid not in exclude_set:
-                return new_uuid
-            max_try -= 1
-            if max_try <= 0:
-                raise ValueError("Cannot generate a new uuid that is not in the exclude set.")
+        _assign_uuid(exclude_set=exclude_set, max_try=max_try)
 
 
 class SingleCellTrajectory:
@@ -1064,7 +1083,7 @@ class SingleCellTrajectory:
             self.tmp = {}
 
     def __repr__(self) -> str:
-        return f"SingleCellTrajectory(track_id={self.track_id}, #timeframe set={len(self)})"
+        return f"SingleCellTrajectory(track_id={self.track_id}, length={len(self)}, timeframe_span={self.get_timeframe_span()})"
 
     def __len__(self):
         # return self.get_timeframe_span_length()
@@ -1143,16 +1162,17 @@ class SingleCellTrajectory:
         # Check if mother and daughter trajectories exist in metadata. If not, add them
         self._update_meta()
         # Update metadata with img and mask datasets json paths
-        self.meta.update(
-            {
-                "img_dataset_json_path": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
-                if self.img_dataset is not None
-                else None,
-                "mask_dataset_json_path": str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
-                if self.mask_dataset is not None
-                else None,
-            }
-        )
+        if self.meta is not None:
+            self.meta.update(
+                {
+                    "img_dataset_json_path": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
+                    if self.img_dataset is not None
+                    else None,
+                    "mask_dataset_json_path": str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
+                    if self.mask_dataset is not None
+                    else None,
+                }
+            )
 
         res = {
             "track_id": int(self.track_id),
@@ -1192,7 +1212,11 @@ class SingleCellTrajectory:
                 json.dump(json_dict, f, cls=LiveCellEncoder)
 
     def load_from_json_dict(self, json_dict, img_dataset=None, share_img_dataset=True):
-        self.track_id = json_dict["track_id"]
+        if "track_id" in json_dict:
+            self.track_id = json_dict["track_id"]
+        else:
+            main_warning(f"[SCT loading] track_id not found in json_dict")
+            self.track_id = _assign_uuid()
         if "meta" in json_dict:
             self.meta = json_dict["meta"]
 
@@ -1262,16 +1286,17 @@ class SingleCellTrajectory:
 
     def get_sc_feature_table(self):
         feature_table = None
+        all_rows = {}
         for timeframe, sc in self:
             assert timeframe == sc.timeframe, "timeframe mismatch"
             feature_series = sc.get_feature_pd_series()
             feature_series["track_id"] = self.track_id
             row_idx = "_".join([str(self.track_id), str(sc.timeframe)])
-            if feature_table is None:
-                feature_table = pd.DataFrame({row_idx: feature_series})
-            else:
-                feature_table[row_idx] = feature_series
-        feature_table = feature_table.transpose()
+            all_rows[row_idx] = feature_series
+        # Concat at once to fragment warning: "PerformanceWarning: DataFrame is highly fragmented." from pandas
+        feature_table = pd.concat(all_rows.values(), axis=1).T
+        if feature_table is not None:
+            feature_table = feature_table.transpose()
         return feature_table
 
     def get_sc_bboxes(self):
