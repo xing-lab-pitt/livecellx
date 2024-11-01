@@ -256,7 +256,6 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
                 [augmented_raw_transformed_img, augmented_raw_transformed_img, augmented_scaled_seg_mask], dim=0
             )
         elif self.input_type == "edt_v1":
-            # TODO edt transform already done before the transform
             # augmented_scaled_seg_mask = scipy.ndimage.distance_transform_edt(augmented_scaled_seg_mask)
             if isinstance(augmented_scaled_seg_mask, torch.Tensor):
                 if augmented_scaled_seg_mask.is_cuda:
