@@ -134,7 +134,7 @@ def main_train():
         train_transforms = csn_configs.gen_train_transform_v7(degrees, translation_range, args.aug_scale)
     elif args.aug_ver == "edt-v8":
         train_transforms = csn_configs.gen_train_transform_edt_v8(
-            degrees=degrees, translation_range=translation_range, scale=args.aug_scale
+            degrees=degrees, translation_range=translation_range, scale=args.aug_scale, shear=10, flip_p=0.5
         )
     else:
         raise ValueError("Unknown augmentation version")
