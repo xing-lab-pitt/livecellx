@@ -206,7 +206,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         gt_pixel_weight = torch.tensor(gt_pixel_weight).float()
 
         # Transform to edt for inputs before augmentation
-        if self.input_type == "edt_v0":
+        if self.input_type == "edt_v0" or self.input_type == "edt_v1":
             scaled_seg_mask = label_mask_to_edt_mask(scaled_seg_mask, bg_val=self.bg_val)
             scaled_seg_mask = torch.tensor(scaled_seg_mask).float()
 
