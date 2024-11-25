@@ -1145,7 +1145,7 @@ class SingleCellTrajectory:
         return self.timeframe_to_single_cell[timeframe]
 
     def get_all_scs(self) -> List[SingleCellStatic]:
-        scs = self.timeframe_to_single_cell.values()
+        scs = list(self.timeframe_to_single_cell.values())
         sorted_scs = sorted(scs, key=lambda sc: sc.timeframe)
         return list(sorted_scs)
 
@@ -1295,8 +1295,6 @@ class SingleCellTrajectory:
             all_rows[row_idx] = feature_series
         # Concat at once to fragment warning: "PerformanceWarning: DataFrame is highly fragmented." from pandas
         feature_table = pd.concat(all_rows.values(), axis=1).T
-        if feature_table is not None:
-            feature_table = feature_table.transpose()
         return feature_table
 
     def get_sc_bboxes(self):
@@ -1353,6 +1351,10 @@ class SingleCellTrajectory:
             return SingleCellTrajectory(track_id=track_id)
 
         self_span = self.get_timeframe_span()
+        if min_time is None or min_time < self_span[0]:
+            min_time = self_span[0]
+        if max_time is None or max_time > self_span[1]:
+            max_time = self_span[1]
 
         # TODO: if time is float case, consider round-off errors
         if min_time == self_span[0]:
@@ -1410,6 +1412,21 @@ class SingleCellTrajectory:
 
     def show_on_grid(self, **kwargs):
         return show_sct_on_grid(self, **kwargs)
+
+    def get_prev_by_sc(self, sc: SingleCellStatic):
+        cur_time: Union[int, float] = sc.timeframe
+        times: Union[List[int], List[float]] = self.timeframe_to_single_cell.keys()
+        # Get the closest time
+        prev_time = None
+        min_diff = None
+        for time in times:
+            if time < cur_time:
+                if min_diff is None or cur_time - time < min_diff:
+                    min_diff = cur_time - time
+                    prev_time = time
+        if prev_time is None:
+            return None
+        return self.timeframe_to_single_cell[prev_time]
 
 
 def load_from_json_dict_parallel_wrapper(track_id, trajectory_dict):
@@ -1647,6 +1664,21 @@ class SingleCellTrajectoryCollection:
                 if tid not in remove_tids:
                     new_sctc.add_trajectory(sct)
             return new_sctc
+
+    def show_tracks(self: "SingleCellTrajectoryCollection"):
+        """Plot each trajectory as a line with scatter points as one row. X-axis is time frame, Y-axis is track_id"""
+        fig, ax = plt.subplots(1, 1, figsize=(5, 20), dpi=300)
+        track_y = 0
+        for tid, sct in self:
+            times = list(sct.timeframe_to_single_cell.keys())
+            ax.plot(times, [track_y] * len(times), marker="o", linestyle="-", color="blue", markersize=2)
+            track_y += 10
+        ax.set_xlabel("Time frame")
+        ax.set_ylabel("Track ID")
+        # Set y range, starting at 0
+        ax.set_ylim(0, track_y)
+        plt.show()
+        return fig, ax
 
 
 def create_sctc_from_scs(scs: List[SingleCellStatic]) -> SingleCellTrajectoryCollection:
@@ -2015,6 +2047,17 @@ def create_label_mask_from_scs(scs: List[SingleCellStatic], labels=None, dtype=n
 
 
 def largest_bbox(scs):
+    """
+    Calculate the largest bounding box that can enclose all the bounding boxes in the given list.
+
+    Args:
+        scs (list): A list of objects, each having a 'bbox' attribute which is a list or tuple of four integers
+                    [x_min, y_min, x_max, y_max] representing the bounding box coordinates.
+
+    Returns:
+        list: A list of four integers [x_min, y_min, x_max, y_max] representing the largest bounding box that
+              can enclose all the bounding boxes in the input list. If the input list is empty, returns [0, 0, 0, 0].
+    """
     if len(scs) == 0:
         return [0, 0, 0, 0]
     largest_bbox = [np.inf, np.inf, -np.inf, -np.inf]
@@ -2029,3 +2072,80 @@ def largest_bbox(scs):
         if bbox[3] > largest_bbox[3]:
             largest_bbox[3] = bbox[3]
     return largest_bbox
+
+
+def compute_bbox_overlap(sc1, sc2):
+    """
+    Compute the overlap between two bounding boxes.
+    The bounding boxes are in the format [x1, y1, x2, y2].
+
+    Parameters:
+    - bbox1: List or array of four elements [x1, y1, x2, y2]
+    - bbox2: List or array of four elements [x1, y1, x2, y2]
+
+    Returns:
+    - overlap: Overlap value
+    """
+    # Extract coordinates
+    x1_1, y1_1, x2_1, y2_1 = sc1.bbox
+    x1_2, y1_2, x2_2, y2_2 = sc2.bbox
+
+    # Compute the intersection coordinates
+    x1_inter = max(x1_1, x1_2)
+    y1_inter = max(y1_1, y1_2)
+    x2_inter = min(x2_1, x2_2)
+    y2_inter = min(y2_1, y2_2)
+
+    # Compute the area of the intersection
+    inter_width = max(0, x2_inter - x1_inter)
+    inter_height = max(0, y2_inter - y1_inter)
+    inter_area = inter_width * inter_height
+
+    # Compute the area of both bounding boxes
+    area1 = (x2_1 - x1_1) * (y2_1 - y1_1)
+    area2 = (x2_2 - x1_2) * (y2_2 - y1_2)
+
+    # Compute the overlap
+    overlap = inter_area / (area1 + area2 - inter_area)
+
+    return overlap
+
+
+def compute_bbox_iomin(sc1, sc2):
+    """
+    Compute the Intersection over Minimum (IoMin) for two bounding boxes.
+    The bounding boxes are in the format [x1, y1, x2, y2].
+
+    Parameters:
+    - bbox1: List or array of four elements [x1, y1, x2, y2]
+    - bbox2: List or array of four elements [x1, y1, x2, y2]
+
+    Returns:
+    - iomin: Intersection over Minimum (IoMin) value
+    """
+    # Extract coordinates
+    x1_1, y1_1, x2_1, y2_1 = sc1.bbox
+    x1_2, y1_2, x2_2, y2_2 = sc2.bbox
+
+    # Compute the intersection coordinates
+    x1_inter = max(x1_1, x1_2)
+    y1_inter = max(y1_1, y1_2)
+    x2_inter = min(x2_1, x2_2)
+    y2_inter = min(y2_1, y2_2)
+
+    # Compute the area of the intersection
+    inter_width = max(0, x2_inter - x1_inter)
+    inter_height = max(0, y2_inter - y1_inter)
+    inter_area = inter_width * inter_height
+
+    # Compute the area of both bounding boxes
+    area1 = (x2_1 - x1_1) * (y2_1 - y1_1)
+    area2 = (x2_2 - x1_2) * (y2_2 - y1_2)
+
+    # Compute the Intersection over Minimum (IoMin)
+    min_area = min(area1, area2)
+    if min_area == 0:
+        return 0
+    iomin = inter_area / min_area
+
+    return iomin
