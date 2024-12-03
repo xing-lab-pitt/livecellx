@@ -12,7 +12,7 @@ from skimage.measure import regionprops, label
 
 from livecellx.core.single_cell import SingleCellStatic
 from livecellx.segment.ou_utils import create_ou_input_from_sc
-from livecellx.preprocess.utils import normalize_img_to_uint8, enhance_contrast
+from livecellx.preprocess.utils import normalize_img_to_uint8, enhance_contrast, normalize_edt
 
 
 def viz_ou_sc_outputs(
@@ -62,7 +62,7 @@ def viz_ou_outputs(
     input_type="raw_aug_duplicate",
     edt_mask=None,
     edt_transform=None,
-    h_threshold=1,
+    h_threshold=1.0,
 ) -> Tuple:
     original_shape = augmented_ou_crop.shape
     original_ou_input = augmented_ou_crop.copy()
@@ -75,9 +75,22 @@ def viz_ou_outputs(
         # normalize_edt(augmented_scaled_seg_mask, edt_max=4)
         assert edt_mask is not None and edt_transform is not None
         # Transform edt_mask to tensor
-        edt_mask = torch.tensor([edt_mask]).squeeze().unsqueeze(0)
-        edt_mask = edt_transform(edt_mask).squeeze()
-        ou_input = torch.stack([augmented_ou_crop, augmented_ou_crop, edt_mask], dim=0)
+        _edt_mask = torch.tensor([edt_mask]).squeeze().unsqueeze(0)
+        _edt_mask = edt_transform(_edt_mask).squeeze()
+        _edt_mask = normalize_edt(_edt_mask.cpu().detach().numpy())
+        _edt_mask = torch.tensor([_edt_mask]).squeeze()
+        ou_input = torch.stack([augmented_ou_crop, augmented_ou_crop, _edt_mask], dim=0)
+    elif input_type == "edt_v1":
+        # normalize_edt(augmented_scaled_seg_mask, edt_max=4)
+        assert edt_mask is not None and edt_transform is not None
+        # Transform edt_mask to tensor
+        _edt_mask = torch.tensor([edt_mask]).squeeze().unsqueeze(0)
+        _edt_mask = edt_transform(_edt_mask).squeeze()
+        _edt_mask = normalize_edt(_edt_mask.cpu().detach().numpy())
+        _edt_mask = torch.tensor([_edt_mask]).squeeze()
+        ou_input = torch.stack([augmented_ou_crop, _edt_mask, torch.zeros_like(_edt_mask)], dim=0)
+    else:
+        raise ValueError(f"Invalid input_type: {input_type}")
 
     ou_input = ou_input.unsqueeze(0)  # For batch size 1
     ou_input = ou_input.float().cuda()
