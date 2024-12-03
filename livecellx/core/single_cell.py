@@ -1033,7 +1033,7 @@ class SingleCellTrajectory:
 
     def __init__(
         self,
-        track_id: int = None,
+        track_id=None,
         timeframe_to_single_cell: Dict[int, SingleCellStatic] = None,
         img_dataset: LiveCellImageDataset = None,
         mask_dataset: LiveCellImageDataset = None,
@@ -1116,12 +1116,17 @@ class SingleCellTrajectory:
         for sc in iter(self.timeframe_to_single_cell.values()):
             sc.add_feature(feature_key, func(sc))
 
-    def add_single_cell(self, timeframe, sc: SingleCellStatic):
+    def add_sc_by_time(self, timeframe, sc: SingleCellStatic):
         self.timeframe_to_single_cell[timeframe] = sc
         self.timeframe_set.add(timeframe)
         self.times = sorted(self.timeframe_set)
 
-    add_sc = add_single_cell
+    add_single_cell_by_time = add_sc_by_time
+
+    def add_sc(self, sc: SingleCellStatic):
+        self.add_sc_by_time(sc.timeframe, sc)
+
+    add_single_cell = add_sc
 
     def get_img(self, timeframe):
         return self.timeframe_to_single_cell[timeframe].get_img()
@@ -1154,9 +1159,12 @@ class SingleCellTrajectory:
     def num_scs(self) -> int:
         return len(self.timeframe_to_single_cell)
 
-    def pop_single_cell(self, timeframe: int):
+    def pop_single_cell_by_time(self, timeframe: int):
         self.timeframe_set.remove(timeframe)
         return self.timeframe_to_single_cell.pop(timeframe)
+
+    def pop_sc(self, sc: SingleCellStatic):
+        return self.pop_single_cell_by_time(sc.timeframe)
 
     def to_json_dict(self, dataset_json_dir=None):
         # Check if mother and daughter trajectories exist in metadata. If not, add them
@@ -1321,7 +1329,7 @@ class SingleCellTrajectory:
         if len(self.timeframe_set.intersection(other_sct.timeframe_set)) > 0:
             raise ValueError("cannot add overlapping single cell trajectories")
         for timeframe, sc in other_sct:
-            self.add_single_cell(timeframe, sc)
+            self.add_single_cell_by_time(timeframe, sc)
 
     def add_mother(self, mother_sct: "SingleCellTrajectory"):
         self.mother_trajectories.add(mother_sct)
@@ -1336,9 +1344,18 @@ class SingleCellTrajectory:
         self.daughter_trajectories.remove(daughter_sct)
 
     def copy(self):
-        import copy
+        # import copy
 
-        return copy.deepcopy(self)
+        return SingleCellTrajectory(
+            track_id=self.track_id,
+            timeframe_to_single_cell=self.timeframe_to_single_cell.copy(),
+            img_dataset=self.img_dataset,
+            mask_dataset=self.mask_dataset,
+            mother_trajectories=self.mother_trajectories.copy(),
+            daughter_trajectories=self.daughter_trajectories.copy(),
+            meta=self.meta.copy(),
+            tmp=self.tmp.copy(),
+        )
 
     def is_empty(self):
         return len(self.timeframe_set) == 0
@@ -1366,7 +1383,7 @@ class SingleCellTrajectory:
         sub_sct = SingleCellTrajectory(img_dataset=self.img_dataset, mask_dataset=self.mask_dataset, track_id=track_id)
         for timeframe, sc in self:
             if timeframe >= min_time and timeframe <= max_time:
-                sub_sct.add_single_cell(timeframe, sc)
+                sub_sct.add_single_cell_by_time(timeframe, sc)
         if require_copy_mothers_info:
             sub_sct.mother_trajectories = self.mother_trajectories.copy()
         if require_copy_daughters_info:
@@ -1525,8 +1542,14 @@ class SingleCellTrajectoryCollection:
 
     get_all_track_ids = get_all_tids
 
-    def pop_trajectory(self, track_id):
+    def pop_trajectory_by_id(self, track_id):
         return self.track_id_to_trajectory.pop(track_id)
+
+    def pop_trajectory(self, trajectory: SingleCellTrajectory):
+        return self.pop_trajectory_by_id(trajectory.track_id)
+
+    pop_sct = pop_trajectory
+    pop_sct_by_id = pop_trajectory_by_id
 
     def to_json_dict(self, dataset_json_dir=None):
         return {
@@ -1656,7 +1679,7 @@ class SingleCellTrajectoryCollection:
                 remove_scs.extend(_tmp_scs)
         if inplace:
             for tid in remove_tids:
-                self.pop_trajectory(tid)
+                self.pop_trajectory_by_id(tid)
             return self
         else:
             new_sctc = SingleCellTrajectoryCollection()

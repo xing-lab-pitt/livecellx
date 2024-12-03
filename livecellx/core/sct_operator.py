@@ -282,8 +282,8 @@ class SctOperator:
         if sct1_span[1] < sct2_span[0] or sct2_span[1] < sct1_span[0]:
             res_traj = sct1.copy()
             res_traj.add_nonoverlapping_sct(sct2)
-            self.traj_collection.pop_trajectory(sct1.track_id)
-            self.traj_collection.pop_trajectory(sct2.track_id)
+            self.traj_collection.pop_trajectory_by_id(sct1.track_id)
+            self.traj_collection.pop_trajectory_by_id(sct2.track_id)
             self.traj_collection.add_trajectory(res_traj)
 
             # self.viewer.layers.remove(self.shape_layer)
@@ -345,7 +345,7 @@ class SctOperator:
                 remove_scs.append(sc)
         for id in remove_tids:
             main_info(f"removing empty contour sct with id {id}")
-            self.traj_collection.pop_trajectory(id)
+            self.traj_collection.pop_trajectory_by_id(id)
 
     def remove_shape_layer(self):
         self.viewer.layers.remove(self.shape_layer)
@@ -462,7 +462,7 @@ class SctOperator:
         assert len(self.select_info) == 1, "Please select one shape to disconnect."
         sct, sc, old_shape_index = self.select_info[0]
         print("disconnecting shape...")
-        old_traj = self.traj_collection.pop_trajectory(sct.track_id)
+        old_traj = self.traj_collection.pop_trajectory_by_id(sct.track_id)
 
         max_tid = self.traj_collection.get_max_tid()
         # # Py2: prevent from overflow, no need to check in py 3
@@ -534,7 +534,7 @@ class SctOperator:
         self.shape_layer.remove_selected()
         print("selected_track_ids: ", selected_track_ids)
         for track_id in selected_track_ids:
-            self.traj_collection.pop_trajectory(track_id)
+            self.traj_collection.pop_trajectory_by_id(track_id)
         self.store_shape_layer_info()
         self.clear_selection()
         print("<delete operation complete>")
