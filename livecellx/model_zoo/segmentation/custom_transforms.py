@@ -111,11 +111,11 @@ class CustomTransformV7:
 class CustomTransformEdtV8:
     def __init__(
         self,
-        degrees: float,
+        degrees: float = 0,
         translation_range: Tuple[float, float] = None,
         scale: Tuple[float, float] = None,
-        shear=10,
-        flip_p=0.5,
+        shear=0,
+        flip_p=0,
     ):
         self.common_transforms = transforms.Compose(
             [
