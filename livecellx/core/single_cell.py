@@ -35,6 +35,10 @@ def _assign_uuid(exclude_set: Optional[Set[uuid.UUID]] = None, max_try=50) -> uu
             raise ValueError("Cannot generate a new uuid that is not in the exclude set.")
 
 
+class Config:
+    json_indent = 4
+
+
 # TODO: possibly refactor load_from_json methods into a mixin class
 class SingleCellStatic:
     """Single cell at one time frame"""
@@ -651,7 +655,7 @@ class SingleCellStatic:
 
         with open(path, "w+") as f:
             try:
-                json.dump(all_sc_jsons, f, cls=LiveCellEncoder)
+                json.dump(all_sc_jsons, f, cls=LiveCellEncoder, indent=Config.json_indent)
             except TypeError as e:
                 main_exception("sample sc:" + str(all_sc_jsons[0]))
                 main_exception("Error writing json file. Check that all attributes are serializable.")
@@ -680,10 +684,10 @@ class SingleCellStatic:
             self.mask_dataset.write_json(out_dir=mask_dataset_dir, overwrite=False)
 
         if path is None:
-            return json.dumps(json_dict, cls=LiveCellEncoder)
+            return json.dumps(json_dict, cls=LiveCellEncoder, indent=Config.json_indent)
         else:
             with open(path, "w+") as f:
-                json.dump(json_dict, f, cls=LiveCellEncoder)
+                json.dump(json_dict, f, cls=LiveCellEncoder, indent=Config.json_indent)
 
     def get_contour_coords_on_crop(self, bbox=None, padding=0):
         if bbox is None:
@@ -1214,10 +1218,10 @@ class SingleCellTrajectory:
             self.mask_dataset.write_json(out_dir=mask_dataset_dir, overwrite=False)
 
         if path is None:
-            return json.dumps(json_dict, cls=LiveCellEncoder)
+            return json.dumps(json_dict, cls=LiveCellEncoder, indent=Config.json_indent)
         else:
             with open(path, "w+") as f:
-                json.dump(json_dict, f, cls=LiveCellEncoder)
+                json.dump(json_dict, f, cls=LiveCellEncoder, indent=Config.json_indent)
 
     def load_from_json_dict(self, json_dict, img_dataset=None, share_img_dataset=True):
         if "track_id" in json_dict:
@@ -1595,7 +1599,9 @@ class SingleCellTrajectoryCollection:
             dataset_json_dir.mkdir(parents=True, exist_ok=True)
 
         with open(path, "w+") as f:
-            json.dump(self.to_json_dict(dataset_json_dir=dataset_json_dir), f, cls=LiveCellEncoder)
+            json.dump(
+                self.to_json_dict(dataset_json_dir=dataset_json_dir), f, cls=LiveCellEncoder, indent=Config.json_indent
+            )
 
     @staticmethod
     def load_from_json_file(path, parallel=False):
