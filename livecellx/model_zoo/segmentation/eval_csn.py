@@ -144,7 +144,7 @@ def match_label_mask_by_iou(
         return matched_num, out_num, gt_num
 
 
-def compute_watershed(edt_mask__np: np.ndarray, h_threshold=1, edt_positive_threshold=0.9):
+def compute_watershed(edt_mask__np: np.ndarray, h_threshold=1, edt_positive_threshold=0.9, peak_distance=50):
     """
     Perform watershed segmentation on the input EDT mask.
 
@@ -167,7 +167,6 @@ def compute_watershed(edt_mask__np: np.ndarray, h_threshold=1, edt_positive_thre
         markers = skimage.measure.label(local_hmax, connectivity=1)
     elif markers is None and marker_method == "local":
         # TODO: support local peak method
-        peak_distance = 50
         # use local peak as default markers
         coords = peak_local_max(edt_mask__np, min_distance=peak_distance, footprint=np.ones((3, 3)))
         mask = np.zeros(edt_mask__np.shape, dtype=bool)
