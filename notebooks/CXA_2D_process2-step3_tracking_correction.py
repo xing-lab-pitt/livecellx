@@ -68,17 +68,75 @@ lcx_out_dir.mkdir(parents=True, exist_ok=True)
 # SingleCellStatic.write_single_cells_json(all_scs, lcx_out_dir / "single_cells.json")
 # mapping_path = lcx_out_dir / "all_sci2sci2metric.json"
 
-correction_out_dir = lcx_out_dir / (
-    f"traj_logics_correction_12-4_iomin-{match_threshold}_search_interval-{match_search_interval}"
+
+# model_short_name = "v15"
+# model_ckpt = "./lightning_logs/version_v15_02-augEdtV8-inEDT-scaleV2-lr=0.00001-aux/checkpoints/last.ckpt"
+model_short_name = "v17"
+model_ckpt = (
+    "lightning_logs/version_v17_02-inEDTv1-augEdtV8-scaleV2-lr=0.00001-aux/checkpoints/epoch=76-test_loss=1.5893.ckpt"
 )
-correction_out_dir.mkdir(parents=True, exist_ok=True)
-
-
-model_ckpt = "./lightning_logs/version_v15_02-augEdtV8-inEDT-scaleV2-lr=0.00001-aux/checkpoints/last.ckpt"
 model = CorrectSegNetAux.load_from_checkpoint(model_ckpt)
 input_transforms = csn_configs.gen_train_transform_edt_v8(degrees=0, shear=0, flip_p=0)
 model.cuda()
 model.eval()
+
+if args.DEBUG:
+    correction_out_dir = lcx_out_dir / ("traj_logics_DEBUG")
+    import shutil
+
+    shutil.rmtree(correction_out_dir, ignore_errors=True)
+else:
+    correction_out_dir = lcx_out_dir / (
+        f"traj_logics_correction_12-4_model-{model_short_name}-iomin-{match_threshold}_search_interval-{match_search_interval}"
+    )
+
+correction_out_dir.mkdir(parents=True, exist_ok=True)
+
+################################################
+# Redict stdout and stderr to log file
+################################################
+import logging
+import sys
+
+# Configure logging
+log_file = correction_out_dir / "log.out"
+logging.basicConfig(
+    level=logging.INFO,  # Set level to INFO to exclude DEBUG messages
+    format="%(asctime)s %(levelname)s %(message)s",
+    handlers=[logging.FileHandler(log_file, "w"), logging.StreamHandler()],
+)
+
+# Create a custom logger for your specific print statements
+custom_logger = logging.getLogger("CUSTOM_LOGGER")
+custom_logger.setLevel(logging.INFO)
+
+# Redirect only your specific print statements to the custom logger
+class StreamToCustomLogger:
+    def __init__(self, logger, log_level):
+        self.logger = logger
+        self.log_level = log_level
+        self.linebuf = ""
+
+    def write(self, buf):
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.log_level, line.rstrip())
+
+    def flush(self):
+        pass
+
+
+# Use the custom logger for your specific print statements
+sys.stdout = StreamToCustomLogger(custom_logger, logging.INFO)
+sys.stderr = StreamToCustomLogger(custom_logger, logging.ERROR)
+
+################################################
+# End of redirecting stdout and stderr to log file
+################################################
+
+################################################
+# End of redicting stdout and stderr to log file
+################################################
+
 
 # Write hyperparameters
 hyperparams = {
@@ -87,7 +145,11 @@ hyperparams = {
     "filter_dist_to_boundary": dist_to_boundary,
     "csn_model_ckpt": model_ckpt,
     "h_threshold": h_threshold,
+    "model_input": model.input_type,
+    "model_short_name": model_short_name,
+    "model_ckpt": model_ckpt,
 }
+
 with open(correction_out_dir / "hyperparams.json", "w") as f:
     json.dump(hyperparams, f, indent=4)
 
@@ -113,7 +175,7 @@ len(set([sc.id for sc in track_sctc.get_all_scs()]).intersection(set([sc.id for 
 # Filter track_sctc according to min/max time
 min_time, max_time = 0, None
 if args.DEBUG:
-    min_time, max_time = 20, 30
+    min_time, max_time = 20, 25
 filtered_sctc = SingleCellTrajectoryCollection()
 
 for tid, sct in track_sctc:
@@ -479,6 +541,11 @@ def correct_missing_case(in_sc, missing_sc, out_dir: Path, padding=20, out_thres
             print("Skipping sc", _sc.id, "because its ou_input is None")
             return
         edt_mask = label_mask_to_edt_mask(ou_input > 0)
+
+        # Retrieve raw image crop for EDT v1 case
+        raw_img_crop = _sc.get_img_crop(padding=padding, preprocess_img_func=normalize_img_to_uint8).astype(float)
+        raw_img_crop = normalize_img_to_uint8(raw_img_crop)
+
         seg_outputs, aux_output, watershed_mask = livecellx.segment.ou_viz.viz_ou_outputs(
             ou_input,
             ou_input > 0,
@@ -492,6 +559,7 @@ def correct_missing_case(in_sc, missing_sc, out_dir: Path, padding=20, out_thres
             edt_mask=edt_mask,
             edt_transform=input_transforms.apply_mask_transforms,
             h_threshold=h_threshold,
+            raw_crop=raw_img_crop,
         )
         seg_outputs = seg_outputs.detach().cpu().numpy()
         np.save(mask_dir / f"sc_{_sc.id}.npy", seg_outputs)
@@ -779,6 +847,8 @@ visited_pairs = set()
 for round in range(1, 50):
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
     print("Round", round)
+    print("# of visited pairs:", len(visited_pairs))
+    print("# of cells in cur_sctc:", len(cur_sctc.get_all_scs()))
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 
     # Add "sct" tmp key to each sc, for mapping sc to sct
@@ -922,7 +992,7 @@ for round in range(1, 50):
             h_threshold=h_threshold,
         )
 
-    fixed_counter = 0
+    fixed_attempt_counter = 0
     case_types = []
     fixed_result_dicts = []
     for underseg_candidate_pair in tqdm.tqdm(underseg_pairs_all, desc="Fixing by logics"):
@@ -931,18 +1001,9 @@ for round in range(1, 50):
         )
 
         res = fix_missing_trajectory(underseg_candidate_pair[0], underseg_candidate_pair[1])
-        fixed_counter += 1
+        fixed_attempt_counter += 1
         case_types.append(res["case_type"])
         fixed_result_dicts.append(res)
-
-    print(
-        "Number of fix attempts by CSN in this round:",
-        fixed_counter,
-    )
-    print(
-        "Percentage of cases fixed by CSN in this round:",
-        fixed_counter / len(underseg_pairs_all),
-    )
 
     # Plot case types distribution
     print("[Start] Distribution of case types")
@@ -982,6 +1043,7 @@ for round in range(1, 50):
         fixed_result_dicts
     ), "Length mismatch between underseg_pairs_all and fixed_result_dicts, check the code"
 
+    fixed_case_counter = 0
     for idx in range(len(underseg_pairs_all)):
         fix_res_dict = fixed_result_dicts[idx]
         underseg_candidate_pair = underseg_pairs_all[idx]
@@ -989,39 +1051,46 @@ for round in range(1, 50):
             continue
         elif fix_res_dict["state"] == "fixed":
             # TODO: pop_trajectory -> pop_trajectory_by_id
-
+            fixed_case_counter += 1
             # Important: Do not use sct stored in tmp directly
             # Becuase it may not be the latest sct in cur_sctc
             track_id = underseg_candidate_pair[0].tmp["sct"].track_id
             traj_in_sctc = corrected_sctc[track_id]
-            sct1 = update_sct(traj_in_sctc, fix_res_dict["updated_scts"][0])
-            corrected_sctc.pop_trajectory_by_id(sct1.track_id)
-            corrected_sctc.add_trajectory(sct1)
-            underseg_candidate_pair[0].tmp["sct"] = sct1
+            _updated_sct1 = update_sct(traj_in_sctc, fix_res_dict["updated_scts"][0])
+            corrected_sctc.pop_trajectory_by_id(_updated_sct1.track_id)
+            corrected_sctc.add_trajectory(_updated_sct1)
+            underseg_candidate_pair[0].tmp["sct"] = _updated_sct1
 
             # Update the second sc
             if len(fix_res_dict["updated_scts"]) > 1:
                 second_track_id = underseg_candidate_pair[1].tmp["sct"].track_id
                 second_traj_in_sctc = corrected_sctc[second_track_id]
-                _sct_second = update_sct(
+                _updated_sct_second = update_sct(
                     second_traj_in_sctc,
                     fix_res_dict["updated_scts"][1],
                 )
-                corrected_sctc.pop_trajectory_by_id(_sct_second.track_id)
-                corrected_sctc.add_trajectory(_sct_second)
-                underseg_candidate_pair[1].tmp["sct"] = _sct_second
+                corrected_sctc.pop_trajectory_by_id(_updated_sct_second.track_id)
+                corrected_sctc.add_trajectory(_updated_sct_second)
+                underseg_candidate_pair[1].tmp["sct"] = _updated_sct_second
 
-    corrected_sctc.write_json(
-        round_out_dir / (f"corrected_sctc-{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json")
-    )
+    print("*" * 100)
+    print(f"* Round-{round} Summary")
 
-    cur_sctc = corrected_sctc
-
+    print("Corrected SCTC: {} trajectories, Original SCTC: {} trajectories".format(len(corrected_sctc), len(cur_sctc)))
+    print("# of Total cells in corrected SCTC:", len(corrected_sctc.get_all_scs()))
+    print("# of Total cells in round-start SCTC:", len(cur_sctc.get_all_scs()))
+    print("# Fixed case:", fixed_case_counter)
     print(
-        "Corrected SCTC: {} trajectories, Original SCTC: {} trajectories".format(
-            len(corrected_sctc), len(original_sctc)
-        )
+        "Number of fix attempts by CSN in this round:",
+        fixed_attempt_counter,
     )
+    print(
+        "Percentage of cases fixed by CSN in this round:",
+        fixed_case_counter / fixed_attempt_counter,
+    )
+
+    print("*" * 100)
+    cur_sctc = corrected_sctc
 
     fig, ax = plt.subplots(1, 1, figsize=(40, 5), dpi=300)
     filtered_original_sctc = filter_boundary_traj(original_sctc, dist=dist_to_boundary)
@@ -1034,3 +1103,7 @@ for round in range(1, 50):
     # Rotate x-axis ticks
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
     plt.savefig(round_out_dir / "corrected_hist_traj_length.png")
+
+corrected_sctc.write_json(
+    correction_out_dir / (f"corrected_sctc-final-{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json")
+)
