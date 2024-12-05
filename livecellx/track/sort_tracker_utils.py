@@ -126,7 +126,7 @@ def update_traj_collection_by_SORT_tracker_detection(
             sc = matched_old_sc
         sc.update_bbox()  # further prevent from bbox diffinition differences
         _traj = traj_collection.get_trajectory(track_id)
-        _traj.add_single_cell(timeframe, sc)
+        _traj.add_single_cell_by_time(timeframe, sc)
 
 
 def track_SORT_bbox_from_contours(
