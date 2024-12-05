@@ -681,9 +681,9 @@ class SctOperator:
             track_id=self.traj_collection._next_track_id(),
             img_dataset=self.img_dataset,
         )
-        new_sct.add_sc(new_sc.timeframe, new_sc)
+        new_sct.add_sc(new_sc)
         self.traj_collection.add_trajectory(new_sct)
-        new_sct.add_sc(new_sc.timeframe, new_sc)
+        new_sct.add_sc(new_sc)
 
         self.created_objects.append(
             {
