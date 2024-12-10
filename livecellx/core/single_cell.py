@@ -316,6 +316,8 @@ class SingleCellStatic:
 
     @staticmethod
     def gen_skimage_bbox_img_crop(bbox, img, padding=0, pad_zeros=False, preprocess_img_func=None):
+
+        # Image level padding (not crop-level)
         if preprocess_img_func is not None:
             img = preprocess_img_func(img)
         min_x, max_x, min_y, max_y = (
