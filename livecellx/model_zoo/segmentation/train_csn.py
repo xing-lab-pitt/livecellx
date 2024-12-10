@@ -1,5 +1,7 @@
 import torch
 
+from livecellx.model_zoo.segmentation import custom_transforms
+
 torch.manual_seed(237)
 import argparse
 from pathlib import Path
@@ -73,6 +75,7 @@ def parse_args():
     parser.add_argument("--aug-ver", default="v0", type=str, help="The version of the augmentation to use.")
     parser.add_argument("--use-gt-pixel-weight", default=False, action="store_true")
     parser.add_argument("--aux-loss-weight", default=0.5, type=float)
+    parser.add_argument("--normalize_uint8", default=False, action="store_true")
 
     args = parser.parse_args()
 
@@ -135,6 +138,15 @@ def main_train():
     elif args.aug_ver == "edt-v8":
         train_transforms = csn_configs.gen_train_transform_edt_v8(
             degrees=degrees, translation_range=translation_range, scale=args.aug_scale, shear=10, flip_p=0.5
+        )
+    elif args.aug_ver == "edt-v9":
+        train_transforms = custom_transforms.CustomTransformEdtV9(
+            degrees=degrees,
+            translation_range=translation_range,
+            scale=args.aug_scale,
+            shear=10,
+            flip_p=0.5,
+            use_gaussian_blur=True,
         )
     else:
         raise ValueError("Unknown augmentation version")
@@ -214,6 +226,7 @@ def main_train():
             exclude_raw_input_bg=args.exclude_raw_input_bg,
             aux_loss_weight=args.aux_loss_weight,
             backbone=args.backbone,
+            normalize_uint8=args.normalize_uint8,
         )
     else:
         model = CorrectSegNet(
@@ -232,6 +245,7 @@ def main_train():
             input_type=args.input_type,
             apply_gt_seg_edt=args.apply_gt_seg_edt,
             exclude_raw_input_bg=args.exclude_raw_input_bg,
+            normalize_uint8=args.normalize_uint8,
         )
 
     print("logger save dir:", logger.save_dir)

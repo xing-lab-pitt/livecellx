@@ -23,6 +23,7 @@ from torch.nn import init
 from torch.utils.data import DataLoader, random_split
 import scipy.ndimage
 import skimage.measure
+from livecellx.core.single_cell import SingleCellStatic
 from livecellx.core.utils import label_mask_to_edt_mask
 from livecellx.preprocess.utils import normalize_img_to_uint8, normalize_edt
 
@@ -157,62 +158,158 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             res_edt = np.maximum(res_edt, tmp_edt)
         return res_edt
 
-    def __getitem__(self, idx):
+    def _load_raw_data(self, idx: int):
         """
-        Get the item at the given index.
-
-        Args:
-            idx (int): The index of the item to retrieve.
+        Load raw images, masks, and auxiliary data from disk for a given index,
+        without applying any transformations or conversions beyond reading from disk.
 
         Returns:
-            dict: A dictionary containing the following keys:
-                - "input": The input image tensor.
-                - "seg_mask": The segmented mask tensor. If input is edt_v0, this is the edt version.
-                - "gt_mask_binary": The binary ground truth mask tensor.
-                - "gt_mask": The combined ground truth tensor.
-                - "idx": The index of the item.
-                - "gt_label_mask": The ground truth label mask tensor.
-                - "ou_aux": The auxiliary output tensor.
-                - "gt_pixel_weight": The ground truth pixel weight tensor.
-                - "gt_mask_edt" (optional): The ground truth mask tensor with Euclidean Distance Transform applied.
+            dict:
+                - "augmented_raw_img": PIL Image
+                - "scaled_seg_mask": PIL Image
+                - "gt_mask": PIL Image
+                - "augmented_raw_transformed_img": PIL Image
+                - "aug_diff_img": PIL Image
+                - "gt_label_mask": numpy array
+                - "ou_aux_label": str or None
+                - "gt_pixel_weight": numpy array (if use_gt_pixel_weight=True), else None
         """
+        # Load images directly from disk
         augmented_raw_img = Image.open(self.raw_img_paths[idx])
         scaled_seg_mask = Image.open(self.scaled_seg_mask_paths[idx])
         gt_mask = Image.open(self.gt_mask_paths[idx])
         augmented_raw_transformed_img = Image.open(self.raw_transformed_img_paths[idx])
         aug_diff_img = Image.open(self.aug_diff_img_paths[idx])
         gt_label_mask__np = np.array(Image.open(self.gt_label_mask_paths[idx]))
-        if "ou_aux" in self.raw_df.columns:
-            ou_aux_label = self.raw_df["ou_aux"].iloc[idx]
-        else:
-            ou_aux_label = None
-        if self.normalize_uint8:
-            augmented_raw_img = normalize_img_to_uint8(np.array(augmented_raw_img))
-            augmented_raw_transformed_img = normalize_img_to_uint8(np.array(augmented_raw_transformed_img))
 
-        augmented_raw_img = torch.tensor(np.array(augmented_raw_img)).float()
-        scaled_seg_mask = torch.tensor(np.array(scaled_seg_mask)).float()
-        gt_mask = torch.tensor(np.array(gt_mask)).long()
-        augmented_raw_transformed_img = torch.tensor(np.array(augmented_raw_transformed_img)).float()
-        aug_diff_img = torch.tensor(np.array(aug_diff_img)).float()
-        gt_label_mask = torch.tensor(gt_label_mask__np.copy()).long()
+        ou_aux_label = self.raw_df["ou_aux"].iloc[idx] if "ou_aux" in self.raw_df.columns else None
 
+        # Load pixel weights if needed
         if self.use_gt_pixel_weight:
-            # Read the pixel weight map from the <gt_pixel_weight> subfolder. weights are in npy format
             gt_pixel_weight = np.load(self.gt_pixel_weight_paths[idx])
         else:
-            # Ones for all pixels
             gt_pixel_weight = np.ones_like(gt_label_mask__np)
-        gt_pixel_weight = torch.tensor(gt_pixel_weight).float()
 
-        # Transform to edt for inputs before augmentation
-        if self.input_type == "edt_v0" or self.input_type == "edt_v1":
-            scaled_seg_mask = label_mask_to_edt_mask(scaled_seg_mask, bg_val=self.bg_val)
-            scaled_seg_mask = torch.tensor(scaled_seg_mask).float()
+        return {
+            "augmented_raw_img": augmented_raw_img,
+            "scaled_seg_mask": scaled_seg_mask,
+            "gt_mask": gt_mask,
+            "augmented_raw_transformed_img": augmented_raw_transformed_img,
+            "aug_diff_img": aug_diff_img,
+            "gt_label_mask": gt_label_mask__np,
+            "ou_aux_label": ou_aux_label,
+            "gt_pixel_weight": gt_pixel_weight,
+        }
 
-        gt_label_edt = torch.tensor(label_mask_to_edt_mask(gt_label_mask, bg_val=self.bg_val)).float()
+    @staticmethod
+    def _prepare_sc_inference_data(
+        sc: SingleCellStatic,
+        padding_pixels: int = 0,
+        dtype=float,
+        remove_bg=True,
+        one_object=True,
+        scale=0,
+        bbox=None,
+        normalize_crop=True,
+    ):
+        # TODO
 
-        # Prepare for augmentation
+        raw_img_crop = sc.get_img_crop(bbox=bbox, padding=padding_pixels)
+        seg_crop = sc.get_mask_crop(bbox=bbox, padding=padding_pixels)
+        if normalize_crop:
+            raw_img_crop = normalize_img_to_uint8(raw_img_crop)
+        raw_transformed_img = raw_img_crop.copy().astype(dtype)
+        raw_transformed_img[(seg_crop.astype(int) < 1)] *= -1.0
+        raw_transformed_img = raw_transformed_img.astype(dtype)
+
+        # Normalize the images
+        # raw_transformed_img = normalize_img_to_uint8(raw_transformed_img)
+
+        raw_data = {
+            "augmented_raw_img": raw_img_crop,
+            "scaled_seg_mask": seg_crop,
+            "gt_mask": np.zeros_like(raw_img_crop),
+            "augmented_raw_transformed_img": raw_transformed_img,
+            "aug_diff_img": np.zeros_like(raw_img_crop),
+            "gt_label_mask": np.zeros_like(raw_img_crop),
+            "ou_aux_label": None,
+            "gt_pixel_weight": np.ones_like(raw_img_crop),
+        }
+        return raw_data
+
+    @staticmethod
+    def prepare_and_augment_data(
+        raw_data: dict,
+        input_type: str,
+        bg_val: float,
+        normalize_uint8: bool,
+        exclude_raw_input_bg: bool,
+        force_no_edt_aug: bool,
+        apply_gt_seg_edt: bool,
+        transform=None,
+    ):
+        """
+        Receive the loaded data (in PIL/np form), convert to tensors, and apply
+        necessary transformations and augmentations including normalization, EDT
+        transforms, and final stacking.
+
+        Args:
+            raw_data (dict): Output from a data loading function.
+            idx (int): Index of the item.
+            input_type (str): Type of input formatting (e.g. "raw_aug_seg", "edt_v0").
+            bg_val (float): Background value used in EDT calculations.
+            normalize_uint8 (bool): Whether to normalize images to uint8 range.
+            exclude_raw_input_bg (bool): Whether to zero out the input where the raw transformed image is background.
+            force_no_edt_aug (bool): If True, re-compute EDT from augmented gt_label_mask after transforms.
+            apply_gt_seg_edt (bool): If True, the GT mask will contain EDT as the first channel.
+            transform (callable, optional): Augmentation transform to be applied on concatenated tensor.
+
+        Returns:
+            dict: Contains all tensors ready for model input:
+                - "input": The input image tensor.
+                - "seg_mask": The segmented mask tensor.
+                - "gt_mask_binary": The binary ground truth mask tensor.
+                - "gt_mask": The combined ground truth tensor.
+                - "gt_label_mask": The ground truth label mask tensor.
+                - "ou_aux": The auxiliary output tensor.
+                - "gt_pixel_weight": The ground truth pixel weight tensor.
+                - "gt_mask_edt" (optional): The EDT-transformed ground truth mask tensor if apply_gt_seg_edt is True.
+        """
+        # Extract raw data
+        augmented_raw_img = raw_data["augmented_raw_img"]
+        scaled_seg_mask = raw_data["scaled_seg_mask"]
+        gt_mask = raw_data["gt_mask"]
+        augmented_raw_transformed_img = raw_data["augmented_raw_transformed_img"]
+        aug_diff_img = raw_data["aug_diff_img"]
+        gt_label_mask__np = raw_data["gt_label_mask"]
+        ou_aux_label = raw_data["ou_aux_label"]
+        gt_pixel_weight__np = raw_data["gt_pixel_weight"]
+
+        # Normalize if needed
+        if normalize_uint8:
+            augmented_raw_img = normalize_img_to_uint8(np.array(augmented_raw_img))
+            augmented_raw_transformed_img = normalize_img_to_uint8(np.array(augmented_raw_transformed_img))
+        else:
+            augmented_raw_img = np.array(augmented_raw_img)
+            augmented_raw_transformed_img = np.array(augmented_raw_transformed_img)
+
+        # Convert all to tensors
+        augmented_raw_img = torch.tensor(augmented_raw_img).float()
+        scaled_seg_mask = torch.tensor(np.array(scaled_seg_mask)).float()
+        gt_mask = torch.tensor(np.array(gt_mask)).long()
+        augmented_raw_transformed_img = torch.tensor(augmented_raw_transformed_img).float()
+        aug_diff_img = torch.tensor(np.array(aug_diff_img)).float()
+        gt_label_mask = torch.tensor(gt_label_mask__np).long()
+        gt_pixel_weight = torch.tensor(gt_pixel_weight__np).float()
+
+        # Apply EDT for certain input types
+        if input_type in ["edt_v0", "edt_v1"]:
+            scaled_seg_mask_edt = label_mask_to_edt_mask(scaled_seg_mask, bg_val=bg_val)
+            scaled_seg_mask = torch.tensor(scaled_seg_mask_edt).float()
+
+        gt_label_edt = torch.tensor(label_mask_to_edt_mask(gt_label_mask, bg_val=bg_val)).float()
+
+        # Stack for joint augmentation
         concat_img = torch.stack(
             [
                 augmented_raw_img,
@@ -227,82 +324,91 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             dim=0,
         )
 
-        if self.transform:
-            concat_img = self.transform(concat_img)
+        # Apply transform (augmentation)
+        if transform:
+            concat_img = transform(concat_img)
 
+        # Unpack augmented results
         augmented_raw_img = concat_img[0]
         augmented_raw_transformed_img = concat_img[1]
         augmented_scaled_seg_mask = concat_img[2]
+        gt_mask = concat_img[3]
+        aug_diff_img = concat_img[4]
         augmented_gt_label_mask = concat_img[5].long()
         augmented_gt_pixel_weight = concat_img[6]
+        gt_label_edt = concat_img[7]
 
-        if self.input_type == "raw_aug_seg":
+        # Prepare the input based on input_type
+        if input_type == "raw_aug_seg":
             input_img = torch.stack(
-                [augmented_raw_img, augmented_raw_transformed_img, augmented_scaled_seg_mask], dim=0
+                [
+                    augmented_raw_img,
+                    augmented_raw_transformed_img,
+                    augmented_scaled_seg_mask,
+                ],
+                dim=0,
             )
-        elif self.input_type == "raw_aug_duplicate":
+        elif input_type == "raw_aug_duplicate":
             input_img = torch.stack(
-                [augmented_raw_transformed_img, augmented_raw_transformed_img, augmented_raw_transformed_img], dim=0
+                [
+                    augmented_raw_transformed_img,
+                    augmented_raw_transformed_img,
+                    augmented_raw_transformed_img,
+                ],
+                dim=0,
             )
-        elif self.input_type == "edt_v0":
-            # TODO edt transform already done before the transform
-            # augmented_scaled_seg_mask = scipy.ndimage.distance_transform_edt(augmented_scaled_seg_mask)
-            if isinstance(augmented_scaled_seg_mask, torch.Tensor):
-                if augmented_scaled_seg_mask.is_cuda:
-                    augmented_scaled_seg_mask = augmented_scaled_seg_mask.cpu()
-                augmented_scaled_seg_mask = augmented_scaled_seg_mask.numpy()
-            augmented_scaled_seg_mask = torch.tensor(normalize_edt(augmented_scaled_seg_mask, edt_max=5))
+        elif input_type == "edt_v0":
+            if augmented_scaled_seg_mask.is_cuda:
+                augmented_scaled_seg_mask = augmented_scaled_seg_mask.cpu()
+            edt_np = augmented_scaled_seg_mask.numpy()
+            edt_np = normalize_edt(edt_np, edt_max=5)
+            edt_t = torch.tensor(edt_np)
             input_img = torch.stack(
-                [augmented_raw_transformed_img, augmented_raw_transformed_img, augmented_scaled_seg_mask], dim=0
+                [augmented_raw_transformed_img, augmented_raw_transformed_img, edt_t],
+                dim=0,
             )
-        elif self.input_type == "edt_v1":
-            # augmented_scaled_seg_mask = scipy.ndimage.distance_transform_edt(augmented_scaled_seg_mask)
-            if isinstance(augmented_scaled_seg_mask, torch.Tensor):
-                if augmented_scaled_seg_mask.is_cuda:
-                    augmented_scaled_seg_mask = augmented_scaled_seg_mask.cpu()
-                augmented_scaled_seg_mask = augmented_scaled_seg_mask.numpy()
-            augmented_scaled_seg_mask = torch.tensor(normalize_edt(augmented_scaled_seg_mask, edt_max=5))
-            input_img = torch.stack(
-                [augmented_raw_img, augmented_scaled_seg_mask, torch.zeros_like(augmented_scaled_seg_mask)], dim=0
-            )
-        elif self.input_type == "raw_duplicate":
+        elif input_type == "edt_v1":
+            if augmented_scaled_seg_mask.is_cuda:
+                augmented_scaled_seg_mask = augmented_scaled_seg_mask.cpu()
+            edt_np = augmented_scaled_seg_mask.numpy()
+            edt_np = normalize_edt(edt_np, edt_max=5)
+            edt_t = torch.tensor(edt_np)
+            input_img = torch.stack([augmented_raw_img, edt_t, torch.zeros_like(edt_t)], dim=0)
+        elif input_type == "raw_duplicate":
             input_img = torch.stack([augmented_raw_img, augmented_raw_img, augmented_raw_img], dim=0)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"Unknown input_type: {input_type}")
 
-        if self.exclude_raw_input_bg:
-            # Note that the augmented transformed image has all -1 values for pixels outside the cell
-            # bg_mask = augmented_raw_img <= 0
+        # Exclude background if needed
+        if exclude_raw_input_bg:
             bg_mask = augmented_raw_transformed_img <= 0
             input_img[:, bg_mask] = 0
 
         input_img = input_img.float()
 
-        aug_diff_img = concat_img[4, :, :]
-        aug_diff_overseg = aug_diff_img < 0
-        aug_diff_underseg = aug_diff_img > 0
-
-        gt_mask = concat_img[3, :, :]
+        # Process GT masks
         gt_mask[gt_mask > 0.5] = 1
         gt_mask[gt_mask <= 0.5] = 0
         gt_binary = gt_mask
 
-        # Deprecated and wrong gt mask edt below if resize
-        if self.force_no_edt_aug:
-            # Calculate gt_mask_edt based on augmented gt label mask
-            gt_mask_edt = label_mask_to_edt_mask(augmented_gt_label_mask.cpu().numpy(), bg_val=self.bg_val)
-            gt_mask_edt = torch.tensor(gt_mask_edt).float()
+        # Handle EDT if forced without augmentation
+        if force_no_edt_aug:
+            # Recompute from augmented gt_label_mask
+            gt_mask_edt_np = label_mask_to_edt_mask(augmented_gt_label_mask.cpu().numpy(), bg_val=bg_val)
+            gt_mask_edt = torch.tensor(gt_mask_edt_np).float()
         else:
-            # Use the augmented version of GT. Whether it is normed depends on train norm passed in.
-            gt_mask_edt = concat_img[7, :, :]
+            gt_mask_edt = gt_label_edt
 
-        # apply edt to each label in gt label mask, and normalize edt to [0, 1]
-        if self.apply_gt_seg_edt:
+        aug_diff_overseg = aug_diff_img < 0
+        aug_diff_underseg = aug_diff_img > 0
+
+        # Combine GT
+        if apply_gt_seg_edt:
             combined_gt = torch.stack([gt_mask_edt, aug_diff_overseg, aug_diff_underseg], dim=0).float()
         else:
             combined_gt = torch.stack([gt_mask, aug_diff_overseg, aug_diff_underseg], dim=0).float()
 
-        # Prepare ou_aux tensor: 4 classes auxillary output
+        # Prepare ou_aux
         ou_aux = torch.tensor([0, 0, 0, 0]).float()
         if ou_aux_label is not None:
             if ou_aux_label == "overseg":
@@ -316,21 +422,41 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             else:
                 raise ValueError("Unknown ou_aux value:", ou_aux_label)
 
-        res = {
+        result = {
             "input": input_img,
-            # "raw_img": augmented_raw_img,
-            # "raw_transformed": augmented_raw_transformed_img,
-            "seg_mask": augmented_scaled_seg_mask,  # If edt, this is the edt version
+            "seg_mask": augmented_scaled_seg_mask,
             "gt_mask_binary": gt_binary,
             "gt_mask": combined_gt,
-            "idx": idx,
             "gt_label_mask": augmented_gt_label_mask,
             "ou_aux": ou_aux,
             "gt_pixel_weight": augmented_gt_pixel_weight,
         }
-        if self.apply_gt_seg_edt:
-            res["gt_mask_edt"] = gt_mask_edt
-        return res
+
+        if apply_gt_seg_edt:
+            result["gt_mask_edt"] = gt_mask_edt
+
+        return result
+
+    def __getitem__(self, idx: int):
+        # Step 1: Load raw data (no transforms)
+        raw_data = self._load_raw_data(idx)
+
+        # Step 2: Prepare and augment data
+        result = self.prepare_and_augment_data(
+            raw_data,
+            self.input_type,
+            self.bg_val,
+            self.normalize_uint8,
+            self.exclude_raw_input_bg,
+            self.force_no_edt_aug,
+            self.apply_gt_seg_edt,
+            self.transform,
+        )
+
+        # Attach the index
+        result["idx"] = idx
+
+        return result
 
     def get_paths(self, idx):
         return {
@@ -338,8 +464,8 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             "scaled_seg_mask": self.scaled_seg_mask_paths[idx],
             "gt_mask": self.gt_mask_paths[idx],
             "raw_seg": self.raw_seg_paths[idx],
-            "raw_transformed_img": self.raw_transformed_img_paths[idx] if self.raw_transformed_img_paths else None,
-            "aug_diff_img": self.aug_diff_img_paths[idx] if self.aug_diff_img_paths else None,
+            "raw_transformed_img": (self.raw_transformed_img_paths[idx] if self.raw_transformed_img_paths else None),
+            "aug_diff_img": (self.aug_diff_img_paths[idx] if self.aug_diff_img_paths else None),
         }
 
     def get_gt_label_mask(self, idx) -> np.ndarray:

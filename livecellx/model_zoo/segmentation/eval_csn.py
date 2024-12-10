@@ -35,6 +35,7 @@ def assemble_dataset(
     exclude_raw_input_bg=False,
     input_type=None,
     use_gt_pixel_weight=False,
+    normalize_uint8=False,
 ):
     assert input_type is not None
     raw_img_paths = list(df["raw"])
@@ -61,6 +62,7 @@ def assemble_dataset(
         input_type=input_type,
         raw_df=df,
         use_gt_pixel_weight=use_gt_pixel_weight,
+        normalize_uint8=normalize_uint8,
     )
     return dataset
 
@@ -85,6 +87,7 @@ def assemble_train_test_dataset(train_df, test_df, model, split_seed=237):  # de
         apply_gt_seg_edt=model.apply_gt_seg_edt,
         exclude_raw_input_bg=model.exclude_raw_input_bg,
         input_type=model.input_type,
+        normalize_uint8=model.normalize_uint8,
     )
     return train_dataset, val_dataset, test_dataset, dataset
 
