@@ -24,10 +24,15 @@ def normalize_edt(edt_img, edt_max=5):
     - normalized_edt_img (ndarray): The normalized EDT image.
 
     """
+
     max_val = edt_img.max()
     factor = max_val / (edt_max - 1)
     edt_pos_mask = edt_img >= 1
-    res_img = edt_img.copy()
+    if type(edt_img) == np.ndarray:
+        res_img = edt_img.copy()
+    else:
+        # torch.Tensor case
+        res_img = edt_img.clone()
     res_img[edt_pos_mask] = edt_img[edt_pos_mask] / factor + 1
     # edt_img[edt_pos_mask] = edt_img[edt_pos_mask] / factor + 1
     return res_img
