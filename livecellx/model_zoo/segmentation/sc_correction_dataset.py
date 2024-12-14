@@ -41,6 +41,26 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
     DROPOUT_ONEHOT = [0, 0, 1, 0]
     CORRECT_ONEHOT = [0, 0, 0, 1]
 
+    @staticmethod
+    def label_onehot_to_str(arr):
+        """_summary_
+        OVERSEG_ONEHOT = [1, 0, 0, 0]
+        UNDERSEG_ONEHOT = [0, 1, 0, 0]
+        DROPOUT_ONEHOT = [0, 0, 1, 0]
+        CORRECT_ONEHOT = [0, 0, 0, 1]
+        """
+        idx = np.argmax(arr)
+        if idx == 0:
+            return "overseg"
+        elif idx == 1:
+            return "underseg"
+        elif idx == 2:
+            return "dropout"
+        elif idx == 3:
+            return "correct"
+        else:
+            return "unknown"
+
     def __init__(
         self,
         raw_img_paths: List[str],
