@@ -1,8 +1,6 @@
 import torch
 
 from livecellx.model_zoo.segmentation import custom_transforms
-
-torch.manual_seed(237)
 import argparse
 from pathlib import Path
 import pandas as pd
@@ -76,7 +74,8 @@ def parse_args():
     parser.add_argument("--use-gt-pixel-weight", default=False, action="store_true")
     parser.add_argument("--aux-loss-weight", default=0.5, type=float)
     parser.add_argument("--normalize_uint8", default=False, action="store_true")
-
+    parser.add_argument("--torch_seed", default=237, type=int)
+    
     args = parser.parse_args()
 
     # convert string to list
@@ -88,6 +87,7 @@ def parse_args():
 
 def main_train():
     args = parse_args()
+    torch.manual_seed(args.torch_seed)
     train_csv_filename = "train_data.csv"
     if args.ou_aux:
         train_csv_filename = "train_data_aux.csv"
