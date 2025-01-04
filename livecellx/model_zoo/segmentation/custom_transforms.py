@@ -202,7 +202,7 @@ class CustomTransformEdtV9:
         shear=0.0,
         flip_p=0.0,
         gaussian_blur_kernel_size=3,
-        gaussian_blur_sigma=30,
+        gaussian_blur_sigma=(0, 30),
         use_gaussian_blur=False,
     ):
         self.common_transforms = transforms.Compose(

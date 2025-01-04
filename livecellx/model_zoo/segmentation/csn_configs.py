@@ -8,6 +8,7 @@ from livecellx.model_zoo.segmentation.custom_transforms import (
     CustomTransformV5,
     CustomTransformV7,
     CustomTransformEdtV8,
+    CustomTransformEdtV9,
 )
 
 
