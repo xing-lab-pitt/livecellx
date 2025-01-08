@@ -179,7 +179,7 @@ def reserve_img_by_pixel_percentile(raw_img: np.ndarray, percentile: float, targ
     return flattened_img.reshape(raw_img.shape)
 
 
-def enhance_contrast(img: np.ndarray, factor=5):
+def enhance_contrast(img: np.ndarray, factor=5.0):
     im = Image.fromarray(img)
     enhancer = ImageEnhance.Contrast(im)
     im_output = enhancer.enhance(factor)
