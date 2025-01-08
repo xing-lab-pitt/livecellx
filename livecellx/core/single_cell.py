@@ -51,14 +51,14 @@ class SingleCellStatic:
 
     def __init__(
         self,
-        timeframe: Optional[int] = None,
-        bbox: Optional[np.array] = None,
+        timeframe: int = None,
+        bbox: Optional[np.ndarray] = None,
         regionprops: Optional[RegionProperties] = None,
         img_dataset: Optional[LiveCellImageDataset] = None,
         mask_dataset: Optional[LiveCellImageDataset] = None,
         dataset_dict: Optional[Dict[str, LiveCellImageDataset]] = None,
-        feature_dict: Optional[Dict[str, np.array]] = None,
-        contour: Optional[np.array] = None,
+        feature_dict: Optional[Dict[str, np.ndarray]] = None,
+        contour: Optional[np.ndarray] = None,
         meta: Optional[Dict[str, object]] = None,
         uns: Optional[Dict[str, object]] = None,
         id: Optional[int] = None,  # TODO: automatically assign id (incremental or uuid),
@@ -902,7 +902,7 @@ class SingleCellStatic:
     get_sc_mask = get_contour_mask
     get_sc_label_mask = get_contour_label_mask
 
-    def add_feature(self, name, features: Union[np.array, pd.Series]):
+    def add_feature(self, name, features: Union[np.ndarray, pd.Series]):
         if not isinstance(features, (np.ndarray, pd.Series)):
             raise TypeError("features must be a numpy array or pandas series")
         self.feature_dict[name] = features
@@ -1681,9 +1681,13 @@ class SingleCellTrajectoryCollection:
 
         main_info("Creating SingleCellTrajectoryCollection from json_dict...")
         if parallel:
-            return SingleCellTrajectoryCollection().load_from_json_dict_parallel(json_dict)
+            res = SingleCellTrajectoryCollection().load_from_json_dict_parallel(json_dict)
+            main_info("Loading SingleCellTrajectoryCollection from json_dict done.")
+            return res
         else:
-            return SingleCellTrajectoryCollection().load_from_json_dict(json_dict)
+            res = SingleCellTrajectoryCollection().load_from_json_dict(json_dict)
+            main_info("Loading SingleCellTrajectoryCollection from json_dict done.")
+            return res
 
     def histogram_traj_length(self, ax=None, **kwargs):
         import seaborn as sns
