@@ -742,6 +742,8 @@ def gen_missing_case_masks(in_sc, missing_sc, out_dir: Path, padding=20, out_thr
     np.save(mask_dir / f"sc_{missing_sc.id}_watershed.npy", _missing_watershed)
     np.save(mask_dir / f"sc_{missing_sc.id}.npy", _missing_out_mask)
 
+    del _in_res_dict, _missing_res_dict
+
     # Visualize the results
     fig, axes = plt.subplots(2, 4, figsize=(10, 5), dpi=300)
     ax = axes[0, 0]
@@ -779,6 +781,7 @@ def gen_missing_case_masks(in_sc, missing_sc, out_dir: Path, padding=20, out_thr
     ax.axis("off")
 
     plt.savefig(fig_dir / f"sc_{in_sc.id}_missing_{missing_sc.id}.png")
+    plt.close()
 
 
 def overwrite_sct(target_sct: SingleCellTrajectory, src_sct: SingleCellTrajectory, inplace=False):
