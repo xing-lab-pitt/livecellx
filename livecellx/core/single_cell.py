@@ -1105,8 +1105,6 @@ class SingleCellTrajectory:
             self.timeframe_to_single_cell = dict()
         else:
             self.timeframe_to_single_cell = timeframe_to_single_cell
-        self.timeframe_set = set(self.timeframe_to_single_cell.keys())
-        self.times = sorted(self.timeframe_set)
 
         self.img_dataset = img_dataset
         self.img_total_timeframe = len(img_dataset) if img_dataset is not None else None
@@ -1177,10 +1175,17 @@ class SingleCellTrajectory:
         for sc in iter(self.timeframe_to_single_cell.values()):
             sc.add_feature(feature_key, func(sc))
 
+    @property
+    def timeframe_set(self):
+        return set(self.timeframe_to_single_cell.keys())
+
+    @property
+    def times(self):
+        return sorted(self.timeframe_set)
+
     def add_sc_by_time(self, timeframe, sc: SingleCellStatic):
         self.timeframe_to_single_cell[timeframe] = sc
         self.timeframe_set.add(timeframe)
-        self.times = sorted(self.timeframe_set)
 
     add_single_cell_by_time = add_sc_by_time
 
@@ -1332,9 +1337,6 @@ class SingleCellTrajectory:
                 img_dataset=shared_img_dataset,
                 empty_cell=True,
             ).load_from_json_dict(sc, img_dataset=shared_img_dataset)
-
-        self.timeframe_set = set(self.timeframe_to_single_cell.keys())
-        self.times = sorted(self.timeframe_set)
         return self
 
     def inflate_other_trajectories(self, sctc: "SingleCellTrajectoryCollection"):
@@ -1876,6 +1878,7 @@ def show_sct_on_grid(
     axes=None,
     crop_from_center=True,
     show_contour=True,
+    verbose=False,
 ) -> Tuple[plt.Figure, np.ndarray]:
     """
     Display a grid of single cell images with contours overlaid.
@@ -1918,7 +1921,9 @@ def show_sct_on_grid(
     """
     if axes is None:
         fig, axes = plt.subplots(nr, nc, figsize=(nc * ax_width, nr * ax_height), dpi=dpi)
-        if nr == 1:
+        if nr == 1 and nc == 1:
+            axes = np.array([[axes]])
+        elif nr == 1:
             axes = np.array([axes])
     else:
         assert np.array(axes).shape == (nr, nc), "axes shape mismatch"
@@ -1927,11 +1932,12 @@ def show_sct_on_grid(
     traj_start, traj_end = span_range
     if start < traj_start:
         start = span_range[0]
-        print(
-            "start timeframe larger than the first timeframe of the trajectory, replace start_timeframe with the first timeframe={}".format(
-                int(start)
+        if verbose:
+            main_info(
+                "start timeframe larger than the first timeframe of the trajectory, replace start_timeframe with the first timeframe={}".format(
+                    int(start)
+                )
             )
-        )
 
     if isinstance(ax_contour_polygon_kwargs, dict):
         ax_contour_polygon_kwargs_list = [ax_contour_polygon_kwargs] * nr * nc
@@ -2016,7 +2022,8 @@ def show_sct_on_grid(
                 ax.set_title(f"time: {timeframe}", fontsize=ax_title_fontsize)
 
     if fig is not None:
-        main_info(f"tighting figure layout...")
+        if verbose:
+            main_info(f"tighting figure layout...")
         fig.tight_layout(pad=0.5, h_pad=0.4, w_pad=0.4)
     return fig, axes
 
