@@ -235,7 +235,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         # TODO
 
         raw_img_crop = sc.get_img_crop(bbox=bbox, padding=padding_pixels)
-        seg_crop = sc.get_mask_crop(bbox=bbox, padding=padding_pixels)
+        seg_crop = sc.get_sc_mask(bbox=bbox, padding=padding_pixels)
         if normalize_crop:
             raw_img_crop = normalize_img_to_uint8(raw_img_crop)
         raw_transformed_img = raw_img_crop.copy().astype(dtype)
