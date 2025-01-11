@@ -743,29 +743,37 @@ def gen_missing_case_masks(in_sc, missing_sc, out_dir: Path, padding=20, out_thr
     np.save(mask_dir / f"sc_{missing_sc.id}.npy", _missing_out_mask)
 
     # Visualize the results
-    fig, axes = plt.subplots(2, 3, figsize=(10, 5), dpi=300)
+    fig, axes = plt.subplots(2, 4, figsize=(10, 5), dpi=300)
     ax = axes[0, 0]
-    ax.set_title("In-Input")
+    ax.set_title("sct-1 Input")
     ax.imshow(in_sc.get_img_crop(padding=padding), cmap="gray")
     ax.axis("off")
     ax = axes[0, 1]
+    ax.set_title("sct-1 Output mask")
+    ax.imshow(in_sc.get_sc_mask(), cmap="viridis")
+    ax.axis("off")
+    ax = axes[0, 2]
     ax.set_title("Output mask")
     ax.imshow(_in_out_mask[0], cmap="viridis")
     ax.axis("off")
-    ax = axes[0, 2]
+    ax = axes[0, 3]
     ax.set_title("Watershed mask")
     ax.imshow(_in_watershed, cmap="viridis")
     ax.axis("off")
 
     ax = axes[1, 0]
-    ax.set_title("Missing-Matched")
+    ax.set_title("Matched SCT Input")
     ax.imshow(missing_sc.get_img_crop(padding=padding), cmap="gray")
     ax.axis("off")
     ax = axes[1, 1]
+    ax.set_title("Matched SCT mask")
+    ax.imshow(missing_sc.get_sc_mask(), cmap="viridis")
+    ax.axis("off")
+    ax = axes[1, 2]
     ax.set_title("Output mask")
     ax.imshow(_missing_out_mask[0], cmap="viridis")
     ax.axis("off")
-    ax = axes[1, 2]
+    ax = axes[1, 3]
     ax.set_title("Watershed mask")
     ax.imshow(_missing_watershed, cmap="viridis")
     ax.axis("off")
