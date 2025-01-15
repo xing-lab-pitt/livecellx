@@ -35,6 +35,7 @@ def assemble_dataset(
     exclude_raw_input_bg=False,
     input_type=None,
     use_gt_pixel_weight=False,
+    normalize_uint8=False,
 ):
     assert input_type is not None
     raw_img_paths = list(df["raw"])
@@ -61,6 +62,7 @@ def assemble_dataset(
         input_type=input_type,
         raw_df=df,
         use_gt_pixel_weight=use_gt_pixel_weight,
+        normalize_uint8=normalize_uint8,
     )
     return dataset
 
@@ -85,6 +87,7 @@ def assemble_train_test_dataset(train_df, test_df, model, split_seed=237):  # de
         apply_gt_seg_edt=model.apply_gt_seg_edt,
         exclude_raw_input_bg=model.exclude_raw_input_bg,
         input_type=model.input_type,
+        normalize_uint8=model.normalize_uint8,
     )
     return train_dataset, val_dataset, test_dataset, dataset
 
@@ -144,7 +147,7 @@ def match_label_mask_by_iou(
         return matched_num, out_num, gt_num
 
 
-def compute_watershed(edt_mask__np: np.ndarray, h_threshold=1, edt_positive_threshold=0.9):
+def compute_watershed(edt_mask__np: np.ndarray, h_threshold=1, edt_positive_threshold=0.9, peak_distance=50):
     """
     Perform watershed segmentation on the input EDT mask.
 
@@ -167,7 +170,6 @@ def compute_watershed(edt_mask__np: np.ndarray, h_threshold=1, edt_positive_thre
         markers = skimage.measure.label(local_hmax, connectivity=1)
     elif markers is None and marker_method == "local":
         # TODO: support local peak method
-        peak_distance = 50
         # use local peak as default markers
         coords = peak_local_max(edt_mask__np, min_distance=peak_distance, footprint=np.ones((3, 3)))
         mask = np.zeros(edt_mask__np.shape, dtype=bool)
@@ -282,14 +284,18 @@ def evaluate_sample_v3(
         _matched_num = gt_out_iou_list[:, 2] > threshold if len(gt_out_iou_list) > 0 else np.array([0, 0])
         metrics_dict[f"out_matched_num_gt_iou_{threshold}"] = _matched_num.sum()
         metrics_dict[f"out_matched_num_gt_iou_{threshold}_percent"] = _matched_num.sum() / gt_cell_num
-        metrics_dict[f"out_matched_num_gt_iou_{threshold}_total_match"] = _matched_num.sum() == gt_cell_num
+        metrics_dict[f"out_matched_num_gt_iou_{threshold}_total_match"] = (_matched_num.sum() == gt_cell_num) and (
+            _matched_num.sum() == out_cell_count
+        )
 
     # Calculate metrics for original label mask
     for threshold in gt_iou_match_thresholds:
         _matched_num = gt_origin_iou_list[:, 2] > threshold if len(gt_origin_iou_list) > 0 else np.array([0, 0])
         metrics_dict[f"origin_matched_num_gt_origin_{threshold}"] = _matched_num.sum()
         metrics_dict[f"origin_matched_num_gt_origin_{threshold}_percent"] = _matched_num.sum() / gt_cell_num
-        metrics_dict[f"origin_matched_num_gt_iou_{threshold}_total_match"] = _matched_num.sum() == gt_cell_num
+        metrics_dict[f"origin_matched_num_gt_iou_{threshold}_total_match"] = (_matched_num.sum() == gt_cell_num) and (
+            _matched_num.sum() == origin_cell_count
+        )
 
     # metrics_dict["gt_iou_match_threshold"] = gt_iou_match_threshold
     # metrics_dict["gt_out_iou_list"] = gt_out_iou_list

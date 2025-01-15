@@ -1,6 +1,6 @@
 import torch
 
-torch.manual_seed(237)
+from livecellx.model_zoo.segmentation import custom_transforms
 import argparse
 from pathlib import Path
 import pandas as pd
@@ -39,13 +39,14 @@ def parse_args():
     parser.add_argument("--aug_scale", dest="aug_scale", type=str, default="0.5,1.5")
     parser.add_argument("--split_seed", dest="split_seed", type=int, default=237)
     parser.add_argument("--epochs", dest="epochs", type=int, default=1000)
+    parser.add_argument("--num_workers", dest="num_workers", type=int, default=8)
 
     parser.add_argument(
         "--input_type",
         dest="input_type",
         type=str,
         default="raw_aug_seg",
-        choices=["raw_aug_seg", "raw_aug_duplicate", "raw_duplicate", "edt_v0"],
+        choices=["raw_aug_seg", "raw_aug_duplicate", "raw_duplicate", "edt_v0", "edt_v1"],
     )
     parser.add_argument("--apply_gt_seg_edt", dest="apply_gt_seg_edt", default=False, action="store_true")
     parser.add_argument("--class-weights", dest="class_weights", type=str, default="1,1,1")
@@ -72,7 +73,9 @@ def parse_args():
     parser.add_argument("--aug-ver", default="v0", type=str, help="The version of the augmentation to use.")
     parser.add_argument("--use-gt-pixel-weight", default=False, action="store_true")
     parser.add_argument("--aux-loss-weight", default=0.5, type=float)
-
+    parser.add_argument("--normalize_uint8", default=False, action="store_true")
+    parser.add_argument("--torch_seed", default=237, type=int)
+    
     args = parser.parse_args()
 
     # convert string to list
@@ -84,6 +87,7 @@ def parse_args():
 
 def main_train():
     args = parse_args()
+    torch.manual_seed(args.torch_seed)
     train_csv_filename = "train_data.csv"
     if args.ou_aux:
         train_csv_filename = "train_data_aux.csv"
@@ -132,7 +136,18 @@ def main_train():
     elif args.aug_ver == "v7":
         train_transforms = csn_configs.gen_train_transform_v7(degrees, translation_range, args.aug_scale)
     elif args.aug_ver == "edt-v8":
-        train_transforms = csn_configs.gen_train_transform_edt_v8(degrees, translation_range, args.aug_scale)
+        train_transforms = csn_configs.gen_train_transform_edt_v8(
+            degrees=degrees, translation_range=translation_range, scale=args.aug_scale, shear=10, flip_p=0.5
+        )
+    elif args.aug_ver == "edt-v9":
+        train_transforms = custom_transforms.CustomTransformEdtV9(
+            degrees=degrees,
+            translation_range=translation_range,
+            scale=args.aug_scale,
+            shear=10,
+            flip_p=0.5,
+            use_gaussian_blur=True,
+        )
     else:
         raise ValueError("Unknown augmentation version")
 
@@ -196,7 +211,7 @@ def main_train():
         model = CorrectSegNetAux(
             # train_input_paths=train_input_tuples,
             lr=args.lr,
-            num_workers=1,
+            num_workers=args.num_workers,
             batch_size=args.batch_size,
             train_transforms=train_transforms,
             train_dataset=train_dataset,
@@ -211,12 +226,13 @@ def main_train():
             exclude_raw_input_bg=args.exclude_raw_input_bg,
             aux_loss_weight=args.aux_loss_weight,
             backbone=args.backbone,
+            normalize_uint8=args.normalize_uint8,
         )
     else:
         model = CorrectSegNet(
             # train_input_paths=train_input_tuples,
             lr=args.lr,
-            num_workers=1,
+            num_workers=args.num_workers,
             batch_size=args.batch_size,
             train_transforms=train_transforms,
             train_dataset=train_dataset,
@@ -229,6 +245,7 @@ def main_train():
             input_type=args.input_type,
             apply_gt_seg_edt=args.apply_gt_seg_edt,
             exclude_raw_input_bg=args.exclude_raw_input_bg,
+            normalize_uint8=args.normalize_uint8,
         )
 
     print("logger save dir:", logger.save_dir)

@@ -20,7 +20,7 @@ def is_SORT_tracker_result_empty(sort_tracker):
     return sort_tracker.time_since_update is not None
 
 
-def get_bbox_from_contour(contour: list) -> np.array:
+def get_bbox_from_contour(contour: list) -> np.ndarray:
     """get bboxes from a contour
 
     Parameters
@@ -79,7 +79,7 @@ def update_traj_collection_by_SORT_tracker_detection(
     contour_bbs,
     raw_img_dataset: LiveCellImageDataset = None,
     sc_kwargs=dict(),
-    scs=None,
+    scs_at_t=None,
     sc_inplace=False,
 ):
     def _match_sc_by_bbox(bbox, scs, atol=10):
@@ -89,7 +89,7 @@ def update_traj_collection_by_SORT_tracker_detection(
         return None
 
     if sc_inplace:
-        assert scs is not None, "scs must be provided if sc_inplace is True"
+        assert scs_at_t is not None, "scs must be provided if sc_inplace is True"
     det_contours = map_SORT_detections_to_contour_bbs(track_bbs, contour_bbs, contours)
     for idx, det in enumerate(track_bbs):
         track_id = det[-1]  # track_id is the last element in the detection from SORT
@@ -105,13 +105,15 @@ def update_traj_collection_by_SORT_tracker_detection(
         bbox = det[4:8]  # Use the original bbox from scs
         cid = None
         matched_old_sc = None
-        if scs is not None:
-            matched_old_sc = _match_sc_by_bbox(bbox, scs)
+        if scs_at_t is not None:
+            matched_old_sc = _match_sc_by_bbox(bbox, scs_at_t)
             cid = matched_old_sc.id if matched_old_sc is not None else None
             if cid is None:
                 main_warning("[Tracking by SORT] fail to find re-matched sc for bbox: " + str(bbox))
         sc = None
-        if sc_inplace or (matched_old_sc is None):
+        if (not sc_inplace) or (matched_old_sc is None):
+            if sc_inplace and matched_old_sc is None:
+                main_warning(f"[Tracking by SORT] fail to find re-matched sc for bbox: {bbox} at time: {timeframe}")
             sc = SingleCellStatic(
                 id=cid,
                 timeframe=timeframe,
@@ -124,7 +126,7 @@ def update_traj_collection_by_SORT_tracker_detection(
             sc = matched_old_sc
         sc.update_bbox()  # further prevent from bbox diffinition differences
         _traj = traj_collection.get_trajectory(track_id)
-        _traj.add_single_cell(timeframe, sc)
+        _traj.add_single_cell_by_time(timeframe, sc)
 
 
 def track_SORT_bbox_from_contours(
@@ -174,7 +176,7 @@ def track_SORT_bbox_from_contours(
             contour_bbs,
             raw_img_dataset=raw_imgs,
             sc_kwargs=sc_kwargs,
-            scs=scs_at_time,
+            scs_at_t=scs_at_time,
             sc_inplace=sc_inplace,
         )
     return traj_collection

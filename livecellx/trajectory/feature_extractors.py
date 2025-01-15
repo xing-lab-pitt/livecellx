@@ -1,4 +1,4 @@
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Callable
 from typing import Dict
 import skimage
 import skimage.measure
@@ -18,7 +18,7 @@ def _compute_feature_wrapper(sc, func, params=dict()):
 
 
 def parallelize_compute_features(
-    scs: List[SingleCellStatic], func: callable, params: dict, cores=None, replace_feature=True
+    scs: List[SingleCellStatic], func: Callable, params: dict, cores=None, replace_feature=True
 ) -> Tuple[List, List]:
     """
     Compute features in parallel for a list of SingleCellStatic objects.

@@ -8,6 +8,7 @@ from livecellx.model_zoo.segmentation.custom_transforms import (
     CustomTransformV5,
     CustomTransformV7,
     CustomTransformEdtV8,
+    CustomTransformEdtV9,
 )
 
 
@@ -266,9 +267,7 @@ def gen_train_transform_v7(
     return train_transforms
 
 
-def gen_train_transform_edt_v8(
-    degrees: float, translation_range: Tuple[float, float] = None, scale: Tuple[float, float] = None, gauss_sigma=30
-) -> CustomTransformV5:
+def gen_train_transform_edt_v8(**kwargs) -> CustomTransformEdtV8:
     """Generate the training data transformation.
 
     Parameters
@@ -286,5 +285,5 @@ def gen_train_transform_edt_v8(
         The composed transformation for training data.
     """
 
-    train_transforms = CustomTransformEdtV8(degrees=degrees, translation_range=translation_range, scale=scale)
+    train_transforms = CustomTransformEdtV8(**kwargs)
     return train_transforms

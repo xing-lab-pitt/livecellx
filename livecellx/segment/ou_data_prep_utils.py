@@ -76,7 +76,11 @@ def extend_overseg_subdir_df(df_path, overseg_out_dir: Path):
         # load ground truth label mask
         combined_gt_label_mask = read_img_default(orig_gt_label_path)
 
-        assert img_crop.shape == seg_crop.shape == combined_gt_label_mask.shape
+        assert img_crop.shape == seg_crop.shape == combined_gt_label_mask.shape, (
+            f"img_crop.shape: {img_crop.shape}, seg_crop.shape: {seg_crop.shape}, "
+            f"combined_gt_label_mask.shape: {combined_gt_label_mask.shape}\n Paths: img_crop: {orig_raw_path}, seg_crop: {orig_seg_path}, raw_seg_img: {orig_raw_seg_path}, "
+        )
+
         filename = filename_pattern % (sample_id, sample_id)
         raw_img_path = raw_out_dir / filename
         seg_img_path = seg_out_dir / filename

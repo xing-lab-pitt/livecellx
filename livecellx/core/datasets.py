@@ -23,6 +23,7 @@ from torch.nn import init
 from torch.utils.data import DataLoader, random_split
 import uuid
 
+import livecellx
 from livecellx.livecell_logger import main_debug
 
 
@@ -302,7 +303,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
             main_debug("[LiveCellDataset] skip writing to an existing path: %s" % (path))
             return
         with open(path, "w+") as f:
-            json.dump(self.to_json_dict(), f)
+            json.dump(self.to_json_dict(), f, indent=livecellx.core.single_cell.Config.json_indent)
 
     def load_from_json_dict(self, json_dict, update_time2url_from_dir_path=False, is_integer_time=True):
         """Load from a json dict. If update_img_paths is True, then we will update the img_path_list based on the data_dir_path.
@@ -376,7 +377,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         img = self.read_img_url_func(url)
         return img
 
-    def get_img_by_time(self, time) -> np.array:
+    def get_img_by_time(self, time) -> np.ndarray:
         """Get an image by time"""
         return self.read_img_url_func(self.time2url[time])
 
@@ -473,7 +474,7 @@ class SingleImageDataset(LiveCellImageDataset):
     def read_single_img_from_mem(self, url):
         return self.img.copy()
 
-    def get_img_by_time(self, time=None) -> np.array:
+    def get_img_by_time(self, time=None) -> np.ndarray:
         return self.read_single_img_from_mem(self.url)
 
     def get_img_by_idx(self, idx=None):

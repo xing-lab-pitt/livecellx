@@ -12,7 +12,7 @@ from skimage.measure import regionprops, label
 
 from livecellx.core.single_cell import SingleCellStatic
 from livecellx.segment.ou_utils import create_ou_input_from_sc
-from livecellx.preprocess.utils import normalize_img_to_uint8, enhance_contrast
+from livecellx.preprocess.utils import normalize_img_to_uint8, enhance_contrast, normalize_edt
 
 
 def viz_ou_sc_outputs(
@@ -49,7 +49,7 @@ def viz_ou_sc_outputs(
 
 
 def viz_ou_outputs(
-    augmented_ou_crop,
+    raw_neg_ou_crop,
     original_mask,
     model,
     input_transforms,
@@ -61,23 +61,50 @@ def viz_ou_outputs(
     title=None,
     input_type="raw_aug_duplicate",
     edt_mask=None,
-    edt_transform=None,
-    h_threshold=1,
+    edt_transform=None,  #  Mask transformation for edt_mask, resize in most cases
+    h_threshold=1.0,
+    raw_crop=None,
 ) -> Tuple:
-    original_shape = augmented_ou_crop.shape
-    original_ou_input = augmented_ou_crop.copy()
-    augmented_ou_crop = torch.tensor([augmented_ou_crop])
-    augmented_ou_crop = input_transforms(augmented_ou_crop).squeeze()
+    if raw_crop is None and input_type == "edt_v1":
+        raise ValueError("raw_crop must be provided for <edt_v1> input type")
+    elif raw_crop is None:
+        # Create a zero-like tensor for raw_crop
+        raw_crop = np.zeros_like(raw_neg_ou_crop)
+        raw_crop = raw_crop.squeeze()
+
+    original_shape = raw_neg_ou_crop.shape
+    original_ou_input = raw_neg_ou_crop.copy()
+
+    concat_tmp_tensor = torch.stack([torch.tensor(raw_neg_ou_crop), torch.tensor(raw_crop)], dim=0).squeeze()
+    concat_tmp_tensor = input_transforms(concat_tmp_tensor).squeeze()
+    raw_neg_ou_crop = concat_tmp_tensor[0]
+    raw_crop = concat_tmp_tensor[1]
+
     ou_input = None
     if input_type == "raw_aug_duplicate":
-        ou_input = torch.stack([augmented_ou_crop, augmented_ou_crop, augmented_ou_crop], dim=0)
+        ou_input = torch.stack([raw_neg_ou_crop, raw_neg_ou_crop, raw_neg_ou_crop], dim=0)
     elif input_type == "edt_v0":
         # normalize_edt(augmented_scaled_seg_mask, edt_max=4)
         assert edt_mask is not None and edt_transform is not None
         # Transform edt_mask to tensor
-        edt_mask = torch.tensor([edt_mask]).squeeze().unsqueeze(0)
-        edt_mask = edt_transform(edt_mask).squeeze()
-        ou_input = torch.stack([augmented_ou_crop, augmented_ou_crop, edt_mask], dim=0)
+        _edt_mask = torch.tensor([edt_mask]).squeeze().unsqueeze(0)
+        _edt_mask = edt_transform(_edt_mask).squeeze()
+        _edt_mask = normalize_edt(_edt_mask.cpu().detach().numpy())
+        _edt_mask = torch.tensor([_edt_mask]).squeeze()
+        ou_input = torch.stack([raw_neg_ou_crop, raw_neg_ou_crop, _edt_mask], dim=0)
+    elif input_type == "edt_v1":
+        # normalize_edt(augmented_scaled_seg_mask, edt_max=4)
+        assert edt_mask is not None and edt_transform is not None
+        assert raw_crop is not None, "augmented_raw_crop must be provided for <edt_v1> input type"
+        # Transform edt_mask to tensor
+        _edt_mask = torch.tensor([edt_mask]).squeeze().unsqueeze(0)
+        _edt_mask = edt_transform(_edt_mask).squeeze()
+        _edt_mask = normalize_edt(_edt_mask.cpu().detach().numpy(), edt_max=5)
+        _edt_mask = torch.tensor([_edt_mask]).squeeze()
+        augmented_raw_crop__tensor = torch.tensor(raw_crop)
+        ou_input = torch.stack([augmented_raw_crop__tensor, _edt_mask, torch.zeros_like(_edt_mask)], dim=0)
+    else:
+        raise ValueError(f"Invalid input_type: {input_type}")
 
     ou_input = ou_input.unsqueeze(0)  # For batch size 1
     ou_input = ou_input.float().cuda()

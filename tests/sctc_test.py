@@ -55,12 +55,11 @@ class TestSctc(unittest.TestCase):
     def test_filter_empty_case_sc_empty_contour(self):
         new_sctc = SingleCellTrajectoryCollection()
         new_sct = SingleCellTrajectory()
-        empty_sc = SingleCellStatic(contour=[])
-        new_sct.add_single_cell(timeframe=1, sc=empty_sc)
+        empty_sc = SingleCellStatic(contour=[], timeframe=10)
+        new_sct.add_sc(sc=empty_sc)
         new_sctc.add_trajectory(new_sct)
         new_sctc.remove_empty_sct(inplace=True)
         self.assertEqual(len(new_sctc), 0)
-
 
     def test_filter_empty_case_empty_sct(self):
         new_sctc = SingleCellTrajectoryCollection()
