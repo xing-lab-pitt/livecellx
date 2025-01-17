@@ -1,5 +1,6 @@
 import os
 import argparse
+from typing import List, Union
 
 import cv2
 import numpy as np
@@ -63,7 +64,9 @@ def contours_to_scs(contours, ref_sc: SingleCellStatic, padding=None, min_area=N
     return new_scs
 
 
-def correct_sc(_sc, model, padding, input_transforms=None, gpu=True, min_area=4000, return_outputs=False):
+def correct_sc(
+    _sc, model, padding, input_transforms=None, gpu=True, min_area=4000, return_outputs=False
+) -> Union[List[SingleCellStatic], dict]:
     out_mask, watershed_mask, label_str = correct_sc_mask(_sc, model, padding, input_transforms, gpu)
     contours = find_contours_opencv(watershed_mask)
     _scs = contours_to_scs(contours, ref_sc=_sc, padding=padding, min_area=min_area)
