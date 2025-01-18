@@ -651,95 +651,25 @@ def correct_sc(_sc, model, padding, input_transforms=None, gpu=True, min_area=40
 
 
 def gen_missing_case_masks(in_sc, missing_sc, out_dir: Path, padding=20, out_threshold=0.7, h_threshold=0.3):
-    sct_in = in_sc.tmp["sct"]
-    sct_missing = missing_sc.tmp["sct"]
     fig_dir = out_dir / "figs"
     mask_dir = out_dir / "mask"
     fig_dir.mkdir(parents=True, exist_ok=True)
     mask_dir.mkdir(parents=True, exist_ok=True)
 
-    # def correct_sc(_sc):
-    #     # If alread exist, skip
-    #     if is_sc_watershed_mask_exists(_sc):
-    #         return
-
-    #     # ou_input = create_ou_input_from_sc(_sc, remove_bg=False, padding_pixels=padding)
-
-    #     # if ou_input is None:
-    #     #     print("Skipping sc", _sc.id, "because its ou_input is None")
-    #     #     return
-    #     # edt_mask = label_mask_to_edt_mask(ou_input > 0)
-
-    #     # # Retrieve raw image crop for EDT v1 case
-    #     # raw_img_crop = _sc.get_img_crop(padding=padding, preprocess_img_func=normalize_img_to_uint8).astype(float)
-    #     # raw_img_crop = normalize_img_to_uint8(raw_img_crop)
-
-    #     # seg_outputs, aux_output, watershed_mask = livecellx.segment.ou_viz.viz_ou_outputs(
-    #     #     ou_input,
-    #     #     ou_input > 0,
-    #     #     model,
-    #     #     input_transforms=input_transforms.apply_image_transforms,
-    #     #     out_threshold=out_threshold,
-    #     #     # show=True,
-    #     #     show=False,
-    #     #     save_path=fig_dir / f"sc_{_sc.id}.png",
-    #     #     input_type=model.input_type,
-    #     #     edt_mask=edt_mask,
-    #     #     edt_transform=input_transforms.apply_mask_transforms,
-    #     #     h_threshold=h_threshold,
-    #     #     raw_crop=raw_img_crop,
-    #     # )
-    #     raw_data = CorrectSegNetDataset._prepare_sc_inference_data(
-    #         _sc, padding_pixels=padding, bbox=None, normalize_crop=True
-    #     )
-    #     sample = CorrectSegNetDataset.prepare_and_augment_data(
-    #         raw_data,
-    #         input_type=model.input_type,
-    #         bg_val=0,
-    #         normalize_uint8=model.normalize_uint8,
-    #         exclude_raw_input_bg=model.exclude_raw_input_bg,
-    #         force_no_edt_aug=False,
-    #         apply_gt_seg_edt=model.apply_gt_seg_edt,
-    #         transform=input_transforms,
-    #     )
-    #     outputs = model(sample["input"].unsqueeze(0).cuda())
-    #     out_mask = outputs[0].cpu().detach().numpy().squeeze()
-    #     label_out = outputs[1].cpu().detach().numpy().squeeze()
-
-    #     label_str = CorrectSegNetDataset.label_onehot_to_str(label_out)
-
-    #     watershed_mask = compute_watershed(out_mask[0])
-    #     viz_csn_outputs(
-    #         sample, out_mask, watershed_mask, None, contrast_factor=1.0, cmap="viridis"
-    #     )
-    #     plt.suptitle(f"Classifier out: {label_str}")
-    #     if not (fig_dir / label_str).exists():
-    #         (fig_dir / label_str).mkdir(parents=True, exist_ok=True)
-
-    #     plt.savefig(fig_dir / label_str / f"sc_{_sc.id}.png")
-    #     plt.close()
-
-    #     ## DEBUG: save sample input distribution
-    #     # for channel in range(sample["input"].shape[0]):
-    #     #     plt.figure()
-    #     #     plt.hist(sample["input"][channel].cpu().numpy().flatten(), bins=50)
-    #     #     plt.title(f"Input channel {channel}")
-    #     #     plt.savefig(fig_dir / label_str / f"raw_sc_{_sc.id}_input_channel-{channel}.png")
-    #     #     plt.close()
-
-    #     np.save(mask_dir / f"sc_{_sc.id}.npy", out_mask)
-    #     np.save(mask_dir / f"sc_{_sc.id}_watershed.npy", watershed_mask)
-
+    in_watershed_path = mask_dir / f"sc_{in_sc.id}_watershed.npy"
+    missing_watershed_path = mask_dir / f"sc_{missing_sc.id}_watershed.npy"
+    if in_watershed_path.exists() and missing_watershed_path.exists():
+        return
     _in_res_dict = correct_sc(in_sc, model, padding, input_transforms, gpu=True, return_outputs=True)
     _in_watershed = _in_res_dict["watershed_mask"]
     _in_out_mask = _in_res_dict["out_mask"]
-    np.save(mask_dir / f"sc_{in_sc.id}_watershed.npy", _in_watershed)
+    np.save(in_watershed_path, _in_watershed)
     np.save(mask_dir / f"sc_{in_sc.id}.npy", _in_out_mask)
 
     _missing_res_dict = correct_sc(missing_sc, model, padding, input_transforms, gpu=True, return_outputs=True)
     _missing_watershed = _missing_res_dict["watershed_mask"]
     _missing_out_mask = _missing_res_dict["out_mask"]
-    np.save(mask_dir / f"sc_{missing_sc.id}_watershed.npy", _missing_watershed)
+    np.save(missing_watershed_path, _missing_watershed)
     np.save(mask_dir / f"sc_{missing_sc.id}.npy", _missing_out_mask)
 
     del _in_res_dict, _missing_res_dict
@@ -752,7 +682,7 @@ def gen_missing_case_masks(in_sc, missing_sc, out_dir: Path, padding=20, out_thr
     ax.axis("off")
     ax = axes[0, 1]
     ax.set_title("sct-1 Output mask")
-    ax.imshow(in_sc.get_sc_mask(), cmap="viridis")
+    ax.imshow(in_sc.get_sc_mask(padding=padding), cmap="viridis")
     ax.axis("off")
     ax = axes[0, 2]
     ax.set_title("Output mask")
@@ -769,7 +699,7 @@ def gen_missing_case_masks(in_sc, missing_sc, out_dir: Path, padding=20, out_thr
     ax.axis("off")
     ax = axes[1, 1]
     ax.set_title("Matched SCT mask")
-    ax.imshow(missing_sc.get_sc_mask(), cmap="viridis")
+    ax.imshow(missing_sc.get_sc_mask(padding=padding), cmap="viridis")
     ax.axis("off")
     ax = axes[1, 2]
     ax.set_title("Output mask")
@@ -945,12 +875,13 @@ def match_scs_by_lap(scs_1, scs_2, cost_function):
     return sc1_to_sc2
 
 
-def fix_missing_trajectory(in_sc, missing_sc, padding=20, area_threshold=1000):
+def fix_missing_trajectory(in_sc, missing_sc, padding=20, area_threshold=1000, inplace=False):
     sct_in_orig = in_sc.tmp["sct"]
     sct_missing_orig = missing_sc.tmp["sct"]
 
-    sct_in = sct_in_orig.copy()
-    sct_missing = sct_missing_orig.copy()
+    if not inplace:
+        sct_in = sct_in_orig.copy()
+        sct_missing = sct_missing_orig.copy()
 
     if (not is_sc_watershed_mask_exists(missing_sc)) or (not is_sc_watershed_mask_exists(in_sc)):
         print("Missing mask for sc", in_sc.id, "or", missing_sc.id)
@@ -1003,7 +934,7 @@ def fix_missing_trajectory(in_sc, missing_sc, padding=20, area_threshold=1000):
             sct_missing.timeframe_to_single_cell.pop(missing_sc.timeframe)
 
         # Tricky here: we do not want to use missing_sc because it is potentially an underseg cell mask
-        # Instead, we use the previous sc to match the new_scs
+        # Instead, we use the previous sc to match the new_scs, assuming prev/after sc is likely correct
         temporal_neighbor_missing_sc = get_sc_before_time(sct_missing, missing_sc.timeframe)
         if temporal_neighbor_missing_sc is None:
             temporal_neighbor_missing_sc = get_sc_after_time(sct_missing, missing_sc.timeframe)
@@ -1011,6 +942,7 @@ def fix_missing_trajectory(in_sc, missing_sc, padding=20, area_threshold=1000):
         is_lacking_neighbor = False
         if temporal_neighbor_missing_sc is None:
             is_lacking_neighbor = True
+            temporal_neighbor_missing_sc = missing_sc
             lsa_mapping = match_scs_by_lap(new_scs, [in_sc, missing_sc], cost_iou)
         else:
             lsa_mapping = match_scs_by_lap(new_scs, [in_sc, temporal_neighbor_missing_sc], cost_iou)
@@ -1027,9 +959,14 @@ def fix_missing_trajectory(in_sc, missing_sc, padding=20, area_threshold=1000):
 
             mapped_orig_scs.add(mapped_sc)
             if mapped_sc == in_sc:
+                new_sc.timeframe = missing_sc.timeframe
                 sct_in.add_single_cell(new_sc)
-            else:
+            elif mapped_sc == temporal_neighbor_missing_sc:
+                new_sc.timeframe = missing_sc.timeframe
                 sct_missing.add_single_cell(new_sc)
+            else:
+                assert False, "Unexpected mapped sc"
+
         # Check if all the underseg pair scs are mapped
         if not is_lacking_neighbor:
             assert (
@@ -1061,6 +998,19 @@ def fix_missing_trajectory(in_sc, missing_sc, padding=20, area_threshold=1000):
         return {"case_type": case_type, "state": "skipped"}
 
 
+def get_missing_rate(sct: SingleCellTrajectory):
+    timespan = sct.get_time_span_length()
+    tracked_cells = len(sct.get_all_scs())
+    return 1 - tracked_cells / timespan
+
+
+def compute_sctc_missing_rate(sctc: SingleCellTrajectoryCollection):
+    missing_rates = {}
+    for _, sct in sctc:
+        missing_rates[sct.track_id] = get_missing_rate(sct)
+    return missing_rates
+
+
 cur_sctc = track_sctc
 visited_pairs = set()
 
@@ -1068,6 +1018,9 @@ round_df_dict = {
     "round": [],
     "fix_attempt": [],
     "fixed_cases": [],
+    "missing_rate": [],
+    "filtered_missing_rate": [],
+    "duplicate_underseg_fix_cases": [],
 }
 
 case_stats_df_dict = {
@@ -1208,7 +1161,7 @@ for round in range(1, 50):
         figsize=(36, (5.0 / 30) * len(cur_sctc)),
         y_interval=1,
     )
-    plt.savefig(round_out_dir / "before_correct_missing_track_plot.png")
+    plt.savefig(round_out_dir / "before_correction_missing_track_plot.png")
 
     underseg_pairs_all = set(underseg_candidate_pairs_by_missing).union(underseg_candidate_pairs_by_ending)
     underseg_pairs_all = list(underseg_pairs_all)
@@ -1278,6 +1231,7 @@ for round in range(1, 50):
     ), "Length mismatch between underseg_pairs_all and fixed_result_dicts, check the code"
 
     fixed_case_counter = 0
+    duplicate_underseg_fix_counter = 0
     for idx in range(len(underseg_pairs_all)):
         fix_res_dict = fixed_result_dicts[idx]
         underseg_candidate_pair = underseg_pairs_all[idx]
@@ -1301,10 +1255,12 @@ for round in range(1, 50):
             track_id = underseg_candidate_pair[0].tmp["sct"].track_id
             traj_in_sctc = corrected_sctc[track_id]
             _updated_sct1 = overwrite_sct(traj_in_sctc, fix_res_dict["updated_scts"][0])
-            corrected_sctc.pop_trajectory_by_id(_updated_sct1.track_id)
+            corrected_sctc.pop_trajectory_by_id(track_id)
             corrected_sctc.add_trajectory(_updated_sct1)
             underseg_candidate_pair[0].tmp["sct"] = _updated_sct1
-
+            assert len(_updated_sct1) >= len(traj_in_sctc)
+            if len(_updated_sct1) == len(traj_in_sctc):
+                duplicate_underseg_fix_counter += 1
             # Update the second sc
             if len(fix_res_dict["updated_scts"]) > 1:
                 second_track_id = underseg_candidate_pair[1].tmp["sct"].track_id
@@ -1313,8 +1269,9 @@ for round in range(1, 50):
                     second_traj_in_sctc,
                     fix_res_dict["updated_scts"][1],
                 )
-                corrected_sctc.pop_trajectory_by_id(_updated_sct_second.track_id)
+                corrected_sctc.pop_trajectory_by_id(second_track_id)
                 corrected_sctc.add_trajectory(_updated_sct_second)
+                assert len(_updated_sct_second) >= len(second_traj_in_sctc)
                 underseg_candidate_pair[1].tmp["sct"] = _updated_sct_second
 
     print("*" * 100)
@@ -1336,6 +1293,15 @@ for round in range(1, 50):
     round_df_dict["round"].append(round)
     round_df_dict["fix_attempt"].append(fixed_attempt_counter)
     round_df_dict["fixed_cases"].append(fixed_case_counter)
+    round_df_dict["duplicate_underseg_fix_cases"].append(duplicate_underseg_fix_counter)
+
+    round_df_dict["missing_rate"].append(np.array(list(compute_sctc_missing_rate(corrected_sctc).values())).mean())
+    filtered_corrected_sctc = corrected_sctc.filter_trajectories_by_length(min_length=30)
+    filtered_corrected_sctc = filter_boundary_traj(filtered_corrected_sctc, dist=30)
+
+    round_df_dict["filtered_missing_rate"].append(
+        np.array(list(compute_sctc_missing_rate(filtered_corrected_sctc).values())).mean()
+    )
 
     print("*" * 100)
     cur_sctc = corrected_sctc
