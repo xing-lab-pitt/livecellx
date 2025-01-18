@@ -1,8 +1,10 @@
+import argparse
 import datetime
 
 import cv2
 import skimage
 import livecellx
+from livecellx.model_zoo.segmentation.csn_sc_utils import correct_sc
 from livecellx.model_zoo.segmentation.custom_transforms import CustomTransformEdtV9
 from livecellx.model_zoo.segmentation.eval_csn import compute_watershed
 from livecellx.model_zoo.segmentation.sc_correction_aux import CorrectSegNetAux
@@ -36,99 +38,60 @@ from typing import List
 from typing import Dict
 import tqdm
 import livecellx.core.sc_mapping
-from livecellx.segment.ou_simulator import find_contours_opencv
+from livecellx.segment.ou_simulator import find_contours_opencv, find_label_mask_contours
 
 
-def get_zeromaps(sci2sci2metric, zeromap_threshold=0.6):
-    zeromap_threshold_filtered_mapping = {}
-    zero_maps = {}
+parser = argparse.ArgumentParser()
+parser.add_argument("--DEBUG", action="store_true", help="Debug mode", default=False)
+parser.add_argument("--min_area", type=int, help="Minimum area for a single cell", default=500)
+args = parser.parse_args()
+
+MIN_AREA = args.min_area
+
+
+def get_zeromaps(sci2sci2metric, map_threshold=0.6):
+    mapped_sci = {}
+    res_zero_maps = {}
     for sci_1, sci2metric in sci2sci2metric.items():
-        zeromap_threshold_filtered_mapping[sci_1] = []
+        mapped_sci[sci_1] = []
         for sci_2, metric in sci2metric.items():
-            if metric > zeromap_threshold:
-                if sci_2 not in zeromap_threshold_filtered_mapping:
-                    zeromap_threshold_filtered_mapping[sci_2] = []
-                zeromap_threshold_filtered_mapping[sci_1].append(sci_2)
-
-        if len(zeromap_threshold_filtered_mapping[sci_1]) == 0:
-            zero_maps[sci_1] = sci2metric
-    return zero_maps
-
-
-def correct_sc_mask(_sc, model, padding, input_transforms=None, gpu=True, h_threshold=1):
-    raw_data = CorrectSegNetDataset._prepare_sc_inference_data(
-        _sc, padding_pixels=padding, bbox=None, normalize_crop=True
-    )
-    original_shape = raw_data["augmented_raw_img"].shape[-2:]
-    sample = CorrectSegNetDataset.prepare_and_augment_data(
-        raw_data,
-        input_type=model.input_type,
-        bg_val=0,
-        normalize_uint8=model.normalize_uint8,
-        exclude_raw_input_bg=model.exclude_raw_input_bg,
-        force_no_edt_aug=False,
-        apply_gt_seg_edt=model.apply_gt_seg_edt,
-        transform=input_transforms,
-    )
-    if gpu:
-        outputs = model(sample["input"].unsqueeze(0).cuda())
-    else:
-        outputs = model(sample["input"].unsqueeze(0))
-    label_out = outputs[1].cpu().detach().numpy().squeeze()
-    label_str = CorrectSegNetDataset.label_onehot_to_str(label_out)
-
-    from torchvision import transforms
-
-    back_transforms = transforms.Compose(
-        [
-            transforms.Resize(size=(original_shape[0], original_shape[1])),
-        ]
-    )
-    out_mask_transformed = back_transforms(outputs[0]).cpu().detach().numpy().squeeze()
-    watershed_mask = compute_watershed(out_mask_transformed[0], h_threshold=h_threshold)
-    return out_mask_transformed, watershed_mask, label_str
+            if metric > map_threshold:
+                if sci_2 not in mapped_sci:
+                    mapped_sci[sci_2] = []
+                mapped_sci[sci_1].append(sci_2)
+        if len(mapped_sci[sci_1]) == 0:
+            res_zero_maps[sci_1] = sci2metric
+    return res_zero_maps
 
 
-def contours_to_scs(contours, ref_sc: SingleCellStatic, padding=None, min_area=None):
-    new_scs = []
-    sc_bbox = ref_sc.get_bbox(padding=padding)
-    for contour in contours:
-        if min_area is not None and cv2.contourArea(contour) < min_area:
-            continue
-        _contour = np.array([(sc_bbox[0] + x, sc_bbox[1] + y) for x, y in contour])
-        new_sc = SingleCellStatic(
-            ref_sc.timeframe,
-            contour=_contour,
-            img_dataset=ref_sc.img_dataset,
-        )
-        new_scs.append(new_sc)
-    return new_scs
+# def viz_csn_results(orig_sc, csn_scs, padding, out_dir, prefix=""):
+#     nc = len(csn_scs) + 1
+#     fig, axes = plt.subplots(2, nc, figsize=(nc * 5, 5), dpi=300)
+#     if nc == 1:
+#         axes = axes.reshape(2, 1)
+#     axes[0, 0].imshow(orig_sc.get_img_crop(padding=padding))
+#     axes[0, 0].set_title(f"Ref sc")
+#     axes[1, 0].imshow(orig_sc.get_sc_mask(padding=padding))
+#     axes[1, 0].set_title(f"Ref mask")
+#     for i, _sc in enumerate(csn_scs):
+#         axes[0, i + 1].imshow(_sc.get_img_crop(padding=padding))
+#         axes[1, i + 1].imshow(_sc.get_sc_mask(padding=padding))
+#     plt.savefig(out_dir / f"{prefix}corrected_sc_{orig_sc.id}_t{time}.png")
+#     plt.close()
 
 
-def correct_sc(_sc, model, padding, input_transforms=None, gpu=True, min_area=4000):
-    out_mask, watershed_mask, label_str = correct_sc_mask(_sc, model, padding, input_transforms, gpu)
-    contours = find_contours_opencv(watershed_mask)
-    _scs = contours_to_scs(contours, ref_sc=_sc, padding=padding, min_area=min_area)
-    for sc_ in _scs:
-        sc_.meta["csn_gen"] = True
-        sc_.meta["orig_sc_id"] = str(_sc.id)
+def viz_csn_mask_results(orig_sc: SingleCellStatic, out_mask, watershed_mask, padding, out_dir, prefix=""):
+    fig, axes = plt.subplots(1, 4, figsize=(15, 5), dpi=300)
+    axes[0].imshow(orig_sc.get_img_crop(padding=padding))
+    axes[0].set_title(f"Ref sc")
+    axes[1].imshow(orig_sc.get_sc_mask(padding=padding))
+    axes[1].set_title(f"Ref mask")
+    axes[2].imshow(out_mask.squeeze()[0])
+    axes[2].set_title(f"CSN mask")
+    axes[3].imshow(watershed_mask)
+    axes[3].set_title(f"Watershed mask")
 
-    return _scs
-
-
-def viz_csn_results(orig_sc, csn_scs, padding, out_dir, prefix=""):
-    nc = len(csn_scs) + 1
-    fig, axes = plt.subplots(2, nc, figsize=(nc * 5, 5), dpi=300)
-    if nc == 1:
-        axes = axes.reshape(2, 1)
-    axes[0, 0].imshow(orig_sc.get_img_crop(padding=padding))
-    axes[0, 0].set_title(f"Ref sc")
-    axes[1, 0].imshow(orig_sc.get_sc_mask(padding=padding))
-    axes[1, 0].set_title(f"Ref mask")
-    for i, _sc in enumerate(csn_scs):
-        axes[0, i + 1].imshow(_sc.get_img_crop(padding=padding))
-        axes[1, i + 1].imshow(_sc.get_sc_mask(padding=padding))
-    plt.savefig(out_dir / f"{prefix}corrected_sc_{orig_sc.id}_t{time}.png")
+    plt.savefig(out_dir / f"{prefix}mask_corrected_sc_{orig_sc.id}_t{time}.png")
     plt.close()
 
 
@@ -139,31 +102,60 @@ def extend_and_fix_missing_sc(
     threshold=0.7,
     metric="iou",
     padding=20,
-    min_area=4000,
+    min_area=MIN_AREA,
+    max_extend_time=10,
 ):
     # Pre-check if start-sc is valid or not
-    start_corrected_scs = correct_sc(start_sc, model, padding=padding, min_area=min_area)
-    viz_csn_results(start_sc, start_corrected_scs, padding, csn_fig_dir)
+    res_dict: dict = correct_sc(start_sc, model, padding=padding, min_area=min_area, return_outputs=True)
+    start_corrected_scs = res_dict["scs"]
+    watershed_mask = res_dict["watershed_mask"]
+    out_mask = res_dict["out_mask"]
+    viz_csn_mask_results(
+        start_sc,
+        out_mask=out_mask,
+        watershed_mask=watershed_mask,
+        padding=padding,
+        out_dir=csn_fig_dir,
+        prefix="start-",
+    )
+
     if len(start_corrected_scs) == 0:
-        viz_csn_results(start_sc, start_corrected_scs, padding, csn_fig_dir, prefix="lack_corrected-")
+        viz_csn_mask_results(
+            start_sc,
+            out_mask=out_mask,
+            watershed_mask=watershed_mask,
+            padding=padding,
+            out_dir=csn_fig_dir,
+            prefix="start-lack_corrected-",
+        )
         return {
             "sct": SingleCellTrajectory(timeframe_to_single_cell={start_sc.timeframe: start_sc}),
             "state": "lack_correct_start",
         }
     elif len(start_corrected_scs) > 1:
-        viz_csn_results(start_sc, start_corrected_scs, padding, csn_fig_dir, prefix="useg-start-")
+        viz_csn_mask_results(
+            start_sc,
+            out_mask=out_mask,
+            watershed_mask=watershed_mask,
+            padding=padding,
+            out_dir=csn_fig_dir,
+            prefix="start-useg-",
+        )
         return {
             "sct": SingleCellTrajectory(timeframe_to_single_cell={start_sc.timeframe: start_sc}),
             "state": "useg_start",
         }
     start_sc = start_corrected_scs[0]
     cur_time = start_sc.timeframe
-    max_time = max([sc.timeframe for time in scs_by_time for sc in scs_by_time[time]])
+    max_time = max([time for time in scs_by_time])
     res_scs = [start_sc]
     ref_sc = start_sc
     res_state = "complete"
     res_dict = {}
     for time in range(cur_time + 1, max_time + 1):
+        if time - cur_time > max_extend_time:
+            res_state = "end_by_max_extend_time"
+            break
         if time not in scs_by_time:
             continue
         scs = scs_by_time[time]
@@ -189,20 +181,36 @@ def extend_and_fix_missing_sc(
                 mask_dataset=ref_sc.mask_dataset,
                 contour=ref_sc.contour,
             )
-            _scs = correct_sc(new_sc, model, padding=padding, min_area=4000, input_transforms=input_transforms)
+            _scs = correct_sc(new_sc, model, padding=padding, min_area=MIN_AREA, input_transforms=input_transforms)
+            assert isinstance(_scs, list), f"Invalid _scs type from correct_sc: {type(_scs)}"
+
             # Visualize correction results
             if len(_scs) == 0:
                 res_state = "end_lack_corrected_scs"
                 break
-
-            # Visualize for debugging
-            viz_csn_results(new_sc, _scs, padding, csn_fig_dir)
-
             # TODO: handle more than one sc case in _scs
             if len(_scs) > 1:
                 res_state = "multiple_corrected_scs"
-                viz_csn_results(new_sc, _scs, padding, csn_fig_dir, prefix="useg-multi-")
+                viz_csn_mask_results(
+                    start_sc,
+                    out_mask=out_mask,
+                    watershed_mask=watershed_mask,
+                    padding=padding,
+                    out_dir=csn_fig_dir,
+                    prefix="loop-useg-multi-",
+                )
                 break
+
+            # Visualize for debugging
+            viz_csn_mask_results(
+                start_sc,
+                out_mask=out_mask,
+                watershed_mask=watershed_mask,
+                padding=padding,
+                out_dir=csn_fig_dir,
+                prefix="loop-corrected-",
+            )
+
             res_scs.extend(_scs)
             ref_sc = _scs[0]
             res_state = "multi-complete"
@@ -214,10 +222,10 @@ def extend_and_fix_missing_sc(
     return res_dict
 
 
-def process_by_time(scs):
-    for sc in scs:
-        extended_sct = extend_and_fix_missing_sc(sc, cp_scs_by_time, model=model, threshold=0.5)
-        extended_filled_sctc.add_trajectory(extended_sct)
+# def process_by_time(scs):
+#     for sc in scs:
+#         extended_sct = extend_and_fix_missing_sc(sc, cp_scs_by_time, model=model, threshold=0.5)
+#         extended_filled_sctc.add_trajectory(extended_sct)
 
 
 lcx_out_dir = Path("./notebook_results/CXA_process2_7_19/")
@@ -248,7 +256,15 @@ model.eval()
 model.cuda()
 
 
-cp_scs = SingleCellStatic.load_single_cells_json(lcx_out_dir / "single_cells_zero_based_time.json")
+if args.DEBUG:
+    sctc_path = lcx_out_dir / "sctc_20-50.json"
+    print("DEBUG MODE: Using sctc_20-50.json")
+    cp_scs = SingleCellTrajectoryCollection.load_from_json_file(sctc_path).get_all_scs()
+else:
+    scs_path = lcx_out_dir / "single_cells_zero_based_time.json"
+    cp_scs = SingleCellStatic.load_single_cells_json(scs_path)
+
+
 # cp_scs = SingleCellTrajectoryCollection.load_from_json_file(
 #     lcx_out_dir / "sctc_20-50.json"
 # ).get_all_scs()
@@ -276,10 +292,10 @@ for sci in sci2sci2metric_keys:
 
 sci2sci2metric = filtered_sci2sci2metric
 
-zero_maps = get_zeromaps(sci2sci2metric, 0.65)
+zero_maps = get_zeromaps(sci2sci2metric, 0.5)
 zero_sc_ids = list(zero_maps.keys())
 zero_scs = [id2sc[sc_id] for sc_id in zero_sc_ids]
-print("# zero_scs: ", len(zero_scs))
+print("# zero_scs: ", len(zero_scs), "| # total_scs: ", len(cp_scs))
 
 # Construct missing cells based on zero maps
 td1_scs = []
@@ -301,7 +317,15 @@ print("# Area filtered_td1_scs: ", len(filtered_td1_scs))
 
 extended_filled_sctc = SingleCellTrajectoryCollection()
 extended_res_dicts = []
+
+extend_df_dict = {
+    "# extended": [],
+    "state": [],
+    "sc_id": [],
+}
+
 for time in tqdm.tqdm(td1_scs_by_time):
+    print("current time: ", time, "| # scs: ", len(td1_scs_by_time[time]))
     for sc in td1_scs_by_time[time]:
         extended_dict = extend_and_fix_missing_sc(sc, cp_scs_by_time, model=model, threshold=0.7)
         extended_sct = extended_dict["sct"]
@@ -319,6 +343,15 @@ for time in tqdm.tqdm(td1_scs_by_time):
 
         extended_filled_sctc.add_trajectory(extended_sct)
         extended_res_dicts.append(extended_dict)
+
+        # Save stats df
+        extend_df_dict["# extended"].append(len(extended_sct))
+        extend_df_dict["sc_id"].append(sc.id)
+        extend_df_dict["state"].append(extended_state)
+        tmp_df = pd.DataFrame(extend_df_dict)
+        tmp_df.to_csv(out_dir / "extend_stats.csv", index=False)
+        del tmp_df
+
 
 extended_filled_sctc.write_json(out_dir / "extended_filled_sctc.json")
 
