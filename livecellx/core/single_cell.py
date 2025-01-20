@@ -1151,7 +1151,7 @@ class SingleCellTrajectory:
     def __getitem__(self, timeframe: int) -> SingleCellStatic:
         if timeframe not in self.timeframe_set:
             raise KeyError(f"single cell at timeframe {timeframe} does not exist in the trajectory")
-        return self.get_single_cell(timeframe)
+        return self.get_sc(timeframe)
 
     def __iter__(self):
         return iter(self.timeframe_to_single_cell.items())
@@ -1212,8 +1212,10 @@ class SingleCellTrajectory:
 
     get_time_span_length = get_timeframe_span_length
 
-    def get_single_cell(self, timeframe: int) -> SingleCellStatic:
+    def get_sc(self, timeframe: int) -> SingleCellStatic:
         return self.timeframe_to_single_cell[timeframe]
+
+    get_single_cell = get_sc
 
     def get_all_scs(self) -> List[SingleCellStatic]:
         scs = list(self.timeframe_to_single_cell.values())
@@ -1225,12 +1227,14 @@ class SingleCellTrajectory:
     def num_scs(self) -> int:
         return len(self.timeframe_to_single_cell)
 
-    def pop_single_cell_by_time(self, timeframe: int):
+    def pop_sc_by_time(self, timeframe: int):
         self.timeframe_set.remove(timeframe)
         return self.timeframe_to_single_cell.pop(timeframe)
 
+    pop_single_cell_by_time = pop_sc_by_time
+
     def pop_sc(self, sc: SingleCellStatic):
-        return self.pop_single_cell_by_time(sc.timeframe)
+        return self.pop_sc_by_time(sc.timeframe)
 
     def to_json_dict(self, dataset_json_dir=None):
         # Check if mother and daughter trajectories exist in metadata. If not, add them
@@ -1953,7 +1957,7 @@ def show_sct_on_grid(
                 break
             if timeframe not in trajectory.timeframe_set:
                 continue
-            sc = trajectory.get_single_cell(timeframe)
+            sc = trajectory.get_sc(timeframe)
             if show_mask:
                 sc_img = sc.get_mask_crop(padding=padding)
             else:
