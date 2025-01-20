@@ -68,6 +68,14 @@ parser.add_argument(
     default=20,
     required=False,
 )
+parser.add_argument(
+    "--match_search_interval",
+    type=int,
+    help="Search interval for matching cells",
+    default=3,
+    required=False,
+)
+
 args = parser.parse_args()
 
 if args.DEBUG:
@@ -75,7 +83,7 @@ if args.DEBUG:
 
 
 match_threshold = 0.5
-match_search_interval = 3
+match_search_interval = args.match_search_interval
 dist_to_boundary = 50
 h_threshold = 0.3
 
@@ -193,7 +201,9 @@ with open(correction_out_dir / "hyperparams.json", "w") as f:
 # track_sctc = SingleCellTrajectoryCollection.load_from_json_file(
 #     lcx_out_dir / "sctc_20-50.json"
 # )
-load_sctc_path = lcx_out_dir / "sctc_filled_SORT_bbox.json"
+# load_sctc_path = lcx_out_dir / "sctc_filled_SORT_bbox.json"
+
+load_sctc_path = lcx_out_dir / "sctc_filled_SORT_bbox_max_age_3_min_hits_1.json"
 if args.DEBUG:
     load_sctc_path = lcx_out_dir / "sctc_20-50.json"
 
@@ -268,6 +278,7 @@ track_sctc.histogram_traj_length(ax=ax)
 # x-ticks rotation
 ax.set_xticklabels(ax.get_xticklabels(), rotation=-45, ha="right")
 plt.savefig(correction_out_dir / "original_hist_traj_length.png")
+plt.close()
 
 
 def get_td1_pred_sc_mask_path(sc: SingleCellStatic):
@@ -363,6 +374,7 @@ plt.xlabel("Missing rate")
 plt.ylabel("Frequency")
 plt.title("Histogram of missing rate")
 plt.savefig(correction_out_dir / "original_hist_missing_rate.png")
+plt.close()
 
 
 def get_sc_before_time(sct, time: float):
@@ -438,7 +450,6 @@ def show_tracks(sctc: SingleCellTrajectoryCollection, denoted_scs, figsize=(5, 2
     ax.set_ylabel("Track ID")
     # Set y range, starting at 0
     ax.set_ylim(0, track_y)
-    plt.show()
     return fig, ax
 
 
@@ -523,7 +534,6 @@ def show_tracks_missing(sctc: SingleCellTrajectoryCollection, denoted_pairs, fig
     ax.set_ylabel("Track ID")
     # Set y range, starting at 0
     ax.set_ylim(0, track_y)
-    plt.show()
     return fig, ax
 
 
@@ -714,11 +724,13 @@ def gen_missing_case_masks(in_sc, missing_sc, out_dir: Path, padding=20, out_thr
     plt.close()
 
 
-def overwrite_sct(target_sct: SingleCellTrajectory, src_sct: SingleCellTrajectory, inplace=False):
+def overwrite_sct(target_sct: SingleCellTrajectory, src_sct: SingleCellTrajectory, timeframe, inplace=False):
     if not inplace:
         target_sct = target_sct.copy()
-    for _time, _sc in src_sct:
-        target_sct.add_sc(_sc)
+    if timeframe in target_sct.timeframe_set:
+        target_sct.pop_sc_by_time(timeframe)
+    if timeframe in src_sct.timeframe_set:
+        target_sct.add_single_cell(src_sct.get_single_cell(timeframe))
     return target_sct
 
 
@@ -948,6 +960,8 @@ def fix_missing_trajectory(in_sc, missing_sc, padding=20, area_threshold=1000, i
             lsa_mapping = match_scs_by_lap(new_scs, [in_sc, temporal_neighbor_missing_sc], cost_iou)
         # Add new_scs to trajectories based on mapping
         mapped_orig_scs = set()
+        in_matched = False
+        other_matched = False
         for new_sc in new_scs:
             if new_sc not in lsa_mapping:
                 continue
@@ -961,21 +975,20 @@ def fix_missing_trajectory(in_sc, missing_sc, padding=20, area_threshold=1000, i
             if mapped_sc == in_sc:
                 new_sc.timeframe = missing_sc.timeframe
                 sct_in.add_single_cell(new_sc)
+                in_matched = True
             elif mapped_sc == temporal_neighbor_missing_sc:
                 new_sc.timeframe = missing_sc.timeframe
                 sct_missing.add_single_cell(new_sc)
+                other_matched = True
             else:
                 assert False, "Unexpected mapped sc"
-
+        assert in_matched, "in_sc not matched"
+        assert other_matched, "other sc not matched"
         # Check if all the underseg pair scs are mapped
-        if not is_lacking_neighbor:
-            assert (
-                len(mapped_orig_scs) == 2
-            ), f"Not all the underseg pair scs are mapped:{mapped_orig_scs}, \n {lsa_mapping}"
-        else:
-            assert (
-                len(mapped_orig_scs) == 2
-            ), f"Not all the underseg pair scs are mapped:{mapped_orig_scs}, \n {lsa_mapping}"
+        # [TODO] duplicate check: remove later
+        assert (
+            len(mapped_orig_scs) == 2
+        ), f"Not all the underseg pair scs are mapped:{mapped_orig_scs}, \n {lsa_mapping}"
         return {
             "case_type": case_type,
             "new_scs": new_scs,
@@ -983,6 +996,7 @@ def fix_missing_trajectory(in_sc, missing_sc, padding=20, area_threshold=1000, i
             "updated_scts": [sct_in, sct_missing],
             "state": "fixed",
             "is_lacking_neighbor": is_lacking_neighbor,
+            "sc_pair": (in_sc, missing_sc),
         }
     elif len(missing_contours) and len(in_contours) > 1:
         case_type = "P/A-US"
@@ -1060,13 +1074,13 @@ for round in range(1, 50):
     )
     report_underseg_candidates(underseg_candidates_by_missing, annotated_US_scs)
     print("Filtering out visited pairs...")
-    num_before_filtering = len(underseg_candidate_pairs_by_missing)
+    pair_counter_before_filtering = len(underseg_candidate_pairs_by_missing)
     underseg_candidate_pairs_by_missing = [
         pair for pair in underseg_candidate_pairs_by_missing if pair not in visited_pairs
     ]
     print(
         "Number of pairs before Filtering out visited pairs:",
-        num_before_filtering,
+        pair_counter_before_filtering,
         "Number of pairs after Filtering out visited pairs:",
         len(underseg_candidate_pairs_by_missing),
     )
@@ -1106,13 +1120,13 @@ for round in range(1, 50):
     report_underseg_candidates(underseg_candidates_by_ending, annotated_US_scs)
 
     print("Filtering out visited pairs...")
-    num_before_filtering = len(underseg_candidate_pairs_by_ending)
+    pair_counter_before_filtering = len(underseg_candidate_pairs_by_ending)
     underseg_candidate_pairs_by_ending = [
         pair for pair in underseg_candidate_pairs_by_ending if pair not in visited_pairs
     ]
     print(
         "Number of pairs before Filtering out visited pairs:",
-        num_before_filtering,
+        pair_counter_before_filtering,
         "Number of pairs after Filtering out visited pairs:",
         len(underseg_candidate_pairs_by_ending),
     )
@@ -1162,7 +1176,7 @@ for round in range(1, 50):
         y_interval=1,
     )
     plt.savefig(round_out_dir / "before_correction_missing_track_plot.png")
-
+    plt.close()
     underseg_pairs_all = set(underseg_candidate_pairs_by_missing).union(underseg_candidate_pairs_by_ending)
     underseg_pairs_all = list(underseg_pairs_all)
 
@@ -1252,22 +1266,24 @@ for round in range(1, 50):
             fixed_case_counter += 1
             # Important: Do not use sct stored in tmp directly
             # Becuase it may not be the latest sct in cur_sctc
+            sc1, sc2 = fix_res_dict["sc_pair"]
+            useg_timeframe = sc2.timeframe
             track_id = underseg_candidate_pair[0].tmp["sct"].track_id
             traj_in_sctc = corrected_sctc[track_id]
-            _updated_sct1 = overwrite_sct(traj_in_sctc, fix_res_dict["updated_scts"][0])
+            _updated_sct1 = overwrite_sct(traj_in_sctc, fix_res_dict["updated_scts"][0], useg_timeframe)
             corrected_sctc.pop_trajectory_by_id(track_id)
             corrected_sctc.add_trajectory(_updated_sct1)
-            underseg_candidate_pair[0].tmp["sct"] = _updated_sct1
             assert len(_updated_sct1) >= len(traj_in_sctc)
+            underseg_candidate_pair[0].tmp["sct"] = _updated_sct1
             if len(_updated_sct1) == len(traj_in_sctc):
                 duplicate_underseg_fix_counter += 1
             # Update the second sc
+            assert len(fix_res_dict["updated_scts"]) > 1, "Missing second sct in fix_res_dict"
             if len(fix_res_dict["updated_scts"]) > 1:
                 second_track_id = underseg_candidate_pair[1].tmp["sct"].track_id
                 second_traj_in_sctc = corrected_sctc[second_track_id]
                 _updated_sct_second = overwrite_sct(
-                    second_traj_in_sctc,
-                    fix_res_dict["updated_scts"][1],
+                    second_traj_in_sctc, fix_res_dict["updated_scts"][1], useg_timeframe
                 )
                 corrected_sctc.pop_trajectory_by_id(second_track_id)
                 corrected_sctc.add_trajectory(_updated_sct_second)
@@ -1311,12 +1327,14 @@ for round in range(1, 50):
     filtered_original_sctc.histogram_traj_length(ax=ax)
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
     plt.savefig(round_out_dir / "original_hist_traj_length.png")
+    plt.close()
 
     fig, ax = plt.subplots(1, 1, figsize=(40, 5), dpi=300)
     corrected_sctc.histogram_traj_length(ax=ax, color="blue")
     # Rotate x-axis ticks
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
     plt.savefig(round_out_dir / "corrected_hist_traj_length.png")
+    plt.close()
 
     round_df = pd.DataFrame(round_df_dict)
     case_stats_df = pd.DataFrame(case_stats_df_dict)
