@@ -12,7 +12,7 @@ from torchvision import transforms
 from livecellx.core.single_cell import SingleCellStatic
 from livecellx.model_zoo.segmentation.eval_csn import compute_watershed
 from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
-from livecellx.segment.ou_simulator import find_contours_opencv
+from livecellx.segment.ou_simulator import find_contours_opencv, find_label_mask_contours
 
 
 def correct_sc_mask(_sc, model, padding, input_transforms=None, gpu=True, h_threshold=1):
@@ -63,10 +63,12 @@ def contours_to_scs(contours, ref_sc: SingleCellStatic, padding=None, min_area=N
 
 
 def correct_sc(
-    _sc, model, padding, input_transforms=None, gpu=True, min_area=100, return_outputs=False
+    _sc, model, padding, input_transforms=None, gpu=True, min_area=100, return_outputs=False, h_threshold=1
 ) -> Union[List[SingleCellStatic], Dict[str, Any]]:
-    out_mask, watershed_mask, label_str = correct_sc_mask(_sc, model, padding, input_transforms, gpu)
-    contours = find_contours_opencv(watershed_mask)
+    out_mask, watershed_mask, label_str = correct_sc_mask(
+        _sc, model=model, padding=padding, input_transforms=input_transforms, gpu=gpu, h_threshold=h_threshold
+    )
+    contours = find_label_mask_contours(watershed_mask)
     _scs = contours_to_scs(contours, ref_sc=_sc, padding=padding, min_area=min_area)
     for sc_ in _scs:
         sc_.meta["csn_gen"] = True
