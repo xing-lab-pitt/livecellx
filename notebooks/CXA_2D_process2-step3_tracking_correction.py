@@ -75,6 +75,13 @@ parser.add_argument(
     default=3,
     required=False,
 )
+parser.add_argument(
+    "--max_round",
+    type=int,
+    help="Maximum number of rounds for matching",
+    default=100,
+    required=False,
+)
 
 args = parser.parse_args()
 
@@ -1045,7 +1052,7 @@ case_stats_df_dict = {
 }
 
 
-for round in range(1, 50):
+for round in range(1, args.max_round + 1):
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
     print("Round", round)
     print("# of visited pairs:", len(visited_pairs))
