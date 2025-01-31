@@ -129,7 +129,7 @@ if args.DEBUG:
     shutil.rmtree(correction_out_dir, ignore_errors=True)
 else:
     correction_out_dir = lcx_out_dir / (
-        f"traj_logics_correction_{datetime.datetime.now().strftime('%m-%d-%Y')}_csn-{model_short_name}-iomin-{match_threshold}_search_interval-{match_search_interval}"
+        f"traj_logics_correction_{datetime.datetime.now().strftime('%m-%d-%Y')}_csn-{model_short_name}-iomin-{match_threshold}_search_interval-{match_search_interval}_max_round-{args.max_round}_padding-{args.padding}"
     )
 
 correction_out_dir.mkdir(parents=True, exist_ok=True)
@@ -275,60 +275,12 @@ all_scs = track_sctc.get_all_scs()
 # SingleCellTrajectoryCollection.write_json(debug_long_sctc, lcx_out_dir / "debug_long_sctc_with_features.json")
 
 
-# expert_filed_scs = SingleCellTrajectoryCollection.load_from_json_file(
-#     lcx_out_dir / "Sijie-labeled-missing_cells-9-29.json"
-# ).get_all_scs()
-
-
 fig, ax = plt.subplots(1, 1, figsize=(60, 5), dpi=300)
 track_sctc.histogram_traj_length(ax=ax)
 # x-ticks rotation
 ax.set_xticklabels(ax.get_xticklabels(), rotation=-45, ha="right")
 plt.savefig(correction_out_dir / "original_hist_traj_length.png")
 plt.close()
-
-
-def get_td1_pred_sc_mask_path(sc: SingleCellStatic):
-    return (
-        Path(
-            "/home/ken67/livecellx/notebooks/notebook_results/CXA_process2_7_19/v15-CSN-experiments/out_threshold-1-padding-20-h_threshold-0.5/mask"
-        )
-        / f"sc_{sc.id}_watershed.npy"
-    )
-
-
-def read_td1_pred_sc_seg_mask(sc: SingleCellStatic):
-    path = get_td1_pred_sc_mask_path(sc)
-    if not path.exists():
-        return None
-    return np.load(get_td1_pred_sc_mask_path(sc))[0]
-
-
-annotated_US_scs = []
-for sc in all_scs:
-    sc_path = get_td1_pred_sc_mask_path(sc)
-    if not sc_path.exists():
-        continue
-    annotated_US_scs.append(sc)
-
-
-print("# trajectories", len(track_sctc.get_all_trajectories()))
-print("# total scs", len(all_scs))
-print("# predicted scs", len(annotated_US_scs))
-
-
-annotated_US_scs = filter_boundary_cells(list(annotated_US_scs), dist_to_boundary=dist_to_boundary)
-print("# predicted scs after filtering", len(annotated_US_scs))
-
-
-annotated_US_scs = set(annotated_US_scs)
-annotation_table = []
-
-print(
-    "Intersection of GT multimap cells and predicted cells:",
-    len(set(annotated_US_scs).intersection(set(track_sctc.get_all_scs()))),
-    len(annotated_US_scs),
-)
 
 
 def read_annotation_csv(save_path) -> pd.DataFrame:
@@ -362,10 +314,8 @@ print("# Multimap GT scs:", len(annotated_US_scs))
 print("# predicted scs:", len(annotated_US_scs))
 print("# Multimap GT scs or UNKNOWN:", len(annotated_US_or_UNKNOWN_scs))
 
-
 trajectories = track_sctc.get_all_trajectories()
 # trajectories[0].show_on_grid(nr=3, nc=3, interval=5);
-
 
 track_missing_rate = []
 for sct in trajectories:
@@ -738,6 +688,8 @@ def overwrite_sct(target_sct: SingleCellTrajectory, src_sct: SingleCellTrajector
         target_sct.pop_sc_by_time(timeframe)
     if timeframe in src_sct.timeframe_set:
         target_sct.add_single_cell(src_sct.get_single_cell(timeframe))
+    else:
+        main_warning("Overwrite sct: Timeframe not found in src_sct")
     return target_sct
 
 
@@ -786,7 +738,7 @@ def select_underseg_cells_by_missing(sctc, search_interval=2, threshold=0.5):
                 next_sc = get_sc_after_time(sct, time)
                 if next_sc is None:
                     continue
-                if int(next_sc.timeframe) - search_interval > time:
+                if int(next_sc.timeframe) - search_interval >= time:
                     continue
                 if time not in time2scs:
                     continue
@@ -827,7 +779,7 @@ def select_underseg_cells_by_end(sctc, search_interval=2, threshold=0.5):
             continue
         end_cell = sorted(sct.get_all_scs(), key=lambda x: x.timeframe, reverse=True)[0]
         end_cells.add(end_cell)
-        for time in range(end + 1, end + 1 + search_interval + 1):
+        for time in range(end + 1, end + 1 + search_interval):
             if time not in time2scs:
                 continue
             scs_at_time = time2scs[time]
@@ -1074,17 +1026,20 @@ for round in range(1, args.max_round + 1):
     underseg_candidate_pairs_by_missing = res_dict["underseg_candidate_pairs"]
     underseg_candidates_by_missing = set([pair[1] for pair in underseg_candidate_pairs_by_missing])
 
-    print(
-        "=====================================",
-        "Missing logic",
-        "=====================================",
-    )
-    report_underseg_candidates(underseg_candidates_by_missing, annotated_US_scs)
     print("Filtering out visited pairs...")
     pair_counter_before_filtering = len(underseg_candidate_pairs_by_missing)
     underseg_candidate_pairs_by_missing = [
         pair for pair in underseg_candidate_pairs_by_missing if pair not in visited_pairs
     ]
+
+    print(
+        "=====================================",
+        "Missing logic summary",
+        "=====================================",
+    )
+
+    report_underseg_candidates(underseg_candidates_by_missing, annotated_US_scs)
+
     print(
         "Number of pairs before Filtering out visited pairs:",
         pair_counter_before_filtering,
@@ -1102,27 +1057,25 @@ for round in range(1, args.max_round + 1):
         "# of consecutive scs by missing logics that are not in predicted scs:",
         len(consecutive_underseg_scs_underseg_scs_not_in_gt),
     )
-
-    report_underseg_candidates(underseg_candidates_by_missing, annotated_US_scs)
     print(
         "# of consecutive scs by missing logics that are not in predicted scs:",
         len(consecutive_underseg_scs_underseg_scs_not_in_gt),
     )
     print(
         "=====================================",
-        "End",
-        "=====================================",
-    )
-
-    print(
-        "=====================================",
-        "Logics End",
+        "Missing logics end",
         "=====================================",
     )
     res_dict = select_underseg_cells_by_end(cur_sctc, threshold=match_threshold, search_interval=match_search_interval)
     end_scs = res_dict["end_cells"]
     underseg_candidate_pairs_by_ending = res_dict["underseg_candidate_pairs"]
     underseg_candidates_by_ending = set([pair[1] for pair in underseg_candidate_pairs_by_ending])
+
+    print(
+        "=====================================",
+        "Ending logics begins",
+        "=====================================",
+    )
 
     report_underseg_candidates(underseg_candidates_by_ending, annotated_US_scs)
 
@@ -1139,18 +1092,18 @@ for round in range(1, args.max_round + 1):
     )
     visited_pairs = visited_pairs.union(set(underseg_candidate_pairs_by_ending))
 
-    consecutive_underseg_scs_underseg_scs_not_in_gt = [
+    end_consecutive_underseg_scs_underseg_scs_not_in_gt = [
         _two_scs
         for _two_scs in underseg_candidate_pairs_by_ending
         if _two_scs[0].timeframe + 1 == _two_scs[1].timeframe
     ]
     print(
-        "# of consecutive scs by missing logics that are not in predicted scs:",
-        len(consecutive_underseg_scs_underseg_scs_not_in_gt),
+        "# of consecutive scs by <END> logics that are not in predicted scs:",
+        len(end_consecutive_underseg_scs_underseg_scs_not_in_gt),
     )
     print(
         "=====================================",
-        "End",
+        "Ending logics complete",
         "=====================================",
     )
 
@@ -1254,8 +1207,8 @@ for round in range(1, args.max_round + 1):
     fixed_case_counter = 0
     duplicate_underseg_fix_counter = 0
     for idx in range(len(underseg_pairs_all)):
-        fix_res_dict = fixed_result_dicts[idx]
         underseg_candidate_pair = underseg_pairs_all[idx]
+        fix_res_dict = fixed_result_dicts[idx]
         case_stats_df_dict["case_type"].append(fix_res_dict["case_type"])
         case_stats_df_dict["extra_info"].append(
             {
@@ -1269,7 +1222,7 @@ for round in range(1, args.max_round + 1):
         if fix_res_dict["state"] == "skipped":
             continue
         elif fix_res_dict["state"] == "fixed":
-            # TODO: pop_trajectory -> pop_trajectory_by_id
+            assert underseg_candidate_pair[0] == fix_res_dict["sc_pair"][0]
             fixed_case_counter += 1
             # Important: Do not use sct stored in tmp directly
             # Becuase it may not be the latest sct in cur_sctc
@@ -1280,7 +1233,13 @@ for round in range(1, args.max_round + 1):
             _updated_sct1 = overwrite_sct(traj_in_sctc, fix_res_dict["updated_scts"][0], useg_timeframe)
             corrected_sctc.pop_trajectory_by_id(track_id)
             corrected_sctc.add_trajectory(_updated_sct1)
+            assert (
+                abs(sc2.timeframe - sc1.timeframe) <= match_search_interval
+            ), f"Timeframe mismatch: {sc1.timeframe} vs. {sc2.timeframe}; diff: {abs(sc2.timeframe - sc1.timeframe)}, match_search_interval: {match_search_interval}"
             assert len(_updated_sct1) >= len(traj_in_sctc)
+            assert (
+                _updated_sct1.get_time_span_length() <= traj_in_sctc.get_time_span_length() + match_search_interval
+            ), f"span length update error: {_updated_sct1.get_time_span_length()} != {traj_in_sctc.get_time_span_length() + match_search_interval}, # scs: {len(_updated_sct1.get_all_scs())} vs. {len(traj_in_sctc.get_all_scs())}, sc2: {sc2.timeframe}, sc1: {sc1.timeframe}, updated_sct1 times:{_updated_sct1.times}, traj_in_sctc times: {traj_in_sctc.times}"
             underseg_candidate_pair[0].tmp["sct"] = _updated_sct1
             if len(_updated_sct1) == len(traj_in_sctc):
                 duplicate_underseg_fix_counter += 1
@@ -1295,6 +1254,9 @@ for round in range(1, args.max_round + 1):
                 corrected_sctc.pop_trajectory_by_id(second_track_id)
                 corrected_sctc.add_trajectory(_updated_sct_second)
                 assert len(_updated_sct_second) >= len(second_traj_in_sctc)
+                assert (
+                    _updated_sct_second.get_time_span_length() == second_traj_in_sctc.get_time_span_length()
+                ), f"{_updated_sct_second.get_time_span_length()} != {second_traj_in_sctc.get_time_span_length()}"
                 underseg_candidate_pair[1].tmp["sct"] = _updated_sct_second
 
     print("*" * 100)
