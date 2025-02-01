@@ -161,8 +161,13 @@ class ScSegOperator:
         if len(shape_vec) == 0:
             main_warning(f"sc {self.sc.id} has no contour (or contour list length is 0)")
 
-            # add a square shape with area = 16
-            tmp_contour = [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]
+            # Add a square shape with area = 16
+            tmp_contour = [
+                [0, 0],
+                [4, 0],
+                [4, 4],
+                [0, 4],
+            ]  # Note: do not add [0, 0] to the contour list here, otherwise mysterious crashing on certain machines may occur.
             tmp_shape_data = [[self.sc.timeframe] + coord for coord in tmp_contour]
             shapes_data = [tmp_shape_data]
             is_dummy_shape = True
