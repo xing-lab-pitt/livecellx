@@ -220,13 +220,13 @@ class CustomTransformEdtV9:
         # Common transformations that should be applied to both images and masks
         self.mask_transforms = transforms.Compose(
             [
-                transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
+                transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST, antialias=True),
             ]
         )
         # Image-specific transformations that should not be applied to masks
         self.image_transforms = transforms.Compose(
             [
-                transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.BILINEAR, antialias=True),
                 (
                     transforms.GaussianBlur(kernel_size=gaussian_blur_kernel_size, sigma=gaussian_blur_sigma)
                     if use_gaussian_blur
