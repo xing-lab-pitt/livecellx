@@ -3,6 +3,7 @@ import json
 import copy
 import os
 from pathlib import Path
+import time
 from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, Union
 from collections import deque
 import matplotlib
@@ -1054,7 +1055,18 @@ class SingleCellStatic:
     def copy(self):
         import copy
 
-        return copy.copy(self)
+        # Todo: add test
+        return SingleCellStatic(
+            contour=copy.deepcopy(self.contour),
+            bbox=copy.deepcopy(self.bbox),
+            feature_dict=copy.copy(self.feature_dict),
+            meta=copy.copy(self.meta),
+            id=copy.copy(self.id),
+            uns=copy.copy(self.uns),
+            cache=copy.copy(self.cache),
+            img_dataset=self.img_dataset,
+            mask_dataset=self.mask_dataset,
+        )
 
     def _sc_matplotlib_bbox_patch(self, edgecolor="r", linewidth=1, **kwargs) -> patches.Rectangle:
         """
@@ -1416,10 +1428,10 @@ class SingleCellTrajectory:
     def remove_daughter(self, daughter_sct: "SingleCellTrajectory"):
         self.daughter_trajectories.remove(daughter_sct)
 
-    def copy(self):
+    def copy(self, copy_scs=False):
         # import copy
 
-        return SingleCellTrajectory(
+        new_sct = SingleCellTrajectory(
             track_id=self.track_id,
             timeframe_to_single_cell=self.timeframe_to_single_cell.copy(),
             img_dataset=self.img_dataset,
@@ -1429,6 +1441,10 @@ class SingleCellTrajectory:
             meta=self.meta.copy(),
             tmp=self.tmp.copy(),
         )
+        if copy_scs:
+            for timeframe, sc in self.timeframe_to_single_cell.items():
+                new_sct.add_single_cell_by_time(timeframe, sc.copy())
+        return new_sct
 
     def is_empty(self):
         return len(self.timeframe_set) == 0
@@ -1684,16 +1700,21 @@ class SingleCellTrajectoryCollection:
         with open(path, "r") as f:
             json_dict = json.load(f)
         main_info(f"json loaded from {path}")
-
+        start_time = time.time()
         main_info("Creating SingleCellTrajectoryCollection from json_dict...")
         if parallel:
             res = SingleCellTrajectoryCollection().load_from_json_dict_parallel(json_dict)
-            main_info("Loading SingleCellTrajectoryCollection from json_dict done.")
-            return res
         else:
             res = SingleCellTrajectoryCollection().load_from_json_dict(json_dict)
-            main_info("Loading SingleCellTrajectoryCollection from json_dict done.")
-            return res
+
+        main_info(f"Loaded {len(res)} trajectories")
+        main_info(f"Loading {len(res.get_all_scs())} single cells")
+        end_time = time.time()
+        # log time 2 with 2 precision in seconds
+        main_info(
+            f"Loading SingleCellTrajectoryCollection from json_dict done, time elapsed: {end_time - start_time:.2f}s"
+        )
+        return res
 
     def histogram_traj_length(self, ax=None, **kwargs):
         import seaborn as sns
