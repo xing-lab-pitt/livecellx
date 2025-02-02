@@ -503,6 +503,16 @@ def find_contours_opencv(mask) -> list:
     return contours
 
 
+def find_label_mask_contours(label_mask, bg_val=0) -> list:
+    labels = np.unique(label_mask)
+    labels = labels[labels != bg_val]
+    contours = []
+    for label in labels:
+        mask = label_mask == label
+        contours += find_contours_opencv(mask)
+    return contours
+
+
 def merge_two_scs_overlap(sc1: SingleCellStatic, sc2: SingleCellStatic):
     new_mask = np.logical_or(sc1.get_mask().astype(bool), sc2.get_mask().astype(bool))
     # plt.imshow(new_mask)

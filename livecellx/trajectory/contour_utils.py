@@ -12,7 +12,7 @@ def get_cellTool_contour_points(traj: SingleCellTrajectory, contour_num_points=5
     sorted_timeframes = sorted(traj.timeframe_set)
     cellTool_contours = []
     for timeframe in sorted_timeframes:
-        single_cell = traj.get_single_cell(timeframe)
+        single_cell = traj.get_sc(timeframe)
         contour = Contour(points=single_cell.contour, units="pixels")
         contour.resample(num_points=contour_num_points)
         contour.axis_align()

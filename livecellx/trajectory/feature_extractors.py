@@ -18,7 +18,7 @@ def _compute_feature_wrapper(sc, func, params=dict()):
 
 
 def parallelize_compute_features(
-    scs: List[SingleCellStatic], func: Callable, params: dict, cores=None, replace_feature=True
+    scs: List[SingleCellStatic], func: Callable, params: dict, cores=None, replace_feature=True, verbose=True
 ) -> Tuple[List, List]:
     """
     Compute features in parallel for a list of SingleCellStatic objects.
@@ -48,7 +48,8 @@ def parallelize_compute_features(
 
     res_sc_id2sc = {sc.id: sc for sc in res_scs}
     if replace_feature:
-        main_info("Replacing features in scs", indent_level=2)
+        if verbose:
+            main_info("Replacing features in scs", indent_level=2)
         for sc in scs:
             sc_id = sc.id
             sc.feature_dict = res_sc_id2sc[sc_id].feature_dict

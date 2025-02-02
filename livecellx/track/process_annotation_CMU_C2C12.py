@@ -73,7 +73,7 @@ def make_pseudo_square_contour_wrapper(sc, dim_thresholds=None):
 
 def is_last_timeframe_mitotic(sct: SingleCellTrajectory) -> bool:
     span = sct.get_time_span()
-    last_sc = sct.get_single_cell(span[1])
+    last_sc = sct.get_sc(span[1])
     return last_sc.meta["cell_status"] == MITOTIC_STATUS_CODE
 
 

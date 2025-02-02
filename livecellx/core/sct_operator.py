@@ -709,6 +709,8 @@ class SctOperator:
         # self.shape_layer.data = list(self.shape_layer.data) + sc_napari_data
         random_color = list(np.random.rand(4))
         random_color[-1] = 1.0
+
+        assert self.shape_layer is not None, "shape layer is not set up"
         self.shape_layer.add(sc_dummy_napari_data, shape_type="polygon", face_color=random_color)
         self.shape_layer.properties = new_sc_layer_properties
 
@@ -898,6 +900,7 @@ def create_scts_operator_viewer(
     contour_sample_num=20,
     skip_add_shapes=False,
     img_layer_name="img_data",
+    name="scts",
 ) -> SctOperator:
     import napari
     from livecellx.core.napari_visualizer import NapariVisualizer
@@ -944,6 +947,7 @@ def create_scts_operator_viewer(
     shape_layer.mode = "select"
     sct_operator = SctOperator(sctc, shape_layer, viewer, img_dataset=img_dataset, time_span=time_span)
     create_sct_napari_ui(sct_operator)
+    shape_layer.name = name
     return sct_operator
 
 

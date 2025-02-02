@@ -3,6 +3,7 @@ import json
 import copy
 import os
 from pathlib import Path
+import time
 from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, Union
 from collections import deque
 import matplotlib
@@ -51,14 +52,14 @@ class SingleCellStatic:
 
     def __init__(
         self,
-        timeframe: Optional[int] = None,
-        bbox: Optional[np.array] = None,
+        timeframe: int = None,
+        bbox: Optional[np.ndarray] = None,
         regionprops: Optional[RegionProperties] = None,
         img_dataset: Optional[LiveCellImageDataset] = None,
         mask_dataset: Optional[LiveCellImageDataset] = None,
         dataset_dict: Optional[Dict[str, LiveCellImageDataset]] = None,
-        feature_dict: Optional[Dict[str, np.array]] = None,
-        contour: Optional[np.array] = None,
+        feature_dict: Optional[Dict[str, np.ndarray]] = None,
+        contour: Optional[np.ndarray] = None,
         meta: Optional[Dict[str, object]] = None,
         uns: Optional[Dict[str, object]] = None,
         id: Optional[int] = None,  # TODO: automatically assign id (incremental or uuid),
@@ -116,7 +117,11 @@ class SingleCellStatic:
         if (bbox is None) and (regionprops is not None):
             self.bbox = regionprops.bbox
         elif (bbox is None) and contour is not None:
-            self.update_contour(self.contour, update_bbox=True, update_mask_dataset=update_mask_dataset_by_contour)
+            self.update_contour(
+                self.contour,
+                update_bbox=True,
+                update_mask_dataset=update_mask_dataset_by_contour,
+            )
         # TODO: enable img_crops caching ONLY in RAM mode, otherwise caching these causes memory issues
         # self.raw_img = self.get_img()
         # self.img_crop = None
@@ -164,7 +169,8 @@ class SingleCellStatic:
 
     def compute_regionprops(self, crop=True, ignore_errors=False):
         props = regionprops(
-            label_image=self.get_contour_mask(crop=crop).astype(int), intensity_image=self.get_contour_img(crop=crop)
+            label_image=self.get_contour_mask(crop=crop).astype(int),
+            intensity_image=self.get_contour_img(crop=crop),
         )
 
         # TODO: multiple cell parts? WARNING in the future
@@ -265,7 +271,8 @@ class SingleCellStatic:
         mask = self.get_contour_mask(bbox=bbox).astype(bool)
         overlap_mask = self.compute_overlap_mask(other_cell, bbox=bbox)
         return np.sum(overlap_mask) / min(
-            np.sum(mask.flatten()), np.sum(other_cell.get_contour_mask(bbox=bbox).astype(bool).flatten())
+            np.sum(mask.flatten()),
+            np.sum(other_cell.get_contour_mask(bbox=bbox).astype(bool).flatten()),
         )
 
     def update_regionprops(self):
@@ -347,7 +354,11 @@ class SingleCellStatic:
         return np.array(self.compute_regionprops(crop=crop).centroid)
 
     def get_img_crop(self, padding=0, bbox=None, **kwargs):
-        cache_key = (SingleCellStatic.CACHE_IMG_CROP_KEY, padding, tuple(bbox if bbox is not None else [-1]))
+        cache_key = (
+            SingleCellStatic.CACHE_IMG_CROP_KEY,
+            padding,
+            tuple(bbox if bbox is not None else [-1]),
+        )
         if self.enable_img_crop_cache and SingleCellStatic.CACHE_IMG_CROP_KEY in self.uns:
             return self.cache[cache_key].copy()
         if bbox is None:
@@ -465,7 +476,7 @@ class SingleCellStatic:
 
         res = {
             "timeframe": int(self.timeframe),
-            "bbox": list(np.array(self.bbox, dtype=float)) if self.bbox is not None else None,
+            "bbox": (list(np.array(self.bbox, dtype=float)) if self.bbox is not None else None),
             "feature_dict": dict(self.feature_dict),
             "contour": self.contour.tolist() if self.contour is not None else None,
             "meta": dict(self.meta),
@@ -593,7 +604,10 @@ class SingleCellStatic:
 
     @staticmethod
     def write_single_cells_json(
-        single_cells: List["SingleCellStatic"], path: Union[str, Path], dataset_dir: str = None, return_list=False
+        single_cells: List["SingleCellStatic"],
+        path: Union[str, Path],
+        dataset_dir: str = None,
+        return_list=False,
     ):
         """Write a JSON file containing a list of single cells.
 
@@ -741,12 +755,24 @@ class SingleCellStatic:
     def get_bbox_from_contour(contour, dtype=int):
         """get the bounding box of a contour"""
         return np.array(
-            [np.min(contour[:, 0]), np.min(contour[:, 1]), np.max(contour[:, 0]) + 1, np.max(contour[:, 1]) + 1]
+            [
+                np.min(contour[:, 0]),
+                np.min(contour[:, 1]),
+                np.max(contour[:, 0]) + 1,
+                np.max(contour[:, 1]) + 1,
+            ]
         ).astype(dtype)
 
     @staticmethod
     def gen_contour_mask(
-        contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255, dtype=bool
+        contour,
+        img=None,
+        shape=None,
+        bbox=None,
+        padding=0,
+        crop=True,
+        mask_val=255,
+        dtype=bool,
     ) -> np.ndarray:  #
         # TODO: optimize: we do not need img here but shape of img.
         from PIL import Image, ImageDraw
@@ -785,7 +811,14 @@ class SingleCellStatic:
 
     @staticmethod
     def gen_contour_mask_skimage_deprecated(
-        contour, img=None, shape=None, bbox=None, padding=0, crop=True, mask_val=255, dtype=bool
+        contour,
+        img=None,
+        shape=None,
+        bbox=None,
+        padding=0,
+        crop=True,
+        mask_val=255,
+        dtype=bool,
     ) -> np.ndarray:  #
         # TODO: optimize: we do not need img here but shape of img.
         from skimage.draw import line, polygon
@@ -809,24 +842,44 @@ class SingleCellStatic:
         return res_mask
 
     def get_contour_mask(self, padding=0, crop=True, bbox=None, dtype=bool) -> np.ndarray:
-        hash_key: Tuple = ("contour_mask", padding, crop, tuple(bbox if bbox is not None else [-1]))
+        hash_key: Tuple = (
+            "contour_mask",
+            padding,
+            crop,
+            tuple(bbox if bbox is not None else [-1]),
+        )
         if self.enable_cache_contour_mask and hash_key in self.cache:
             return self.cache[hash_key]
         contour = self.contour
         res = SingleCellStatic.gen_contour_mask(
-            contour, shape=self.get_img_shape(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
+            contour,
+            shape=self.get_img_shape(),
+            bbox=bbox,
+            padding=padding,
+            crop=crop,
+            dtype=dtype,
         )
         if self.enable_cache_contour_mask:
             self.cache[hash_key] = res
         return res
 
     def get_contour_label_mask(self, padding=0, crop=True, bbox=None, dtype=int) -> np.ndarray:
-        hash_key: Tuple = ("contour_mask", padding, crop, tuple(bbox if bbox is not None else [-1]))
+        hash_key: Tuple = (
+            "contour_mask",
+            padding,
+            crop,
+            tuple(bbox if bbox is not None else [-1]),
+        )
         if self.enable_cache_contour_mask and hash_key in self.cache:
             return self.cache[hash_key]
         contour = self.contour
         res = SingleCellStatic.gen_contour_mask(
-            contour, shape=self.get_img_shape(), bbox=bbox, padding=padding, crop=crop, dtype=dtype
+            contour,
+            shape=self.get_img_shape(),
+            bbox=bbox,
+            padding=padding,
+            crop=crop,
+            dtype=dtype,
         )
         if self.enable_cache_contour_mask:
             self.cache[hash_key] = res
@@ -850,7 +903,7 @@ class SingleCellStatic:
     get_sc_mask = get_contour_mask
     get_sc_label_mask = get_contour_label_mask
 
-    def add_feature(self, name, features: Union[np.array, pd.Series]):
+    def add_feature(self, name, features: Union[np.ndarray, pd.Series]):
         if not isinstance(features, (np.ndarray, pd.Series)):
             raise TypeError("features must be a numpy array or pandas series")
         self.feature_dict[name] = features
@@ -1002,7 +1055,19 @@ class SingleCellStatic:
     def copy(self):
         import copy
 
-        return copy.copy(self)
+        # Todo: add test
+        return SingleCellStatic(
+            timeframe=self.timeframe,
+            contour=copy.deepcopy(self.contour),
+            bbox=copy.deepcopy(self.bbox),
+            feature_dict=copy.copy(self.feature_dict),
+            meta=copy.copy(self.meta),
+            id=copy.copy(self.id),
+            uns=copy.copy(self.uns),
+            cache=copy.copy(self.cache),
+            img_dataset=self.img_dataset,
+            mask_dataset=self.mask_dataset,
+        )
 
     def _sc_matplotlib_bbox_patch(self, edgecolor="r", linewidth=1, **kwargs) -> patches.Rectangle:
         """
@@ -1053,8 +1118,6 @@ class SingleCellTrajectory:
             self.timeframe_to_single_cell = dict()
         else:
             self.timeframe_to_single_cell = timeframe_to_single_cell
-        self.timeframe_set = set(self.timeframe_to_single_cell.keys())
-        self.times = sorted(self.timeframe_set)
 
         self.img_dataset = img_dataset
         self.img_total_timeframe = len(img_dataset) if img_dataset is not None else None
@@ -1077,7 +1140,10 @@ class SingleCellTrajectory:
         if meta is not None:
             self.meta = meta
         else:
-            self.meta = {SingleCellTrajectory.META_MOTHER_IDS: [], SingleCellTrajectory.META_DAUGHTER_IDS: []}
+            self.meta = {
+                SingleCellTrajectory.META_MOTHER_IDS: [],
+                SingleCellTrajectory.META_DAUGHTER_IDS: [],
+            }
             self.meta[SingleCellTrajectory.META_MOTHER_IDS] = [mother.track_id for mother in self.mother_trajectories]
             self.meta[SingleCellTrajectory.META_DAUGHTER_IDS] = [
                 daughter.track_id for daughter in self.daughter_trajectories
@@ -1098,7 +1164,7 @@ class SingleCellTrajectory:
     def __getitem__(self, timeframe: int) -> SingleCellStatic:
         if timeframe not in self.timeframe_set:
             raise KeyError(f"single cell at timeframe {timeframe} does not exist in the trajectory")
-        return self.get_single_cell(timeframe)
+        return self.get_sc(timeframe)
 
     def __iter__(self):
         return iter(self.timeframe_to_single_cell.items())
@@ -1122,10 +1188,17 @@ class SingleCellTrajectory:
         for sc in iter(self.timeframe_to_single_cell.values()):
             sc.add_feature(feature_key, func(sc))
 
+    @property
+    def timeframe_set(self):
+        return set(self.timeframe_to_single_cell.keys())
+
+    @property
+    def times(self):
+        return sorted(self.timeframe_set)
+
     def add_sc_by_time(self, timeframe, sc: SingleCellStatic):
         self.timeframe_to_single_cell[timeframe] = sc
         self.timeframe_set.add(timeframe)
-        self.times = sorted(self.timeframe_set)
 
     add_single_cell_by_time = add_sc_by_time
 
@@ -1152,8 +1225,10 @@ class SingleCellTrajectory:
 
     get_time_span_length = get_timeframe_span_length
 
-    def get_single_cell(self, timeframe: int) -> SingleCellStatic:
+    def get_sc(self, timeframe: int) -> SingleCellStatic:
         return self.timeframe_to_single_cell[timeframe]
+
+    get_single_cell = get_sc
 
     def get_all_scs(self) -> List[SingleCellStatic]:
         scs = list(self.timeframe_to_single_cell.values())
@@ -1165,12 +1240,14 @@ class SingleCellTrajectory:
     def num_scs(self) -> int:
         return len(self.timeframe_to_single_cell)
 
-    def pop_single_cell_by_time(self, timeframe: int):
+    def pop_sc_by_time(self, timeframe: int):
         self.timeframe_set.remove(timeframe)
         return self.timeframe_to_single_cell.pop(timeframe)
 
+    pop_single_cell_by_time = pop_sc_by_time
+
     def pop_sc(self, sc: SingleCellStatic):
-        return self.pop_single_cell_by_time(sc.timeframe)
+        return self.pop_sc_by_time(sc.timeframe)
 
     def to_json_dict(self, dataset_json_dir=None):
         # Check if mother and daughter trajectories exist in metadata. If not, add them
@@ -1179,12 +1256,16 @@ class SingleCellTrajectory:
         if self.meta is not None:
             self.meta.update(
                 {
-                    "img_dataset_json_path": str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
-                    if self.img_dataset is not None
-                    else None,
-                    "mask_dataset_json_path": str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
-                    if self.mask_dataset is not None
-                    else None,
+                    "img_dataset_json_path": (
+                        str(self.img_dataset.get_default_json_path(out_dir=dataset_json_dir))
+                        if self.img_dataset is not None
+                        else None
+                    ),
+                    "mask_dataset_json_path": (
+                        str(self.mask_dataset.get_default_json_path(out_dir=dataset_json_dir))
+                        if self.mask_dataset is not None
+                        else None
+                    ),
                 }
             )
 
@@ -1269,11 +1350,10 @@ class SingleCellTrajectory:
         self.timeframe_to_single_cell = {}
         for timeframe, sc in json_dict["timeframe_to_single_cell"].items():
             self.timeframe_to_single_cell[int(timeframe)] = SingleCellStatic(
-                timeframe=int(timeframe), img_dataset=shared_img_dataset, empty_cell=True
+                timeframe=int(timeframe),
+                img_dataset=shared_img_dataset,
+                empty_cell=True,
             ).load_from_json_dict(sc, img_dataset=shared_img_dataset)
-
-        self.timeframe_set = set(self.timeframe_to_single_cell.keys())
-        self.times = sorted(self.timeframe_set)
         return self
 
     def inflate_other_trajectories(self, sctc: "SingleCellTrajectoryCollection"):
@@ -1349,10 +1429,10 @@ class SingleCellTrajectory:
     def remove_daughter(self, daughter_sct: "SingleCellTrajectory"):
         self.daughter_trajectories.remove(daughter_sct)
 
-    def copy(self):
+    def copy(self, copy_scs=False):
         # import copy
 
-        return SingleCellTrajectory(
+        new_sct = SingleCellTrajectory(
             track_id=self.track_id,
             timeframe_to_single_cell=self.timeframe_to_single_cell.copy(),
             img_dataset=self.img_dataset,
@@ -1362,6 +1442,10 @@ class SingleCellTrajectory:
             meta=self.meta.copy(),
             tmp=self.tmp.copy(),
         )
+        if copy_scs:
+            for timeframe, sc in self.timeframe_to_single_cell.items():
+                new_sct.add_single_cell_by_time(timeframe, sc.copy())
+        return new_sct
 
     def is_empty(self):
         return len(self.timeframe_set) == 0
@@ -1386,7 +1470,11 @@ class SingleCellTrajectory:
             require_copy_daughters_info = True
         if keep_track_id:
             track_id = self.track_id
-        sub_sct = SingleCellTrajectory(img_dataset=self.img_dataset, mask_dataset=self.mask_dataset, track_id=track_id)
+        sub_sct = SingleCellTrajectory(
+            img_dataset=self.img_dataset,
+            mask_dataset=self.mask_dataset,
+            track_id=track_id,
+        )
         for timeframe, sc in self:
             if timeframe >= min_time and timeframe <= max_time:
                 sub_sct.add_single_cell_by_time(timeframe, sc)
@@ -1602,7 +1690,10 @@ class SingleCellTrajectoryCollection:
 
         with open(path, "w+") as f:
             json.dump(
-                self.to_json_dict(dataset_json_dir=dataset_json_dir), f, cls=LiveCellEncoder, indent=Config.json_indent
+                self.to_json_dict(dataset_json_dir=dataset_json_dir),
+                f,
+                cls=LiveCellEncoder,
+                indent=Config.json_indent,
             )
 
     @staticmethod
@@ -1610,12 +1701,21 @@ class SingleCellTrajectoryCollection:
         with open(path, "r") as f:
             json_dict = json.load(f)
         main_info(f"json loaded from {path}")
-
+        start_time = time.time()
         main_info("Creating SingleCellTrajectoryCollection from json_dict...")
         if parallel:
-            return SingleCellTrajectoryCollection().load_from_json_dict_parallel(json_dict)
+            res = SingleCellTrajectoryCollection().load_from_json_dict_parallel(json_dict)
         else:
-            return SingleCellTrajectoryCollection().load_from_json_dict(json_dict)
+            res = SingleCellTrajectoryCollection().load_from_json_dict(json_dict)
+
+        main_info(f"Loaded {len(res)} trajectories")
+        main_info(f"Loading {len(res.get_all_scs())} single cells")
+        end_time = time.time()
+        # log time 2 with 2 precision in seconds
+        main_info(
+            f"Loading SingleCellTrajectoryCollection from json_dict done, time elapsed: {end_time - start_time:.2f}s"
+        )
+        return res
 
     def histogram_traj_length(self, ax=None, **kwargs):
         import seaborn as sns
@@ -1649,7 +1749,10 @@ class SingleCellTrajectoryCollection:
             if res_time_span[0] is None:
                 res_time_span = _tmp_time_span
             else:
-                res_time_span = (min(res_time_span[0], _tmp_time_span[0]), max(res_time_span[1], _tmp_time_span[1]))
+                res_time_span = (
+                    min(res_time_span[0], _tmp_time_span[0]),
+                    max(res_time_span[1], _tmp_time_span[1]),
+                )
         if res_time_span[0] is None:
             return (-np.inf, -np.inf)
         return res_time_span
@@ -1702,7 +1805,14 @@ class SingleCellTrajectoryCollection:
         track_y = 0
         for tid, sct in self:
             times = list(sct.timeframe_to_single_cell.keys())
-            ax.plot(times, [track_y] * len(times), marker="o", linestyle="-", color="blue", markersize=2)
+            ax.plot(
+                times,
+                [track_y] * len(times),
+                marker="o",
+                linestyle="-",
+                color="blue",
+                markersize=2,
+            )
             track_y += 10
         ax.set_xlabel("Time frame")
         ax.set_ylabel("Track ID")
@@ -1720,7 +1830,11 @@ def create_sctc_from_scs(scs: List[SingleCellStatic]) -> SingleCellTrajectoryCol
     return temp_sc_trajs
 
 
-def filter_sctc_by_time_span(sctc: SingleCellTrajectoryCollection = None, time_span=(0, np.inf), keep_track_id=True):
+def filter_sctc_by_time_span(
+    sctc: SingleCellTrajectoryCollection = None,
+    time_span=(0, np.inf),
+    keep_track_id=True,
+):
     new_sctc = SingleCellTrajectoryCollection()
     track_id_counter = 0
     for _, sct in sctc:
@@ -1736,7 +1850,11 @@ def filter_sctc_by_time_span(sctc: SingleCellTrajectoryCollection = None, time_s
 
 
 def create_sc_table(
-    scs: List[SingleCellStatic], normalize_features=True, add_time=False, add_sc_id=False, meta_keys=[]
+    scs: List[SingleCellStatic],
+    normalize_features=True,
+    add_time=False,
+    add_sc_id=False,
+    meta_keys=[],
 ):
     import pandas as pd
     import numpy as np
@@ -1786,6 +1904,7 @@ def show_sct_on_grid(
     axes=None,
     crop_from_center=True,
     show_contour=True,
+    verbose=False,
 ) -> Tuple[plt.Figure, np.ndarray]:
     """
     Display a grid of single cell images with contours overlaid.
@@ -1828,7 +1947,9 @@ def show_sct_on_grid(
     """
     if axes is None:
         fig, axes = plt.subplots(nr, nc, figsize=(nc * ax_width, nr * ax_height), dpi=dpi)
-        if nr == 1:
+        if nr == 1 and nc == 1:
+            axes = np.array([[axes]])
+        elif nr == 1:
             axes = np.array([axes])
     else:
         assert np.array(axes).shape == (nr, nc), "axes shape mismatch"
@@ -1837,11 +1958,12 @@ def show_sct_on_grid(
     traj_start, traj_end = span_range
     if start < traj_start:
         start = span_range[0]
-        print(
-            "start timeframe larger than the first timeframe of the trajectory, replace start_timeframe with the first timeframe={}".format(
-                int(start)
+        if verbose:
+            main_info(
+                "start timeframe larger than the first timeframe of the trajectory, replace start_timeframe with the first timeframe={}".format(
+                    int(start)
+                )
             )
-        )
 
     if isinstance(ax_contour_polygon_kwargs, dict):
         ax_contour_polygon_kwargs_list = [ax_contour_polygon_kwargs] * nr * nc
@@ -1857,7 +1979,7 @@ def show_sct_on_grid(
                 break
             if timeframe not in trajectory.timeframe_set:
                 continue
-            sc = trajectory.get_single_cell(timeframe)
+            sc = trajectory.get_sc(timeframe)
             if show_mask:
                 sc_img = sc.get_mask_crop(padding=padding)
             else:
@@ -1883,7 +2005,12 @@ def show_sct_on_grid(
                         ye + _center_padding,
                     )
                     # Fit to boundary of img shape [0, boundary]
-                    xs, ys, xe, ye = max(0, xs), max(0, ys), min(sc_img.shape[0], xe), min(sc_img.shape[1], ye)
+                    xs, ys, xe, ye = (
+                        max(0, xs),
+                        max(0, ys),
+                        min(sc_img.shape[0], xe),
+                        min(sc_img.shape[1], ye),
+                    )
                     sc_img = sc_img[xs:xe, ys:ye]
                     contour_coords[:, 0] = contour_coords[:, 0] - xs
                     contour_coords[:, 1] = contour_coords[:, 1] - ys
@@ -1896,7 +2023,8 @@ def show_sct_on_grid(
                         contour_coords[:, 1] += _pad_pixels[1]
                 else:
                     sc_img = sc_img[
-                        dims_offset[0] : dims_offset[0] + dims[0], dims_offset[1] : dims_offset[1] + dims[1]
+                        dims_offset[0] : dims_offset[0] + dims[0],
+                        dims_offset[1] : dims_offset[1] + dims[1],
                     ]
                     contour_coords[:, 0] -= dims_offset[0]
                     contour_coords[:, 1] -= dims_offset[1]
@@ -1920,7 +2048,8 @@ def show_sct_on_grid(
                 ax.set_title(f"time: {timeframe}", fontsize=ax_title_fontsize)
 
     if fig is not None:
-        main_info(f"tighting figure layout...")
+        if verbose:
+            main_info(f"tighting figure layout...")
         fig.tight_layout(pad=0.5, h_pad=0.4, w_pad=0.4)
     return fig, axes
 
@@ -2062,7 +2191,13 @@ def sample_samples_from_sctc(
     return normal_samples, normal_samples_extra_info
 
 
-def create_label_mask_from_scs(scs: List[SingleCellStatic], labels=None, dtype=np.int32, bbox=None, padding=None):
+def create_label_mask_from_scs(
+    scs: List[SingleCellStatic],
+    labels=None,
+    dtype=np.int32,
+    bbox=None,
+    padding=None,
+):
     label_mask = np.zeros(scs[0].get_mask_crop(bbox=bbox, padding=padding).shape, dtype=dtype)
     if len(scs) == 0:
         return label_mask
@@ -2073,7 +2208,7 @@ def create_label_mask_from_scs(scs: List[SingleCellStatic], labels=None, dtype=n
         bbox = [0, 0, shape[0], shape[1]]
 
     for idx, sc in enumerate(scs):
-        label_mask[sc.get_mask_crop(bbox=bbox, padding=padding)] = labels[idx]
+        label_mask[sc.get_sc_mask(bbox=bbox, padding=padding)] = labels[idx]
     return label_mask
 
 

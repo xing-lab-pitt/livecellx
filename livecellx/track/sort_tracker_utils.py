@@ -82,8 +82,10 @@ def update_traj_collection_by_SORT_tracker_detection(
     scs_at_t=None,
     sc_inplace=False,
 ):
-    def _match_sc_by_bbox(bbox, scs, atol=10):
+    def _match_sc_by_bbox(bbox, scs, visited_scs, atol=10):
         for tmp_sc in scs:
+            if tmp_sc in visited_scs:
+                continue
             if np.allclose(bbox, tmp_sc.bbox, atol=atol):
                 return tmp_sc
         return None
@@ -105,8 +107,10 @@ def update_traj_collection_by_SORT_tracker_detection(
         bbox = det[4:8]  # Use the original bbox from scs
         cid = None
         matched_old_sc = None
+        visited_scs = set()
         if scs_at_t is not None:
-            matched_old_sc = _match_sc_by_bbox(bbox, scs_at_t)
+            matched_old_sc = _match_sc_by_bbox(bbox, scs_at_t, visited_scs=visited_scs)
+            visited_scs.add(matched_old_sc)
             cid = matched_old_sc.id if matched_old_sc is not None else None
             if cid is None:
                 main_warning("[Tracking by SORT] fail to find re-matched sc for bbox: " + str(bbox))

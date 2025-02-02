@@ -43,7 +43,7 @@ def show_trajectory_on_grid(
                     "timeframe: {timeframe} does not present in the trajectory, skipping...".format(timeframe=timeframe)
                 )
                 continue
-            sc = trajectory.get_single_cell(timeframe)
+            sc = trajectory.get_sc(timeframe)
             sc_img = sc.get_img_crop(padding=bbox_padding)
             ax.imshow(sc_img)
             contour_coords = sc.get_contour_coords_on_img_crop(padding=bbox_padding)
