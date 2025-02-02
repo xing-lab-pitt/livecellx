@@ -1057,6 +1057,7 @@ class SingleCellStatic:
 
         # Todo: add test
         return SingleCellStatic(
+            timeframe=self.timeframe,
             contour=copy.deepcopy(self.contour),
             bbox=copy.deepcopy(self.bbox),
             feature_dict=copy.copy(self.feature_dict),
