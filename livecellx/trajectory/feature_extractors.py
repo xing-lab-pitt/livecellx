@@ -9,7 +9,7 @@ import pandas as pd
 from livecellx.core.single_cell import SingleCellStatic
 from livecellx.livecell_logger import main_info
 from livecellx.preprocess.utils import normalize_img_to_uint8
-from livecellx.core.parallel import parallelize
+from livecellx.core.parallel import parallelize, parallelize_chunk
 
 
 def _compute_feature_wrapper(sc, func, params=dict()):
@@ -18,7 +18,13 @@ def _compute_feature_wrapper(sc, func, params=dict()):
 
 
 def parallelize_compute_features(
-    scs: List[SingleCellStatic], func: Callable, params: dict, cores=None, replace_feature=True, verbose=True
+    scs: List[SingleCellStatic],
+    func: Callable,
+    params: dict,
+    cores=None,
+    replace_feature=True,
+    verbose=True,
+    chunk_size=None,
 ) -> Tuple[List, List]:
     """
     Compute features in parallel for a list of SingleCellStatic objects.
@@ -36,7 +42,8 @@ def parallelize_compute_features(
     for sc in scs:
         inputs.append({"sc": sc, "func": func, "params": params})
 
-    outputs = parallelize(_compute_feature_wrapper, inputs, cores=cores)
+    outputs = parallelize_chunk(_compute_feature_wrapper, inputs, cores=cores, chunk_size=chunk_size)
+    # outputs = parallelize(_compute_feature_wrapper, inputs, cores=cores)
     features = [output[0] for output in outputs]
     unordered_res_scs = [output[1] for output in outputs]
     sc_id_to_sc = {sc.id: sc for sc in unordered_res_scs}
