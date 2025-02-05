@@ -15,6 +15,8 @@ from napari.layers import Shapes
 
 from livecellx.livecell_logger import main_info, main_warning, main_debug
 from livecellx.core import SingleCellTrajectory, SingleCellStatic
+from livecellx.model_zoo.segmentation.csn_sc_utils import correct_sc, correct_sc_mask
+from livecellx.segment.ou_simulator import find_label_mask_contours
 from livecellx.segment.ou_utils import create_ou_input_from_sc
 from livecellx.segment.utils import find_contours_opencv, filter_contours_by_size
 from livecellx.core.datasets import SingleImageDataset
@@ -336,24 +338,23 @@ class ScSegOperator:
             print("Using default CSN model and loading it to the operator...")
             self.csn_model = ScSegOperator.DEFAULT_CSN_MODEL
 
-        create_ou_input_kwargs = {
-            "padding_pixels": padding_pixels,
-            "dtype": float,
-            "remove_bg": False,
-            "one_object": True,
-            "scale": 0,
-        }
-        model_ou_input, output, res_bbox, aux_output = self.correct_segment(
-            self.csn_model, create_ou_input_kwargs=create_ou_input_kwargs
+        res_dict = correct_sc(
+            self.sc,
+            self.csn_model,
+            padding=padding_pixels,
+            input_transforms=self.csn_model.train_transforms,
+            h_threshold=1.5,
+            return_outputs=True,
         )
-        bin_mask = output[0].cpu().detach().numpy()[0] > threshold
-        contours = find_contours_opencv(bin_mask.astype(bool))
+        corrected_scs = res_dict["scs"]
+        label_str = res_dict["label_str"]
+        main_info(f"v1 predicted segmentation class: <{str(label_str)}>")
         # contour = [0]
         new_shape_data = []
+        contours = [_sc.contour for _sc in corrected_scs]
         for contour in contours:
-            contour_in_original_image = contour + res_bbox[:2] - padding_pixels
             # replace the current shape_layer's data with the new contour
-            napari_vertices = [[self.sc.timeframe] + list(point) for point in contour_in_original_image]
+            napari_vertices = [[self.sc.timeframe] + list(point) for point in contour]
             napari_vertices = np.array(napari_vertices)
             new_shape_data.append((napari_vertices, "polygon"))
 
