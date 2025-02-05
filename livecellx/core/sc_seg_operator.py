@@ -15,7 +15,6 @@ from napari.layers import Shapes
 
 from livecellx.livecell_logger import main_info, main_warning, main_debug
 from livecellx.core import SingleCellTrajectory, SingleCellStatic
-from livecellx.model_zoo.segmentation.csn_sc_utils import correct_sc, correct_sc_mask
 from livecellx.segment.ou_simulator import find_label_mask_contours
 from livecellx.segment.ou_utils import create_ou_input_from_sc
 from livecellx.segment.utils import find_contours_opencv, filter_contours_by_size
@@ -330,6 +329,8 @@ class ScSegOperator:
         print("<save_seg_callback finished>")
 
     def csn_correct_seg_callback(self, padding_pixels=50, threshold=0.5):
+        from livecellx.model_zoo.segmentation.csn_sc_utils import correct_sc, correct_sc_mask
+
         print("csn_correct_seg_callback fired")
         if self.csn_model is None and ScSegOperator.DEFAULT_CSN_MODEL is None:
             print("No CSN model is loaded. Please load a CSN model first.")
