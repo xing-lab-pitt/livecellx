@@ -665,7 +665,7 @@ class SctOperator:
         print("<saving annotations complete>")
         return sample_paths
 
-    def add_new_sc(self):
+    def add_new_sc(self, default_contour=[[0, 0], [4, 0], [4, 4], [0, 4]]):
         """Adds a new single cell to a single cell trajectory."""
         print("<adding new sc>")
         assert self.time_span is not None, "Please set the time span first."
@@ -673,7 +673,7 @@ class SctOperator:
         # TODO: discuss if we regulate that all of the img_dataset is always used, then min time should always be zero
         # min_time = 0
         cur_time = self.viewer.dims.current_step[0] + min_time
-        new_sc = SingleCellStatic(timeframe=cur_time, contour=[], img_dataset=self.img_dataset)
+        new_sc = SingleCellStatic(timeframe=cur_time, contour=default_contour, img_dataset=self.img_dataset)
         new_sc.meta["created_by"] = "sct_operator"
         sc_operator = self.edit_sc(new_sc)
         # add a new sct to sctc
