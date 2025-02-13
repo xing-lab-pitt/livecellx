@@ -493,7 +493,7 @@ def show_cv2_contours(contours, img):
 
 
 def find_contours_opencv(mask) -> list:
-    contours, hierarchy = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    contours, hierarchy = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = list(contours)
     for i, contour in enumerate(contours):
         contour = np.array(contour)
