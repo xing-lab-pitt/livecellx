@@ -58,6 +58,59 @@ def normalize_features_zscore(features: np.ndarray) -> np.ndarray:
     return features
 
 
+# TODO: add tests
+def normalize_img_by_bitdepth(img: np.ndarray, bit_depth: int = 8, mean=None) -> np.ndarray:
+    """
+    Normalize an image by its bit depth.
+    Parameters:
+    img (np.ndarray): Input image array.
+    bit_depth (int, optional): Bit depth to normalize the image to. Must be one of 8, 16, or 32. Default is 8.
+    mean (int, optional): Desired mean value for the normalized image. If None, defaults to half of the maximum value for the given bit depth.
+    Returns:
+    np.ndarray: Normalized image array.
+    Raises:
+    ValueError: If bit_depth is not one of 8, 16, or 32.
+    """
+    if bit_depth not in [8, 16, 32]:
+        raise ValueError(f"bit_depth must be 8, 16, or 32, not {bit_depth}")
+
+    img = img.astype(np.float32)  # Ensure floating point for normalization
+
+    std = np.std(img.flatten())
+    if std != 0:
+        img = (img - np.mean(img.flatten())) / std
+    else:
+        img = img - np.mean(img.flatten())
+
+    img = img + abs(np.min(img.flatten()))  # Shift to non-negative values
+
+    if np.max(img) != 0:
+        img = img / np.max(img)  # Normalize to [0, 1]
+
+    # Scale according to bit depth and mean to be half of the max val if not specified
+    dtype = None
+    if bit_depth == 8:
+        dtype = np.uint8
+        img = (img * 255).astype(np.uint8)
+        mean = mean if mean is not None else 127
+    elif bit_depth == 16:
+        dtype = np.uint16
+        img = (img * 65535).astype(np.uint16)
+        mean = mean if mean is not None else 32767
+    elif bit_depth == 32:
+        dtype = np.uint32
+        img = (img * np.iinfo(np.uint32).max).astype(np.uint32)  # Max uint32 value
+        mean = mean if mean is not None else np.iinfo(np.uint32).max // 2
+
+    # Scale to mean
+    mean = int(mean)
+    img = img - np.mean(img.flatten()) + mean
+    img = img.astype(dtype)
+    # Clip to [0, max_val]
+    img = np.clip(img, 0, np.iinfo(img.dtype).max)
+    return img
+
+
 def normalize_img_to_uint8(img: np.ndarray, dtype=np.uint8) -> np.ndarray:
     """calculate z score of img and normalize to range [0, 255]
 
