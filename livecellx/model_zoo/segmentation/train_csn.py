@@ -58,7 +58,7 @@ def parse_args():
         "--source",
         dest="source",
         type=str,
-        choices=["all", "underseg-all", "overseg-all", "real-underseg"],
+        choices=["all", "underseg-all", "overseg-all", "real-underseg", "dropout"],
         help="The source of the data to train on. Default is to use all data. <underseg-all> means using both synthetic and real underseg datasets; similar for <overseg-all>",
         default="all",
     )
@@ -115,6 +115,9 @@ def main_train():
     elif args.source == "real-underseg":
         train_df = train_df[train_df["subdir"] == "real_underseg_cases"]
         print(">>> after filtering by real underseg cases, df shape:", train_df.shape)
+    elif args.source == "dropout":
+        train_df = train_df[train_df["subdir"].str.contains("dropout")]
+        print(">>> after filtering by dropout cases, df shape:", train_df.shape)
 
     # augmentation params
     translation_range = (args.translation, args.translation)
