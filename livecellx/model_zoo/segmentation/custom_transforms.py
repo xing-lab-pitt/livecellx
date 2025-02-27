@@ -220,7 +220,7 @@ class CustomTransformEdtV9:
         # Common transformations that should be applied to both images and masks
         self.mask_transforms = transforms.Compose(
             [
-                transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST, antialias=True),
+                transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
             ]
         )
         # Image-specific transformations that should not be applied to masks
