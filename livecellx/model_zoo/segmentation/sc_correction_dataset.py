@@ -81,7 +81,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         bg_val=0,
         use_gt_pixel_weight=False,
         force_no_edt_aug=False,
-        normalize_gt_mask=False,
+        normalize_gt_edt=False,
     ):
         """_summary_
 
@@ -155,7 +155,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             ]
 
         self.force_no_edt_aug = force_no_edt_aug
-        self.normalize_gt_mask = normalize_gt_mask
+        self.normalize_gt_edt = normalize_gt_edt
 
     def get_raw_seg(self, idx) -> np.ndarray:
         return np.array(Image.open(self.raw_seg_paths[idx]))
@@ -269,7 +269,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         force_no_edt_aug: bool,
         apply_gt_seg_edt: bool,
         transform=None,
-        normalize_gt_mask=False,
+        normalize_gt_edt=False,
     ):
         """
         Receive the loaded data (in PIL/np form), convert to tensors, and apply
@@ -422,7 +422,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
         else:
             gt_mask_edt = gt_label_edt
 
-        if normalize_gt_mask:
+        if normalize_gt_edt:
             gt_mask_edt = normalize_edt(gt_mask_edt, edt_max=5)
 
         aug_diff_overseg = aug_diff_img < 0
@@ -477,7 +477,7 @@ class CorrectSegNetDataset(torch.utils.data.Dataset):
             self.force_no_edt_aug,
             self.apply_gt_seg_edt,
             self.transform,
-            normalize_gt_mask=self.normalize_gt_mask,
+            normalize_gt_edt=self.normalize_gt_edt,
         )
 
         # Attach the index

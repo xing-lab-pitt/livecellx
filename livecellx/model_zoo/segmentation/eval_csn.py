@@ -36,6 +36,7 @@ def assemble_dataset(
     input_type=None,
     use_gt_pixel_weight=False,
     normalize_uint8=False,
+    normalize_gt_edt=False,
 ):
     assert input_type is not None
     raw_img_paths = list(df["raw"])
@@ -63,6 +64,7 @@ def assemble_dataset(
         raw_df=df,
         use_gt_pixel_weight=use_gt_pixel_weight,
         normalize_uint8=normalize_uint8,
+        normalize_gt_edt=normalize_gt_edt,
     )
     return dataset
 

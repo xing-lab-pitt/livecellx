@@ -75,8 +75,8 @@ def parse_args():
     parser.add_argument("--aux-loss-weight", default=0.5, type=float)
     parser.add_argument("--normalize_uint8", default=False, action="store_true")
     parser.add_argument("--torch_seed", default=237, type=int)
-    parser.add_argument("--normalize_gt_mask", default=False, action="store_true")
-    
+    parser.add_argument("--normalize_gt_edt", default=False, action="store_true")
+
     args = parser.parse_args()
 
     # convert string to list
@@ -183,7 +183,7 @@ def main_train():
             raw_df=df,
             subdirs=subdirs,
             use_gt_pixel_weight=args.use_gt_pixel_weight,
-            normalize_gt_mask=args.normalize_gt_mask,
+            normalize_gt_edt=args.normalize_gt_edt,
         )
         return dataset
 
