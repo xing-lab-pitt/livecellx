@@ -138,8 +138,8 @@ autodoc_default_flags = [
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
-# html_theme = "furo"
+# html_theme = "sphinx_rtd_theme"
+html_theme = "furo"
 html_theme_options = dict(
     navigation_depth=4,
     logo_only=True,
