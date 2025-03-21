@@ -1897,7 +1897,7 @@ def show_sct_on_grid(
     ax_height=4,
     ax_title_fontsize=8,
     cmap="viridis",
-    ax_contour_polygon_kwargs=dict(fill=None, edgecolor="r"),
+    ax_contour_polygon_kwargs=dict(fill=None, edgecolor="r", linewidth=4),
     dpi=300,
     show_mask=False,
     fig=None,
@@ -2045,7 +2045,7 @@ def show_sct_on_grid(
                     **ax_contour_polygon_kwargs_list[r * nc + c],
                 )
                 ax.add_patch(polygon)
-                ax.set_title(f"time: {timeframe}", fontsize=ax_title_fontsize)
+                ax.set_title(f"{timeframe}", fontsize=ax_title_fontsize)
 
     if fig is not None:
         if verbose:
