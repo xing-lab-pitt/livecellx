@@ -561,11 +561,12 @@ class SctOperator:
         print("<annotate click operation complete>")
 
     def edit_selected_sc(self):
-        # get the selected shape
-        current_properties = self.shape_layer.current_properties
-        if len(current_properties) == 0:
+        # Check if any shapes are selected by looking at the selected_data attribute
+        if not self.shape_layer.selected_data and self.shape_layer.current_properties["status"][0] == "":
             main_warning("Please select a shape to edit its properties.")
             return
+        # get the selected shape
+        current_properties = self.shape_layer.current_properties
         if len(current_properties) > 1:
             main_warning("More than one shape is selected. The first selected shape is used for editing.")
         cur_sc = current_properties["sc"][0]
@@ -663,6 +664,7 @@ class SctOperator:
 
         SingleCellStatic.write_single_cells_json(filtered_scs, scs_json_path, dataset_dir=sample_dataset_dir)
         print("<saving annotations complete>")
+        print("sample_paths: ", sample_paths)
         return sample_paths
 
     def add_new_sc(self, default_contour=[[0, 0], [4, 0], [4, 4], [0, 4]]):
