@@ -70,6 +70,7 @@ class SingleCellStatic:
         use_cache_contour_mask=False,
         use_img_crop_cache=False,
         cached_img_shape=None,
+        organelles: Dict[str, List["Organelle"]] = {},
     ) -> None:
         """_summary_
 
@@ -718,8 +719,7 @@ class SingleCellStatic:
 
     def get_contour_coords_on_img_crop(self, padding=0) -> np.ndarray:
         """
-        A utility function to calculate pixel coord in image crop's coordinate system
-        to draw contours on an image crop.
+        A utility function to calculate pixel coord in image crop's coordinate system from the contour coordinates in the whole image's coordinate system.
 
         Parameters
         ----------
@@ -1092,6 +1092,39 @@ class SingleCellStatic:
     @staticmethod
     def assign_uuid(exclude_set: Optional[Set[uuid.UUID]] = None, max_try=50) -> uuid.UUID:
         _assign_uuid(exclude_set=exclude_set, max_try=max_try)
+
+
+class Organelle(SingleCellStatic):
+    def __init__(
+        self,
+        organelle_type: str,
+        parent_cell_id: Optional[Union[int, str]] = None,
+        **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.organelle_type = organelle_type
+        self.parent_cell_id = parent_cell_id
+
+    def __repr__(self) -> str:
+        return (
+            f"Suborganelle(type={self.organelle_type}, id={self.id}, timeframe={self.timeframe})"
+        )
+
+    def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
+        base = super().to_json_dict(include_dataset_json, dataset_json_dir)
+        base.update(
+            {
+                "organelle_type": self.organelle_type,
+                "parent_cell_id": str(self.parent_cell_id),
+            }
+        )
+        return base
+
+    def load_from_json_dict(self, json_dict, img_dataset=None, mask_dataset=None):
+        super().load_from_json_dict(json_dict, img_dataset, mask_dataset)
+        self.organelle_type = json_dict.get("organelle_type", "unknown")
+        self.parent_cell_id = json_dict.get("parent_cell_id")
+        return self
 
 
 class SingleCellTrajectory:
