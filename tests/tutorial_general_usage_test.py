@@ -97,7 +97,8 @@ class TestTutorialGeneralUse(unittest.TestCase):
             sc.show_contour_img(ax=axes[2])
             sc.show_contour_mask(ax=axes[3])
         except Exception as e:
-            assert False, f"An error occurred while visualizing single cell: {str(e)}"
+            print("Error occurred while visualizing single cell:", e)
+            assert False, f"An error occurred while visualizing single cell"
 
         # Show panel
         try:

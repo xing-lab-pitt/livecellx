@@ -16,6 +16,8 @@ from skimage.measure._regionprops import RegionProperties
 from skimage.measure import regionprops
 import tqdm
 import uuid
+from scipy import ndimage
+from skimage.draw import polygon
 
 from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecellx.core.io_utils import LiveCellEncoder
@@ -41,18 +43,20 @@ class Config:
 
 
 # TODO: possibly refactor load_from_json methods into a mixin class
-class SingleCellStatic:
-    """Single cell at one time frame"""
+class SingleUnit:
+    """Base class for single biological units (cells, organelles, etc.)"""
 
     HARALICK_FEATURE_KEY = "_haralick"
     MORPHOLOGY_FEATURE_KEY = "_morphology"
     AUTOENCODER_FEATURE_KEY = "_autoencoder"
     CACHE_IMG_CROP_KEY = "_cached_img_crop"
+    # Key for storing components in uns dictionary
+    COMPONENTS_KEY = "components"
     id_generator = itertools.count()
 
     def __init__(
         self,
-        timeframe: int = None,
+        timeframe: int = 0,
         bbox: Optional[np.ndarray] = None,
         regionprops: Optional[RegionProperties] = None,
         img_dataset: Optional[LiveCellImageDataset] = None,
@@ -62,7 +66,7 @@ class SingleCellStatic:
         contour: Optional[np.ndarray] = None,
         meta: Optional[Dict[str, object]] = None,
         uns: Optional[Dict[str, object]] = None,
-        id: Optional[int] = None,  # TODO: automatically assign id (incremental or uuid),
+        id: Optional[Union[int, uuid.UUID, str]] = None,  # TODO: automatically assign id (incremental or uuid),
         cache: Optional[Dict] = None,  # TODO: now only image crop is cached
         update_mask_dataset_by_contour=False,
         empty_cell=False,
@@ -70,28 +74,7 @@ class SingleCellStatic:
         use_cache_contour_mask=False,
         use_img_crop_cache=False,
         cached_img_shape=None,
-        organelles: Dict[str, List["Organelle"]] = {},
     ) -> None:
-        """_summary_
-
-        Parameters
-        ----------
-        timeframe : int
-            _description_
-        bbox : np.ndarray, optional
-            [x1, y1, x2, y2], by default None
-            follwoing skimage convention: "Bounding box (min_row, min_col, max_row, max_col). Pixels belonging to the bounding box are in the half-open interval [min_row; max_row) and [min_col; max_col)."
-        regionprops : RegionProperties, optional
-            _description_, by default None
-        img_dataset : _type_, optional
-            _description_, by default None
-        feature_dict : dict, optional
-            _description_, by default {}
-        contour:
-            an array of contour coordinates [(x1, y1), (x2, y2), ...)], in a WHOLE image (not in a cropped image)
-        empty_cell: bool
-            use when intend to create an empty cell object. suppress the empty warning.
-        """
         if cache is None:
             self.cache = dict()
         else:
@@ -100,8 +83,6 @@ class SingleCellStatic:
         self.regionprops = regionprops
         self.timeframe = timeframe
         self.img_dataset = img_dataset
-
-        # TODO: discuss and decide whether to keep mask dataset
         self.mask_dataset = mask_dataset
 
         self.feature_dict = feature_dict
@@ -110,30 +91,25 @@ class SingleCellStatic:
 
         self.bbox = bbox
         if contour is None and not empty_cell:
-            main_warning(">>> [SingleCellStatic] WARNING: contour is None, please check if this is expected.")
+            main_warning(">>> [SingleUnit] WARNING: contour is None, please check if this is expected.")
             contour = np.array([], dtype=int)
         self.contour = contour
 
         # infer bbox from regionprops
         if (bbox is None) and (regionprops is not None):
             self.bbox = regionprops.bbox
-        elif (bbox is None) and contour is not None:
-            self.update_contour(
-                self.contour,
-                update_bbox=True,
-                update_mask_dataset=update_mask_dataset_by_contour,
-            )
-        # TODO: enable img_crops caching ONLY in RAM mode, otherwise caching these causes memory issues
-        # self.raw_img = self.get_img()
-        # self.img_crop = None
-        # self.mask_crop = None
-        self.meta: Dict = meta if meta is not None else dict()
+        elif (bbox is None) and contour is not None and len(contour) > 0:
+            # Update bbox from contour
+            self.bbox = self.get_bbox_from_contour(self.contour)
 
-        self.uns: dict = uns
-        if self.uns is None:
-            self.uns = dict()
+        self.meta = meta if meta is not None else dict()
+        self.uns = uns if uns is not None else dict()
 
-        # TODO: [smz] add i/o method written and test comparison for dataset_dict
+        # Initialize components dictionary if it doesn't exist
+        if self.COMPONENTS_KEY not in self.uns:
+            self.uns[self.COMPONENTS_KEY] = {}
+
+        # Initialize dataset_dict
         if dataset_dict:
             self.dataset_dict = dataset_dict
         else:
@@ -147,20 +123,229 @@ class SingleCellStatic:
             self.img_dataset = self.dataset_dict["raw"]
         if self.mask_dataset is None and "mask" in self.dataset_dict:
             self.mask_dataset = self.dataset_dict["mask"]
+
+        # Set ID
         if id is not None:
             self.id = id
         else:
-            # self.id = SingleCellStatic.id_generator.__next__()
             self.id = uuid.uuid4()
 
+        # Initialize tmp dictionary
         if tmp is not None:
             self.tmp = tmp
         else:
             self.tmp = dict()
 
+        # Set caching options
         self.cached_img_shape = cached_img_shape
         self.enable_cache_contour_mask = use_cache_contour_mask
         self.enable_img_crop_cache = use_img_crop_cache
+        self.update_mask_dataset_by_contour = update_mask_dataset_by_contour
+        self.empty_cell = empty_cell
+
+    def add_component(self, component: "SingleUnit", component_type: Optional[str] = None):
+        """Add a component to this unit
+
+        Parameters
+        ----------
+        component : SingleUnit
+            The component to add
+        component_type : str, optional
+            The type of component. If None and component is an Organelle, uses organelle_type.
+        """
+        # If component is an Organelle and component_type is not specified, use organelle_type
+        if component_type is None and hasattr(component, "organelle_type"):
+            component_type = component.organelle_type
+        elif component_type is None:
+            component_type = "generic"
+
+        # Set the parent ID if component is an Organelle and parent_cell_id is not set
+        if hasattr(component, "parent_cell_id") and component.parent_cell_id is None:
+            component.parent_cell_id = self.id
+
+        # Initialize the component type in the components dictionary if it doesn't exist
+        if component_type not in self.uns[self.COMPONENTS_KEY]:
+            self.uns[self.COMPONENTS_KEY][component_type] = []
+
+        # Add the component to the components dictionary
+        self.uns[self.COMPONENTS_KEY][component_type].append(component)
+
+    def get_components(self, component_type=None):
+        """Get components of a specific type or all components
+
+        Parameters
+        ----------
+        component_type : str, optional
+            The type of component to get. If None, returns all components.
+
+        Returns
+        -------
+        List[SingleUnit]
+            A list of components
+        """
+        if self.COMPONENTS_KEY not in self.uns:
+            return []
+
+        if component_type is not None:
+            # Return components of the specified type
+            return self.uns[self.COMPONENTS_KEY].get(component_type, [])
+        else:
+            # Return all components
+            all_components = []
+            for components in self.uns[self.COMPONENTS_KEY].values():
+                all_components.extend(components)
+            return all_components
+
+    def remove_component(self, component: "SingleUnit", component_type=None):
+        """Remove a component from this unit
+
+        Parameters
+        ----------
+        component : SingleUnit
+            The component to remove
+        component_type : str, optional
+            The type of component. If None, searches all component types.
+
+        Returns
+        -------
+        bool
+            True if the component was removed, False otherwise
+        """
+        if self.COMPONENTS_KEY not in self.uns:
+            return False
+
+        # If component_type is specified, only search that type
+        if component_type is not None:
+            if component_type not in self.uns[self.COMPONENTS_KEY]:
+                return False
+
+            # Find the component in the list
+            components = self.uns[self.COMPONENTS_KEY][component_type]
+            for i, comp in enumerate(components):
+                if comp.id == component.id:
+                    # Remove the component
+                    components.pop(i)
+                    return True
+        else:
+            # Search all component types
+            for comp_type, components in self.uns[self.COMPONENTS_KEY].items():
+                for i, comp in enumerate(components):
+                    if comp.id == component.id:
+                        # Remove the component
+                        components.pop(i)
+                        return True
+
+        return False
+
+    def get_img(self):
+        """Get the image for this unit"""
+        if self.img_dataset is None:
+            return None
+        return self.img_dataset.get_img_by_time(self.timeframe)
+
+    def get_mask(self, dtype=bool):
+        """Get the mask for this unit"""
+
+        def _fail_to_get_mask():
+            raise ValueError(
+                "Cannot get mask, tried to get masks from all sources including contours and mask datasets."
+            )
+
+        if self.mask_dataset is None:
+            if self.contour is None or len(self.contour) == 0:
+                _fail_to_get_mask()
+            # Generate mask from contour
+            return self.gen_contour_mask(self.contour, img=self.get_img(), crop=False, dtype=dtype)
+
+        try:
+            return self.mask_dataset.get_img_by_time(time=self.timeframe).astype(dtype)
+        except Exception:
+            if self.contour is None or len(self.contour) == 0:
+                _fail_to_get_mask()
+            # Generate mask from contour
+            return self.gen_contour_mask(self.contour, img=self.get_img(), crop=False, dtype=dtype)
+
+    def get_contour(self) -> np.ndarray:
+        """Get the contour for this unit"""
+        if self.contour is None:
+            return np.array([], dtype=int)
+        return np.array(self.contour)
+
+    def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
+        """Convert this unit to a JSON dictionary"""
+        res = {
+            "id": str(self.id),
+            "timeframe": self.timeframe,
+        }
+
+        # Add contour if it exists
+        if self.contour is not None and len(self.contour) > 0:
+            res["contour"] = self.contour.tolist()
+
+        # Add bbox if it exists
+        if self.bbox is not None:
+            res["bbox"] = self.bbox.tolist()
+
+        # Add meta and uns dictionaries
+        if self.meta:
+            res["meta"] = self.meta
+        if self.uns:
+            res["uns"] = self.uns
+
+        return res
+
+    def load_from_json_dict(self, json_dict, img_dataset=None, mask_dataset=None):
+        """Load this unit from a JSON dictionary"""
+        # Set ID if provided
+        if "id" in json_dict:
+            self.id = json_dict["id"]
+
+        # Set timeframe if provided
+        if "timeframe" in json_dict:
+            self.timeframe = json_dict["timeframe"]
+
+        # Set contour if provided
+        if "contour" in json_dict:
+            self.contour = np.array(json_dict["contour"])
+
+        # Set bbox if provided
+        if "bbox" in json_dict:
+            self.bbox = np.array(json_dict["bbox"])
+
+        # Set meta and uns dictionaries if provided
+        if "meta" in json_dict:
+            self.meta = json_dict["meta"]
+        if "uns" in json_dict:
+            self.uns = json_dict["uns"]
+
+        # Set image and mask datasets if provided
+        if img_dataset is not None:
+            self.img_dataset = img_dataset
+        if mask_dataset is not None:
+            self.mask_dataset = mask_dataset
+
+        return self
+
+    @staticmethod
+    def gen_contour_mask(contour, img=None, shape=None, crop=False, bbox=None, dtype=bool):
+        """Generate a mask from a contour"""
+        from skimage.draw import polygon
+
+        assert img is not None or shape is not None, "either img or shape must be provided"
+        if shape is None:
+            shape = img.shape
+
+        mask = np.zeros(shape, dtype=dtype)
+        if len(contour) < 3:
+            return mask
+
+        # Convert contour to row and column indices
+        r, c = polygon(contour[:, 0], contour[:, 1], shape)
+        mask[r, c] = True
+
+        if crop and bbox is not None:
+            return mask[bbox[0] : bbox[2], bbox[1] : bbox[3]]
+        return mask
 
     def __repr__(self) -> str:
         return f"SingleCellStatic(id={self.id}, timeframe={self.timeframe}, bbox={self.bbox})"
@@ -231,7 +416,8 @@ class SingleCellStatic:
 
         if bbox is None:
             # bbox = self.bbox
-            # Take the merged bbox of two cells
+            # Take the merged bbox of two cells using the same convention as get_bbox_from_contour
+            # (adding +1 to max coordinates to make the upper bound exclusive)
             bbox = np.array(
                 [
                     min(self.bbox[0], other_cell_bbox[0]),
@@ -279,28 +465,26 @@ class SingleCellStatic:
     def update_regionprops(self):
         self.regionprops = self.compute_regionprops()
 
-    def get_contour(self) -> np.ndarray:
-        return np.copy(self.contour)
-
-    def get_img(self):
-        return self.img_dataset.get_img_by_time(self.timeframe)
-
-    def get_mask(self, dtype=bool):
-        if isinstance(self.mask_dataset, SingleImageDataset) or isinstance(self.mask_dataset, LiveCellImageDataset):
-            try:
-                return self.mask_dataset.get_img_by_time(time=self.timeframe)
-            except Exception as e:
-                main_exception(
-                    f"Error getting mask for single cell {self.id} at timeframe {self.timeframe} from presented mask dataset. Using contour mask instead."
-                )
-        if self.contour is not None:
-            return self.get_contour_mask(crop=False, dtype=dtype)
-
-        raise ValueError("mask dataset and contour are both None")
+    # These methods are already defined in the SingleUnit class
 
     def get_label_mask(self, dtype=int):
-        mask = self.get_mask(dtype=dtype)
-        return mask
+        """Get the label mask for this unit"""
+        if self.mask_dataset is None:
+            if self.contour is None or len(self.contour) == 0:
+                return None
+            # Generate mask from contour
+            return self.gen_contour_mask(self.contour, img=self.get_img(), crop=False, dtype=dtype)
+
+        try:
+            mask = self.mask_dataset.get_img_by_time(time=self.timeframe)
+            if mask is not None:
+                return mask.astype(dtype)
+            return None
+        except Exception:
+            if self.contour is None or len(self.contour) == 0:
+                return None
+            # Generate mask from contour
+            return self.gen_contour_mask(self.contour, img=self.get_img(), crop=False, dtype=dtype)
 
     def get_bbox(self, padding=None) -> np.ndarray:
         # TODO: add unit test for this function
@@ -754,6 +938,8 @@ class SingleCellStatic:
     @staticmethod
     def get_bbox_from_contour(contour, dtype=int):
         """get the bounding box of a contour"""
+        if type(contour) is list:
+            contour = np.array(contour)
         return np.array(
             [
                 np.min(contour[:, 0]),
@@ -896,6 +1082,22 @@ class SingleCellStatic:
         contour_mask = self.get_contour_mask(crop=crop, **mask_kwargs).astype(bool)
 
         contour_img = self.get_img_crop(**kwargs) if crop else self.get_img()
+
+        assert contour_img is not None, "contour_img is None"
+        assert (
+            contour_img.shape == contour_mask.shape
+        ), f"contour_mask and contour_img have different shapes, please check: contour img shape: {contour_img.shape}, contour mask shape: {contour_mask.shape}"
+
+        # # Ensure dimensions match before applying the mask
+        # if contour_mask.shape != contour_img.shape:
+        #     # Resize mask or image to match dimensions
+        #     min_height = min(contour_mask.shape[0], contour_img.shape[0])
+        #     min_width = min(contour_mask.shape[1], contour_img.shape[1])
+
+        #     # Crop both to the minimum dimensions
+        #    contour_mask = contour_mask[:min_height, :min_width]
+        #    contour_img = contour_img[:min_height, :min_width]
+
         contour_img[np.logical_not(contour_mask)] = bg_val
         return contour_img
 
@@ -1094,21 +1296,140 @@ class SingleCellStatic:
         _assign_uuid(exclude_set=exclude_set, max_try=max_try)
 
 
-class Organelle(SingleCellStatic):
+# The SingleUnit class is already defined above
+
+
+class SingleCellStatic(SingleUnit):
+    """Single cell at one time frame"""
+
+    def __init__(
+        self,
+        timeframe: int = 0,
+        bbox: Optional[np.ndarray] = None,
+        regionprops: Optional[RegionProperties] = None,
+        img_dataset: Optional[LiveCellImageDataset] = None,
+        mask_dataset: Optional[LiveCellImageDataset] = None,
+        dataset_dict: Optional[Dict[str, LiveCellImageDataset]] = None,
+        feature_dict: Optional[Dict[str, np.ndarray]] = None,
+        contour: Optional[np.ndarray] = None,
+        meta: Optional[Dict[str, object]] = None,
+        uns: Optional[Dict[str, object]] = None,
+        id: Optional[int] = None,
+        cache: Optional[Dict] = None,
+        update_mask_dataset_by_contour=False,
+        empty_cell=False,
+        tmp=None,
+        use_cache_contour_mask=False,
+        use_img_crop_cache=False,
+        cached_img_shape=None,
+    ) -> None:
+        super().__init__(
+            timeframe=timeframe,
+            bbox=bbox,
+            regionprops=regionprops,
+            img_dataset=img_dataset,
+            mask_dataset=mask_dataset,
+            dataset_dict=dataset_dict,
+            feature_dict=feature_dict,
+            contour=contour,
+            meta=meta,
+            uns=uns,
+            id=id,
+            cache=cache,
+            update_mask_dataset_by_contour=update_mask_dataset_by_contour,
+            empty_cell=empty_cell,
+            tmp=tmp,
+            use_cache_contour_mask=use_cache_contour_mask,
+            use_img_crop_cache=use_img_crop_cache,
+            cached_img_shape=cached_img_shape,
+        )
+
+    def __repr__(self) -> str:
+        return f"SingleCellStatic(id={self.id}, timeframe={self.timeframe}, bbox={self.bbox})"
+
+    # Convenience methods for backward compatibility
+    def add_organelle(self, organelle: "Organelle"):
+        """Add an organelle to this cell (convenience method)"""
+        self.add_component(organelle)
+
+    def get_organelles(self, organelle_type=None):
+        """Get organelles of a specific type or all organelles (convenience method)"""
+        return self.get_components(organelle_type)
+
+    def remove_organelle(self, organelle: "Organelle"):
+        """Remove an organelle from this cell (convenience method)"""
+        return self.remove_component(organelle)
+
+    # Convenience methods for backward compatibility
+    def add_organelle(self, organelle: "Organelle"):
+        """Add an organelle to this cell (convenience method)"""
+        self.add_component(organelle)
+
+    def get_organelles(self, organelle_type=None):
+        """Get organelles of a specific type or all organelles (convenience method)"""
+        return self.get_components(organelle_type)
+
+    def remove_organelle(self, organelle: "Organelle"):
+        """Remove an organelle from this cell (convenience method)"""
+        return self.remove_component(organelle)
+
+
+class Organelle(SingleUnit):
+    """Organelle class for representing subcellular structures"""
+
     def __init__(
         self,
         organelle_type: str,
         parent_cell_id: Optional[Union[int, str]] = None,
-        **kwargs
+        timeframe: int = 0,
+        bbox: Optional[np.ndarray] = None,
+        regionprops: Optional[RegionProperties] = None,
+        img_dataset: Optional[LiveCellImageDataset] = None,
+        mask_dataset: Optional[LiveCellImageDataset] = None,
+        dataset_dict: Optional[Dict[str, LiveCellImageDataset]] = None,
+        feature_dict: Optional[Dict[str, np.ndarray]] = None,
+        contour: Optional[np.ndarray] = None,
+        meta: Optional[Dict[str, object]] = None,
+        uns: Optional[Dict[str, object]] = None,
+        id: Optional[Union[int, uuid.UUID, str]] = None,
+        cache: Optional[Dict] = None,
+        update_mask_dataset_by_contour=False,
+        empty_cell=False,
+        tmp=None,
+        use_cache_contour_mask=False,
+        use_img_crop_cache=False,
+        cached_img_shape=None,
+        **kwargs,
     ):
-        super().__init__(**kwargs)
+        # Initialize basic attributes first
         self.organelle_type = organelle_type
         self.parent_cell_id = parent_cell_id
 
-    def __repr__(self) -> str:
-        return (
-            f"Suborganelle(type={self.organelle_type}, id={self.id}, timeframe={self.timeframe})"
+        # Initialize the SingleUnit parent class
+        super().__init__(
+            timeframe=timeframe,
+            bbox=bbox,
+            regionprops=regionprops,
+            img_dataset=img_dataset,
+            mask_dataset=mask_dataset,
+            dataset_dict=dataset_dict,
+            feature_dict=feature_dict,
+            contour=contour,
+            meta=meta,
+            uns=uns,
+            id=id,
+            cache=cache,
+            update_mask_dataset_by_contour=update_mask_dataset_by_contour,
+            empty_cell=empty_cell,
+            tmp=tmp,
+            use_cache_contour_mask=use_cache_contour_mask,
+            use_img_crop_cache=use_img_crop_cache,
+            cached_img_shape=cached_img_shape,
+            **kwargs,
         )
+
+    def __repr__(self) -> str:
+        return f"Suborganelle(type={self.organelle_type}, id={self.id}, timeframe={self.timeframe})"
 
     def to_json_dict(self, include_dataset_json=False, dataset_json_dir=None):
         base = super().to_json_dict(include_dataset_json, dataset_json_dir)
@@ -1125,6 +1446,29 @@ class Organelle(SingleCellStatic):
         self.organelle_type = json_dict.get("organelle_type", "unknown")
         self.parent_cell_id = json_dict.get("parent_cell_id")
         return self
+
+    # Organelles can also have components (e.g., a nucleus can have nucleoli)
+    def add_component(self, component: "SingleUnit", component_type: Optional[str] = None):
+        """Add a component to this organelle"""
+        # If component_type is None and component is an Organelle, use organelle_type
+        if component_type is None and hasattr(component, "organelle_type"):
+            component_type = component.organelle_type
+        elif component_type is None:
+            component_type = "generic"
+
+        # Set the parent ID if component is an Organelle and parent_cell_id is not set
+        if hasattr(component, "parent_cell_id") and component.parent_cell_id is None:
+            component.parent_cell_id = self.id
+
+        # Initialize the component type in the components dictionary if it doesn't exist
+        if self.COMPONENTS_KEY not in self.uns:
+            self.uns[self.COMPONENTS_KEY] = {}
+
+        if component_type not in self.uns[self.COMPONENTS_KEY]:
+            self.uns[self.COMPONENTS_KEY][component_type] = []
+
+        # Add the component to the components dictionary
+        self.uns[self.COMPONENTS_KEY][component_type].append(component)
 
 
 class SingleCellTrajectory:
