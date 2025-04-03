@@ -177,7 +177,7 @@ def divide_single_cell_watershed(
     normalize=True,
     normalize_edt=True,
     gauss_center_val=200,
-    edt_gauss_center_val=1,
+    edt_gauss_center_val=20,
     gauss_std=8,
     num_gauss_areas=2,
     return_all=False,
@@ -279,18 +279,19 @@ def divide_single_cell_watershed(
 
 
 def gen_synthetic_overseg(
-    sc, num_samples=10, max_try=20, padding=0, **kwargs
+    sc, num_samples=10, max_try=20, padding=0, num_gauss_areas=2, edt_gauss_center_val=20, **kwargs
 ) -> List[Tuple[np.ndarray, np.ndarray, dict]]:
     res_label_masks_and_params = []
-    num_gauss_area = kwargs["num_gauss_areas"]
     for _ in range(num_samples):
         counter = 0
         num_segs = -1
-        while num_segs < num_gauss_area and counter < max_try:
-            label_mask = divide_single_cell_watershed(sc, padding=padding, **kwargs)
+        while num_segs < num_gauss_areas and counter < max_try:
+            label_mask = divide_single_cell_watershed(
+                sc, padding=padding, num_gauss_areas=num_gauss_areas, edt_gauss_center_val=20, **kwargs
+            )
             num_segs = len(np.unique(label_mask)) - 1
             counter += 1
-        if num_segs < num_gauss_area:
+        if num_segs < num_gauss_areas:
             # print("fail to generate enough segs")
             continue
         meta = kwargs.copy()
