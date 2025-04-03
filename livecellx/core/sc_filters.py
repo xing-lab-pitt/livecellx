@@ -23,6 +23,29 @@ from livecellx.core.single_cell import SingleCellStatic, SingleCellTrajectory, S
 def filter_boundary_cells(
     scs: List[SingleCellStatic], dist_to_boundary=30, bbox_bounds=None, use_box_center=True
 ) -> List[SingleCellStatic]:
+    """
+    Filters out cells that are too close to the boundary of an image or bounding box.
+
+    Parameters
+    ----------
+    scs : List[SingleCellStatic]
+        A list of SingleCellStatic objects to be filtered.
+    dist_to_boundary : int, optional
+        The minimum distance from the boundary for a cell to be considered not on
+        the boundary. Defaults to 30.
+    bbox_bounds : list, optional
+        A list defining the bounding box in the format [x_min, y_min, x_max, y_max].
+        If None, the bounding box is derived from the dimensions of the first cell's
+        image. Defaults to None.
+    use_box_center : bool, optional
+        If True, the center of the bounding box is used to determine proximity to
+        the boundary. If False, the edges of the bounding box are used. Defaults to True.
+
+    Returns
+    -------
+    List[SingleCellStatic]
+        A list of SingleCellStatic objects that are not near the boundary.
+    """
     not_boundary_scs = []
     if bbox_bounds is None:
         dim = scs[0].get_img().shape[:2]
