@@ -156,45 +156,52 @@ def overlay(image, mask, mask_channel_rgb_val=100, img_channel_rgb_val_factor=1)
     return res
 
 
-def overlay_by_color(image, mask, color=(100, 0, 0), alpha=0.5):
+def overlay_by_color(image, mask, color=(100, 0, 0), alpha=0.5, normalize_func=None):
     """
-    Overlay a color mask onto a grayscale image.
+    Overlay a color mask onto a grayscale or RGB image.
 
     Args:
-        image (numpy.ndarray): If grayscale input image, converted to RGB.
-        mask (numpy.ndarray): Mask image, usually binary.
-        color (tuple): Color to overlay in BGR format (default is green).
+        image (numpy.ndarray): Input image. If grayscale, it will be converted to BGR.
+        mask (numpy.ndarray): Mask image, usually binary. Non-zero values indicate areas to overlay.
+        color (tuple): Color to overlay in BGR format (default is (100, 0, 0), which is dark red).
         alpha (float): Opacity of the overlay (default is 0.5).
+        normalize_func (callable, optional): Function to normalize the image. If None, normalize_img_to_uint8 is used.
 
     Returns:
-        numpy.ndarray: Resulting image with the overlay.
+        numpy.ndarray: Resulting image with the overlay in BGR format.
     """
-    image = normalize_img_to_uint8(image)
+    # Apply normalization if needed
+    if normalize_func is None:
+        normalize_func = normalize_img_to_uint8
+
+    image = normalize_func(image)
+
     # Convert the grayscale image to BGR for overlaying
     if len(image.shape) == 2:
-        image_bgr = cvcvtColor(image, cvCOLOR_GRAY2BGR)
+        image_bgr = cv.cvtColor(image, cv.COLOR_GRAY2BGR)
     else:
-        image_bgr = image
+        image_bgr = image.copy()
 
-    # Convert the mask to a 3-channel image with alpha channel
+    # Ensure mask is binary and in uint8 format
     mask = mask.astype(np.uint8)
-    mask_rgb = cvcvtColor(mask, cvCOLOR_GRAY2BGR)
+    if mask.max() > 1:
+        # Normalize mask if it's not binary (0 and 1)
+        _, mask = cv.threshold(mask, 0, 1, cv.THRESH_BINARY)
 
-    # Add the alpha channel to the mask if required?
-    # mask_rgb = np.concatenate([mask_rgb, alpha * mask[:, :, np.newaxis]], axis=-1)
-
-    # Apply the color to the mask region
+    # Create a color overlay image
     overlay = np.zeros_like(image_bgr, dtype=np.uint8)
 
-    # Blend the overlay onto the image using the mask
-    result = cvaddWeighted(image_bgr, 1.0, overlay, alpha, 0.0)
+    # Apply color to the mask regions in the overlay
+    for c in range(3):  # BGR channels
+        overlay[:, :, c] = mask * color[c]
 
-    # Apply the masked region from the mask_rgb to the result, with color
-    result[mask > 0] = result[mask > 0, :3] * (1 - alpha) + mask_rgb[mask > 0, :3] * color * alpha
+    # Blend the overlay onto the image
+    result = cv.addWeighted(image_bgr, 1.0, overlay, alpha, 0.0)
+
+    # Ensure the result is in the valid range and correct type
     result = np.clip(result, 0, 255).astype(np.uint8)
-    # result = result * (1 - mask_rgb[:, :, 3:] / 255) + mask_rgb[:, :, :3] * (mask_rgb[:, :, 3:] / 255)
 
-    return result.astype(np.uint8)
+    return result
 
 
 # TODO: add tests and note if scale * raw_image exceeds type boundaries such as 255
