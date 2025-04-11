@@ -4,7 +4,8 @@ import copy
 import os
 from pathlib import Path
 import time
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, Union, TypeVar, cast
+from numpy.typing import NDArray, ArrayLike
 from collections import deque
 import matplotlib
 import matplotlib.patches as patches
@@ -265,7 +266,7 @@ class SingleUnit:
             # Generate mask from contour
             return self.gen_contour_mask(self.contour, img=self.get_img(), crop=False, dtype=dtype)
 
-    def get_contour(self) -> np.ndarray:
+    def get_contour(self) -> NDArray:
         """Get the contour for this unit"""
         if self.contour is None:
             return np.array([], dtype=int)
@@ -486,7 +487,7 @@ class SingleUnit:
             # Generate mask from contour
             return self.gen_contour_mask(self.contour, img=self.get_img(), crop=False, dtype=dtype)
 
-    def get_bbox(self, padding=None) -> np.ndarray:
+    def get_bbox(self, padding=None) -> NDArray:
         # TODO: add unit test for this function
         if self.bbox is None:
             self.update_bbox()
@@ -604,7 +605,7 @@ class SingleUnit:
         if update_bbox:
             self.bbox = self.get_bbox_from_contour(self.contour)
 
-    def update_sc_mask_by_crop(self, mask, padding_pixels=np.zeros(2, dtype=int), bbox: np.ndarray = None):
+    def update_sc_mask_by_crop(self, mask, padding_pixels=np.zeros(2, dtype=int), bbox: Optional[NDArray] = None):
         """
         Updates the single cell mask by cropping the input mask to the bounding box of the single cell and updating the contour.
 
@@ -901,7 +902,7 @@ class SingleUnit:
         contours = self.get_contour_coords_on_crop(bbox=bbox, padding=padding)
         return self.get_bbox_from_contour(contours)
 
-    def get_contour_coords_on_img_crop(self, padding=0) -> np.ndarray:
+    def get_contour_coords_on_img_crop(self, padding=0) -> NDArray:
         """
         A utility function to calculate pixel coord in image crop's coordinate system from the contour coordinates in the whole image's coordinate system.
 
@@ -919,7 +920,7 @@ class SingleUnit:
         ys = self.contour[:, 1] - max(0, self.bbox[1] - padding)
         return np.array([xs, ys]).T
 
-    def get_contour_mask_closed_form(self, padding=0, crop=True) -> np.ndarray:
+    def get_contour_mask_closed_form(self, padding=0, crop=True) -> NDArray:
         """If contour points are pixel-wise closed, use this function to fill the contour."""
         import scipy.ndimage as ndimage
 
@@ -1027,7 +1028,7 @@ class SingleUnit:
         res_mask = SingleCellStatic.gen_skimage_bbox_img_crop(bbox, res_mask, padding=padding)
         return res_mask
 
-    def get_contour_mask(self, padding=0, crop=True, bbox=None, dtype=bool) -> np.ndarray:
+    def get_contour_mask(self, padding=0, crop=True, bbox=None, dtype=bool) -> NDArray:
         hash_key: Tuple = (
             "contour_mask",
             padding,
@@ -1049,7 +1050,7 @@ class SingleUnit:
             self.cache[hash_key] = res
         return res
 
-    def get_contour_label_mask(self, padding=0, crop=True, bbox=None, dtype=int) -> np.ndarray:
+    def get_contour_label_mask(self, padding=0, crop=True, bbox=None, dtype=int) -> NDArray:
         hash_key: Tuple = (
             "contour_mask",
             padding,
@@ -1071,7 +1072,7 @@ class SingleUnit:
             self.cache[hash_key] = res
         return res
 
-    def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> np.ndarray:
+    def get_contour_img(self, crop=True, bg_val=0, **kwargs) -> NDArray:
         """return a contour image with out of self cell region set to background_val"""
 
         # TODO: filter kwargs for contour mask case. (currently using the same kwargs as self.gen_skimage_bbox_img_crop)
@@ -1346,19 +1347,6 @@ class SingleCellStatic(SingleUnit):
 
     def __repr__(self) -> str:
         return f"SingleCellStatic(id={self.id}, timeframe={self.timeframe}, bbox={self.bbox})"
-
-    # Convenience methods for backward compatibility
-    def add_organelle(self, organelle: "Organelle"):
-        """Add an organelle to this cell (convenience method)"""
-        self.add_component(organelle)
-
-    def get_organelles(self, organelle_type=None):
-        """Get organelles of a specific type or all organelles (convenience method)"""
-        return self.get_components(organelle_type)
-
-    def remove_organelle(self, organelle: "Organelle"):
-        """Remove an organelle from this cell (convenience method)"""
-        return self.remove_component(organelle)
 
     # Convenience methods for backward compatibility
     def add_organelle(self, organelle: "Organelle"):
@@ -1991,11 +1979,13 @@ class SingleCellTrajectoryCollection:
     def get_trajectory(self, track_id) -> SingleCellTrajectory:
         return self.track_id_to_trajectory[track_id]
 
-    def get_all_scs(self) -> List[SingleCellStatic]:
+    def get_all_scs(self, sorted_by_time=True) -> List[SingleCellStatic]:
         all_scts = self.get_all_trajectories()
         all_scs = []
         for sct in all_scts:
             all_scs.extend(sct.get_all_scs())
+        if sorted_by_time:
+            all_scs = sorted(all_scs, key=lambda sc: sc.timeframe)
         return all_scs
 
     def get_all_trajectories(self) -> List[SingleCellTrajectory]:
@@ -2112,14 +2102,14 @@ class SingleCellTrajectoryCollection:
         feature_table = None
         for track_id, trajectory in self:
             assert track_id == trajectory.track_id, "track_id mismatch"
-            sc_feature_table = trajectory.get_sc_feature_table()
+            sct_feature_table = trajectory.get_sc_feature_table()
             if feature_table is None:
-                feature_table = sc_feature_table
+                feature_table = sct_feature_table
             else:
-                feature_table = pd.concat([feature_table, sc_feature_table])
+                feature_table = pd.concat([feature_table, sct_feature_table])
         return feature_table
 
-    def get_time_span(self) -> [int, int]:
+    def get_time_span(self) -> Tuple[Optional[int], Optional[int]]:
         res_time_span = (None, None)
         for track_id, trajectory in self:
             _tmp_time_span = trajectory.get_time_span()
