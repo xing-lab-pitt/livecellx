@@ -25,7 +25,7 @@ from livecellx.core.io_utils import LiveCellEncoder
 from livecellx.core.parallel import parallelize
 from livecellx.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
 from livecellx.livecell_logger import main_info, main_warning, main_exception
-from livecellx.preprocess.utils import normalize_img_by_bitdepth
+from livecellx.preprocess.utils import enhance_contrast, normalize_img_by_bitdepth
 
 
 def _assign_uuid(exclude_set: Optional[Set[uuid.UUID]] = None, max_try=50) -> uuid.UUID:
@@ -2274,6 +2274,7 @@ def show_sct_on_grid(
     show_contour=True,
     verbose=False,
     normalize=True,
+    enhance_contrast_factor=1.0,  # factor=1 --> no enhancement
 ) -> Tuple[plt.Figure, np.ndarray]:
     """
     Display a grid of single cell images with contours overlaid.
@@ -2450,7 +2451,7 @@ def show_sct_on_grid(
                         contour_coords[:, 0] += _pad_pixels__np[0][0]
                         contour_coords[:, 1] += _pad_pixels__np[1][0]
             sc_img = normalize_img_by_bitdepth(sc_img, bit_depth=8, mean=127)
-            sc_img = enhance_contrast(sc_img, factor=1.5)
+            sc_img = enhance_contrast(sc_img, factor=enhance_contrast_factor)
             print("sc img shape: ", sc_img.shape)
             ax.imshow(sc_img, cmap=cmap)
 
