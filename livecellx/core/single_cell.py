@@ -25,6 +25,7 @@ from livecellx.core.io_utils import LiveCellEncoder
 from livecellx.core.parallel import parallelize
 from livecellx.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
 from livecellx.livecell_logger import main_info, main_warning, main_exception
+from livecellx.preprocess.utils import normalize_img_by_bitdepth
 
 
 def _assign_uuid(exclude_set: Optional[Set[uuid.UUID]] = None, max_try=50) -> uuid.UUID:
@@ -2272,6 +2273,7 @@ def show_sct_on_grid(
     crop_from_center=True,
     show_contour=True,
     verbose=False,
+    normalize=True,
 ) -> Tuple[plt.Figure, np.ndarray]:
     """
     Display a grid of single cell images with contours overlaid.
@@ -2351,11 +2353,15 @@ def show_sct_on_grid(
                 sc_img = sc.get_mask_crop(padding=padding)
             else:
                 sc_img = sc.get_img_crop(padding=padding)
+
+            sc_img = normalize_img_by_bitdepth(sc_img, bit_depth=8, mean=127)
             contour_coords = sc.get_contour_coords_on_crop(padding=padding)
 
             if dims is not None:
+                print("handling dim")
                 center_coord = [sc_img.shape[i] // 2 for i in range(2)]
                 if crop_from_center:
+                    print("cropping from center")
                     xs, ys, xe, ye = (
                         center_coord[0] - dims[0] // 2,
                         center_coord[1] - dims[1] // 2,
@@ -2363,15 +2369,8 @@ def show_sct_on_grid(
                         center_coord[1] + dims[1] // 2,
                     )
 
-                    # Center padding
-                    _center_padding = padding // 2
-                    xs, ys, xe, ye = (
-                        xs - _center_padding,
-                        ys - _center_padding,
-                        xe + _center_padding,
-                        ye + _center_padding,
-                    )
                     # Fit to boundary of img shape [0, boundary]
+                    xs_0, ys_0, xe_0, ye_0 = xs, ys, xe, ye
                     xs, ys, xe, ye = (
                         max(0, xs),
                         max(0, ys),
@@ -2379,16 +2378,49 @@ def show_sct_on_grid(
                         min(sc_img.shape[1], ye),
                     )
                     sc_img = sc_img[xs:xe, ys:ye]
+
                     contour_coords[:, 0] = contour_coords[:, 0] - xs
                     contour_coords[:, 1] = contour_coords[:, 1] - ys
                     if pad_dims:
-                        _pad_pixels = [dims[0] - (xe - xs), dims[1] - (ye - ys)]
-                        # Ensure non-neg and //2 for center
-                        _pad_pixels = [max(0, val) // 2 for val in _pad_pixels]
-                        sc_img = np.pad(sc_img, _pad_pixels, mode="constant", constant_values=0)
-                        contour_coords[:, 0] += _pad_pixels[0]
-                        contour_coords[:, 1] += _pad_pixels[1]
+                        _pad_pixels = np.array(
+                            [
+                                max(0, -xs_0) + max(0, abs(xe_0 - xe)),
+                                max(0, -ys_0) + max(0, abs(ye_0 - ye)),
+                            ]
+                        )
+                        # tansform _pad_pixels to [(before, after), ...] required by numpy
+                        _pad_pixels__np = np.array(
+                            [
+                                [
+                                    _pad_pixels[0] // 2,
+                                    _pad_pixels[0] - _pad_pixels[0] // 2,
+                                ],
+                                [
+                                    _pad_pixels[1] // 2,
+                                    _pad_pixels[1] - _pad_pixels[1] // 2,
+                                ],
+                            ]
+                        )
+                        # print("xs_0, ys_0, xe_0, ye_0: ", xs_0, ys_0, xe_0, ye_0)
+                        # print("xs, ys, xe, ye: ", xs, ys, xe, ye)
+                        # print("_pad_pixels: ", _pad_pixels)
+                        # print("sc image shape: ", sc_img.shape)
+                        # print(
+                        #     "estmate after padding: ",
+                        #     sc_img.shape[0] + _pad_pixels[0],
+                        #     sc_img.shape[1] + _pad_pixels[1],
+                        # )
+                        sc_img = np.pad(
+                            sc_img,
+                            _pad_pixels__np,
+                            mode="constant",
+                            constant_values=127,
+                        )
+                        print("after padding, sc_img shape: ", sc_img.shape)
+                        contour_coords[:, 0] += _pad_pixels__np[0][0]
+                        contour_coords[:, 1] += _pad_pixels__np[1][0]
                 else:
+                    print("not cropping from center")
                     sc_img = sc_img[
                         dims_offset[0] : dims_offset[0] + dims[0],
                         dims_offset[1] : dims_offset[1] + dims[1],
@@ -2397,10 +2429,29 @@ def show_sct_on_grid(
                     contour_coords[:, 1] -= dims_offset[1]
                     if pad_dims:
                         _pad_pixels = [max(0, dims[i] - sc_img.shape[i]) for i in range(len(dims))]
-                        sc_img = np.pad(sc_img, _pad_pixels, mode="constant", constant_values=0)
-                        contour_coords[:, 0] += _pad_pixels[0]
-                        contour_coords[:, 1] += _pad_pixels[1]
-
+                        _pad_pixels__np = np.array(
+                            [
+                                [
+                                    _pad_pixels[0] // 2,
+                                    _pad_pixels[0] - _pad_pixels[0] // 2,
+                                ],
+                                [
+                                    _pad_pixels[1] // 2,
+                                    _pad_pixels[1] - _pad_pixels[1] // 2,
+                                ],
+                            ]
+                        )
+                        sc_img = np.pad(
+                            sc_img,
+                            _pad_pixels,
+                            mode="constant",
+                            constant_values=127,
+                        )
+                        contour_coords[:, 0] += _pad_pixels__np[0][0]
+                        contour_coords[:, 1] += _pad_pixels__np[1][0]
+            sc_img = normalize_img_by_bitdepth(sc_img, bit_depth=8, mean=127)
+            sc_img = enhance_contrast(sc_img, factor=1.5)
+            print("sc img shape: ", sc_img.shape)
             ax.imshow(sc_img, cmap=cmap)
 
             if show_contour:
