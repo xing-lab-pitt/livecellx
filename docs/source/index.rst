@@ -39,7 +39,7 @@ Getting Started with livecell
     installation
     API
     classes
-    quick_start_guide
+    /livecellx_notebooks/tutorials/tutorial_general_usage
 
 
 .. toctree::
