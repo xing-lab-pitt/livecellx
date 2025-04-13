@@ -39,7 +39,8 @@ Getting Started with livecell
     installation
     API
     classes
-    /livecellx_notebooks/tutorials/tutorial_general_usage
+    livecellx_notebooks/tutorials/tutorial_general_usage
+    livecellx_notebooks/tutorials/index
 
 
 .. toctree::
@@ -47,7 +48,7 @@ Getting Started with livecell
     :maxdepth: 2
     :hidden:
 
-    livecellx_notebooks/tutorials/index
+    
 
 Indices and tables
 ==================
