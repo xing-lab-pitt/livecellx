@@ -87,7 +87,7 @@ class SingleUnit:
         self.img_dataset = img_dataset
         self.mask_dataset = mask_dataset
 
-        self.feature_dict = feature_dict
+        self.feature_dict: Dict = feature_dict
         if self.feature_dict is None:
             self.feature_dict = dict()
 
@@ -104,7 +104,7 @@ class SingleUnit:
             # Update bbox from contour
             self.bbox = self.get_bbox_from_contour(self.contour)
 
-        self.meta = meta if meta is not None else dict()
+        self.meta: Dict = meta if meta is not None else dict()
         self.uns = uns if uns is not None else dict()
 
         # Initialize components dictionary if it doesn't exist
