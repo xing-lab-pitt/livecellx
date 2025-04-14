@@ -2359,10 +2359,8 @@ def show_sct_on_grid(
             contour_coords = sc.get_contour_coords_on_crop(padding=padding)
 
             if dims is not None:
-                print("handling dim")
                 center_coord = [sc_img.shape[i] // 2 for i in range(2)]
                 if crop_from_center:
-                    print("cropping from center")
                     xs, ys, xe, ye = (
                         center_coord[0] - dims[0] // 2,
                         center_coord[1] - dims[1] // 2,
@@ -2417,11 +2415,9 @@ def show_sct_on_grid(
                             mode="constant",
                             constant_values=127,
                         )
-                        print("after padding, sc_img shape: ", sc_img.shape)
                         contour_coords[:, 0] += _pad_pixels__np[0][0]
                         contour_coords[:, 1] += _pad_pixels__np[1][0]
                 else:
-                    print("not cropping from center")
                     sc_img = sc_img[
                         dims_offset[0] : dims_offset[0] + dims[0],
                         dims_offset[1] : dims_offset[1] + dims[1],
@@ -2452,7 +2448,6 @@ def show_sct_on_grid(
                         contour_coords[:, 1] += _pad_pixels__np[1][0]
             sc_img = normalize_img_by_bitdepth(sc_img, bit_depth=8, mean=127)
             sc_img = enhance_contrast(sc_img, factor=enhance_contrast_factor)
-            print("sc img shape: ", sc_img.shape)
             ax.imshow(sc_img, cmap=cmap)
 
             if show_contour:
