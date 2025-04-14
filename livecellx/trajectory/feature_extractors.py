@@ -1,5 +1,5 @@
-from typing import List, Union, Tuple, Callable
-from typing import Dict
+from typing import List, Union, Tuple, Callable, Dict, Optional, Any
+from numpy.typing import NDArray
 import skimage
 import skimage.measure
 from pandas import Series
@@ -71,8 +71,9 @@ def compute_haralick_features(
     return_mean=True,
     ret_arr=True,
     add_feature_to_sc=True,
+    normalize_img_func=normalize_img_to_uint8,
     **kwargs
-) -> Union[np.array, Series]:
+) -> Union[NDArray, Series]:
     """Returns a list of texture features for the given image.
 
     Parameters
@@ -88,6 +89,8 @@ def compute_haralick_features(
     import mahotas.features.texture
 
     image = sc.get_contour_img(crop=True)
+    if normalize_img_func:
+        image = normalize_img_func(image)
     features = mahotas.features.texture.haralick(image, ignore_zeros=ignore_zeros, return_mean=return_mean, **kwargs)
     if ret_arr:
         return features
