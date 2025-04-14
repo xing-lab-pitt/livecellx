@@ -78,8 +78,12 @@ def assemble_train_test_dataset(
 
     train_sample_num = int(len(train_df) * train_split)
     val_sample_num = len(train_df) - train_sample_num
-    # Split via sklearn
-    train_df, val_df = train_test_split(train_df, test_size=val_sample_num, random_state=split_seed)
+    # Split via random
+    train_indices = random.sample(range(len(train_df)), train_sample_num)
+    val_indices = list(set(range(len(train_df))) - set(train_indices))
+    train_df = train_df.iloc[train_indices]
+    val_df = train_df.iloc[val_indices]
+
     train_dataset = assemble_dataset(
         train_df,
         apply_gt_seg_edt=model.apply_gt_seg_edt,

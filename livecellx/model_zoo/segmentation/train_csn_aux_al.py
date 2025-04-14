@@ -157,14 +157,14 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
     eval_transform = csn_configs.CustomTransformEdtV9(use_gaussian_blur=True, gaussian_blur_sigma=30)
     for iter_num in range(iteration):
         print(f"[AL] Iteration {iter_num+1}, start training...")
-        model.train()
+        model.cuda().train()
         model.train_dataset = df2dataset(train_df[labeled_data_idx], train_transforms, args)
         trainer.fit(model)
         iter_train_labeled_dfs.append(train_df[labeled_data_idx].copy())
         iter_train_labeled_dfs[-1]["iter"] = iter_num
 
         print("[AL EVAL] evaluating model...")
-        model.eval()
+        model.cuda().eval()
         (
             train_label_dataset_eval,
             _,
