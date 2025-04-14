@@ -274,14 +274,14 @@ def main_train():
         trainer.fit(model)
         model.cuda()
 
-        train_dataset, val_dataset, test_dataset, whole_dataset = assemble_train_test_dataset(train_df, test_df, model)
+        train_dataset, val_dataset, test_dataset = assemble_train_test_dataset(train_df, test_df, model)
         # train_dataset.cuda()
         # whole_dataset.cuda()
         # print('train_dataset', train_dataset)
         model.eval()
         model_best.cuda()
         model_best.eval()
-        train_dataset_eval, val_dataset_eval, test_dataset_eval, whole_dataset_eval = assemble_train_test_dataset(
+        train_dataset_eval, val_dataset_eval, test_dataset_eval = assemble_train_test_dataset(
             train_df[labeled_data_idx], test_df, model
         )
         output_train_eval = compute_metrics(train_dataset_eval, model, out_threshold=args.out_threshold)
