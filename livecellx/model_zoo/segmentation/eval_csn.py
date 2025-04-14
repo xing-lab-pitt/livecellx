@@ -7,6 +7,7 @@ import numpy as np
 import skimage
 import skimage.measure
 
+from sklearn.model_selection import train_test_split
 import torch
 import torch
 import torch.utils.data
@@ -24,9 +25,11 @@ import skimage
 from skimage.morphology import local_maxima, h_maxima
 from skimage.measure import regionprops, label
 
+from livecellx.core.utils import label_mask_to_edt_mask
 from livecellx.model_zoo.segmentation.sc_correction import CorrectSegNet
 from livecellx.model_zoo.segmentation.sc_correction_aux import CorrectSegNetAux
 from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
+from livecellx.preprocess.utils import normalize_edt
 
 
 def assemble_dataset(
@@ -69,21 +72,28 @@ def assemble_dataset(
     return dataset
 
 
-def assemble_train_test_dataset(train_df, test_df, model, split_seed=237):  # default seed used in our CSN paper
+def assemble_train_test_dataset(
+    train_df, test_df, model, split_seed=237, train_split=0.8
+):  # default seed used in our CSN paper
 
-    dataset = assemble_dataset(
+    train_sample_num = int(len(train_df) * train_split)
+    val_sample_num = len(train_df) - train_sample_num
+    # Split via sklearn
+    train_df, val_df = train_test_split(train_df, test_size=val_sample_num, random_state=split_seed)
+    train_dataset = assemble_dataset(
         train_df,
         apply_gt_seg_edt=model.apply_gt_seg_edt,
         exclude_raw_input_bg=model.exclude_raw_input_bg,
         input_type=model.input_type,
+        normalize_uint8=model.normalize_uint8,
     )
-    train_sample_num = int(len(dataset) * 0.8)
-    val_sample_num = len(dataset) - train_sample_num
-    split_generator = torch.Generator().manual_seed(split_seed)
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        dataset, [train_sample_num, val_sample_num], generator=split_generator
+    val_dataset = assemble_dataset(
+        val_df,
+        apply_gt_seg_edt=model.apply_gt_seg_edt,
+        exclude_raw_input_bg=model.exclude_raw_input_bg,
+        input_type=model.input_type,
+        normalize_uint8=model.normalize_uint8,
     )
-
     test_dataset = assemble_dataset(
         test_df,
         apply_gt_seg_edt=model.apply_gt_seg_edt,
@@ -91,7 +101,7 @@ def assemble_train_test_dataset(train_df, test_df, model, split_seed=237):  # de
         input_type=model.input_type,
         normalize_uint8=model.normalize_uint8,
     )
-    return train_dataset, val_dataset, test_dataset, dataset
+    return train_dataset, val_dataset, test_dataset
 
 
 def match_label_mask_by_iou(
@@ -269,6 +279,13 @@ def evaluate_sample_v3(
         original_input_mask | gt_seg_mask
     ).sum()
 
+    # EDT mask RMSE
+    original_input_mask_edt = normalize_edt(label_mask_to_edt_mask(original_label_mask))
+    out_label_mask_edt = normalize_edt(label_mask_to_edt_mask(out_label_mask))
+    gt_label_mask_edt = normalize_edt(label_mask_to_edt_mask(gt_label_mask))
+    metrics_dict["out_mask_edt_rmse"] = np.sqrt(np.mean((out_label_mask_edt - gt_label_mask_edt) ** 2))
+    metrics_dict["original_mask_edt_rmse"] = np.sqrt(np.mean((original_input_mask_edt - gt_label_mask_edt) ** 2))
+
     if gt_cell_num == 0:
         print(">>> Warning: no gt cells in this sample and thus gt_cell_num is 0.")
         gt_cell_num = np.inf
@@ -322,6 +339,7 @@ def compute_metrics(
     model,
     out_threshold=0.6,
     gt_iou_match_thresholds=[0.5, 0.8, 0.9, 0.95],
+    return_mean=True,
 ):
     res_metrics = {}
     for i, sample in enumerate(tqdm.tqdm(dataset)):
@@ -348,6 +366,8 @@ def compute_metrics(
 
     for key in res_metrics:
         res_metrics[key] = np.array(res_metrics[key])
+        if return_mean:
+            res_metrics[key] = res_metrics[key].mean()
     return res_metrics
 
 
