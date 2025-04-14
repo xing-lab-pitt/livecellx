@@ -284,12 +284,8 @@ def main_train():
         train_dataset_eval, val_dataset_eval, test_dataset_eval, whole_dataset_eval = assemble_train_test_dataset(
             train_df[labeled_data_idx], test_df, model
         )
-        output_train_eval = compute_metrics(
-            train_dataset_eval, model, out_threshold=args.out_threshold, whole_dataset=whole_dataset_eval
-        )
-        output_test_eval = compute_metrics(
-            test_dataset_eval, model, out_threshold=args.out_threshold, whole_dataset=whole_dataset_eval
-        )
+        output_train_eval = compute_metrics(train_dataset_eval, model, out_threshold=args.out_threshold)
+        output_test_eval = compute_metrics(test_dataset_eval, model, out_threshold=args.out_threshold)
         # save metrics
         print("[EVAL] saving metrics")
 
