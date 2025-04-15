@@ -53,7 +53,11 @@ def parse_args():
         type=str,
         default="./lightning_logs/version_v18_02-inEDTv1-augEdtV9-scaleV2-lr-0.0001-aux-seed-404/checkpoints/epoch=453-global_step=0.ckpt",
     )
-
+    parser.add_argument(
+        "--test_pert",
+        default=0.1,
+        type=float,
+    )
     args = parser.parse_args()
     args.aug_scale = [float(x) for x in args.aug_scale.split(",")]
     args.class_weights = [float(x) for x in args.class_weights.split(",")]
@@ -98,7 +102,7 @@ def df2dataset(df, transforms, args):
     return dataset
 
 
-def run_active_learning(args, train_df, val_df, test_df, train_transforms, iteration=100, quota_per_iteration=200):
+def run_active_learning(args, train_df, val_df, test_df, train_transforms, iteration=100, quota_per_iteration=512):
     labeled_data_idx = np.zeros(len(train_df)).astype(bool)
     init_labeled_idx = list(range(len(train_df)))
     random.shuffle(init_labeled_idx)
@@ -194,6 +198,7 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
         output_train_best_label_eval = compute_metrics(
             train_label_dataset_eval, model_best, out_threshold=args.out_threshold, return_mean=True
         )
+
         output_test_best_label_eval = compute_metrics(
             test_label_dataset_eval, model_best, out_threshold=args.out_threshold, return_mean=True
         )
@@ -219,8 +224,10 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
         for sample in unlabeled_dataset:
             x = sample["input"].unsqueeze(0).cuda()
             with torch.no_grad():
-                prediction = model(x).detach().cpu()
-            logits = model.output_to_logits(prediction)[0]
+                seg_out, aux_out = model(x)
+                seg_out = seg_out.detach().cpu()
+                aux_out = aux_out.detach().cpu()
+            logits = model.output_to_logits(seg_out)[0]
             entropies = [binary_entropy(logits[i]) for i in range(logits.shape[0])]
             scores.append(entropies)
 
@@ -266,6 +273,7 @@ if __name__ == "__main__":
         test_csv = test_dir / train_csv_filename
         test_df = pd.read_csv(test_csv)
 
+    test_df = test_df[:int(len(test_df) * args.test_pert)]
     if args.debug:
         test_df = test_df[:100]
 
