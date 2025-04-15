@@ -109,7 +109,6 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
     labeled_data_idx[init_labeled_idx[:quota_per_iteration]] = True
     unlabeled_data_idx = ~labeled_data_idx
 
-    logger = TensorBoardLogger(save_dir=".", name="lightning_logs_AL", version=args.model_version)
     # Get directory path from logger
     iter_metrics = {
         "train_labeled": [],
@@ -144,23 +143,28 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
     )
     model_best.cuda().eval()
 
-    trainer = Trainer(
-        gpus=1,
-        max_epochs=args.epochs,
-        logger=logger,
-        callbacks=[
-            ModelCheckpoint(save_top_k=3, monitor="val_loss", mode="min", filename="{epoch:02d}-{val_loss:.4f}"),
-            ModelCheckpoint(save_last=True, filename="{epoch}-{global_step}"),
-        ],
-        log_every_n_steps=100,
-        check_val_every_n_epoch=50,
-        val_check_interval=5,
-    )
+    model_log_dir = Path("lightning_logs_AL") / args.model_version
+    model_log_dir.mkdir(parents=True, exist_ok=True)
 
-    logger_dir = Path(logger.log_dir)
     eval_transform = csn_configs.CustomTransformEdtV9(use_gaussian_blur=True, gaussian_blur_sigma=30)
     for iter_num in range(iteration):
         print(f"[AL] Iteration {iter_num+1}, start training...")
+
+        # iter_log_dir = Path("lightning_logs_AL") / (str(args.model_version) + f"_{iter_num}")
+        logger = TensorBoardLogger(save_dir=".", name=model_log_dir, version=f"_{iter_num}")
+        logger_dir = Path(logger.log_dir)
+        trainer = Trainer(
+            gpus=1,
+            max_epochs=args.epochs,
+            logger=logger,
+            callbacks=[
+                ModelCheckpoint(save_top_k=3, monitor="val_loss", mode="min", filename="{epoch:02d}-{val_loss:.4f}"),
+                ModelCheckpoint(save_last=True, filename="{epoch}-{global_step}"),
+            ],
+            log_every_n_steps=100,
+            check_val_every_n_epoch=50,
+            val_check_interval=5,
+        )
         model.cuda().train()
         model.train_dataset = df2dataset(train_df[labeled_data_idx], train_transforms, args)
         trainer.fit(model)
