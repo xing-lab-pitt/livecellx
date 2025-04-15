@@ -151,7 +151,7 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
         print(f"[AL] Iteration {iter_num+1}, start training...")
 
         # iter_log_dir = Path("lightning_logs_AL") / (str(args.model_version) + f"_{iter_num}")
-        logger = TensorBoardLogger(save_dir=".", name=model_log_dir, version=f"_{iter_num}")
+        logger = TensorBoardLogger(save_dir=".", name=str(model_log_dir), version=f"iter_{iter_num}")
         logger_dir = Path(logger.log_dir)
         trainer = Trainer(
             gpus=1,
@@ -267,7 +267,7 @@ if __name__ == "__main__":
     if args.debug:
         train_df = train_df[:1000]
         val_df = val_df[:1000]
-        args.epochs = 1
+        args.epochs = 4
     train_df = train_df.iloc[: (len(train_df) // args.batch_size) * args.batch_size]
     val_df = val_df.iloc[: (len(val_df) // args.batch_size) * args.batch_size]
 
