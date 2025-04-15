@@ -261,8 +261,8 @@ if __name__ == "__main__":
 
     train_df, val_df = train_test_split(train_df, test_size=0.2, random_state=args.split_seed)
     if args.debug:
-        train_df = train_df[:100]
-        val_df = val_df[:100]
+        train_df = train_df[:1000]
+        val_df = val_df[:1000]
         args.epochs = 1
     train_df = train_df.iloc[: (len(train_df) // args.batch_size) * args.batch_size]
     val_df = val_df.iloc[: (len(val_df) // args.batch_size) * args.batch_size]
@@ -273,7 +273,7 @@ if __name__ == "__main__":
         test_csv = test_dir / train_csv_filename
         test_df = pd.read_csv(test_csv)
 
-    test_df = test_df[:int(len(test_df) * args.test_pert)]
+    test_df = test_df[: int(len(test_df) * args.test_pert)]
     if args.debug:
         test_df = test_df[:100]
 
