@@ -72,6 +72,23 @@ def assemble_dataset(
     return dataset
 
 
+def assemble_dataset_model(df, model):
+    # Check if normalize_gt_edt is set in the model, if not then false
+    if hasattr(model, "normalize_gt_edt"):
+        normalize_gt_edt = model.normalize_gt_edt
+    else:
+        normalize_gt_edt = False
+    return assemble_dataset(
+        df,
+        apply_gt_seg_edt=model.apply_gt_seg_edt,
+        exclude_raw_input_bg=model.exclude_raw_input_bg,
+        input_type=model.input_type,
+        # use_gt_pixel_weight=model.use_gt_pixel_weight,
+        normalize_uint8=model.normalize_uint8,
+        normalize_gt_edt=normalize_gt_edt,
+    )
+
+
 def assemble_train_test_dataset(
     train_df, test_df, model, split_seed=237, train_split=0.8
 ):  # default seed used in our CSN paper
@@ -206,17 +223,19 @@ def evaluate_sample_v3(
     gt_iou_match_thresholds=[0.5, 0.8, 0.9, 0.95],  # eval on a range of thresholds
     return_outs_and_sample=False,
     apply_watershed=True,
+    sample_model_output=None,
 ):
     assert len(gt_iou_match_thresholds) > 0
-    out_mask = model(sample["input"].unsqueeze(0).cuda())
     if gt_label_mask is None:
         gt_label_mask = sample["gt_label_mask"].numpy().squeeze()
 
+    if sample_model_output is None:
+        sample_model_output = model(sample["input"].unsqueeze(0).cuda())
     if isinstance(model, CorrectSegNetAux):
-        seg_out_mask = out_mask[0]
-        aux_out = out_mask[1]
+        seg_out_mask = sample_model_output[0]
+        aux_out = sample_model_output[1]
     elif isinstance(model, CorrectSegNet):
-        seg_out_mask = out_mask
+        seg_out_mask = sample_model_output
     else:
         raise ValueError("model type not supported")
 
@@ -368,6 +387,94 @@ def compute_metrics(
                 res_metrics[metric] = []
             res_metrics[metric].append(value)
 
+    for key in res_metrics:
+        res_metrics[key] = np.array(res_metrics[key])
+        if return_mean:
+            res_metrics[key] = res_metrics[key].mean()
+    return res_metrics
+
+
+def evaluate_sample_v3_batch(
+    batch_samples: list,
+    batch_outputs: torch.Tensor,
+    model,
+    out_threshold=0.6,
+    gt_iou_match_thresholds=[0.5, 0.8, 0.9, 0.95],
+    apply_watershed=True,
+):
+    """
+    Evaluate a batch of samples and their corresponding model outputs.
+    Args:
+        batch_samples: list of dicts, each a sample from the dataset.
+        batch_outputs: torch.Tensor, model outputs for the batch (on GPU).
+        model: model instance.
+    Returns:
+        List of metrics_dict for each sample.
+    """
+    metrics_list = []
+    seg_outs, aux_outs = None, None
+    if isinstance(model, CorrectSegNetAux):
+        seg_outs = batch_outputs[0]
+        aux_outs = batch_outputs[1]
+    elif isinstance(model, CorrectSegNet):
+        seg_outs = batch_outputs
+    else:
+        raise ValueError("model type not supported")
+
+    for idx, sample in enumerate(batch_samples):
+        if aux_outs is not None:
+            sample_model_output = (seg_outs[idx], aux_outs[idx])
+        else:
+            sample_model_output = seg_outs[idx]
+        # Evaluate as in evaluate_sample_v3, but using seg_out_mask from batch
+        metrics_dict = evaluate_sample_v3(
+            sample,
+            model,
+            out_threshold=out_threshold,
+            gt_label_mask=None,
+            gt_iou_match_thresholds=gt_iou_match_thresholds,
+            return_outs_and_sample=False,
+            apply_watershed=apply_watershed,
+            sample_model_output=sample_model_output,
+        )
+        metrics_list.append(metrics_dict)
+    return metrics_list
+
+
+def compute_metrics_batch(
+    dataset: Union[CorrectSegNetDataset, torch.utils.data.Subset],
+    model,
+    out_threshold=0.6,
+    gt_iou_match_thresholds=[0.5, 0.8, 0.9, 0.95],
+    return_mean=True,
+    batch_size=8,
+):
+    """
+    Batch version of compute_metrics. Runs model in batches on GPU, evaluates on CPU.
+    """
+    from torch.utils.data import DataLoader
+
+    res_metrics = {}
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, collate_fn=lambda x: x)
+    model.eval()
+    with torch.no_grad():
+        for batch_samples in tqdm.tqdm(loader):
+            # Prepare batch input
+            batch_inputs = torch.stack([s["input"] for s in batch_samples]).cuda()
+            batch_outputs = model(batch_inputs)
+            # Evaluate batch on CPU
+            batch_metrics = evaluate_sample_v3_batch(
+                batch_samples,
+                batch_outputs,
+                model,
+                out_threshold=out_threshold,
+                gt_iou_match_thresholds=gt_iou_match_thresholds,
+            )
+            for metrics_dict in batch_metrics:
+                for metric, value in metrics_dict.items():
+                    if metric not in res_metrics:
+                        res_metrics[metric] = []
+                    res_metrics[metric].append(value)
     for key in res_metrics:
         res_metrics[key] = np.array(res_metrics[key])
         if return_mean:
