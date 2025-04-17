@@ -20,7 +20,7 @@ jsonschema>=2.6.0
 ################################################################################
 pycocotools
 # conda install pytorch torchvision -c pytorch
-pytorch 
+torch 
 torchvision
 
 # [TODO] remove later: required by CSN (correct segmentation network)
