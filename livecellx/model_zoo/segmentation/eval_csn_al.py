@@ -12,7 +12,6 @@ from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNet
 
 def get_eval_dataset(data_csv, model):
     df = pd.read_csv(data_csv)
-    df = df[:100]
     eval_transform = csn_configs.CustomTransformEdtV9(use_gaussian_blur=True, gaussian_blur_sigma=30)
     dataset = assemble_dataset_model(df, model)
     dataset.transform = eval_transform
