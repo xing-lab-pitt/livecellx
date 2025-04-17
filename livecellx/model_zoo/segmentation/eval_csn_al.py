@@ -5,6 +5,7 @@ from datetime import datetime
 from livecellx.model_zoo.segmentation.eval_csn import compute_metrics, compute_metrics_batch, assemble_dataset_model
 from livecellx.model_zoo.segmentation.sc_correction_aux import CorrectSegNetAux
 from livecellx.model_zoo.segmentation import csn_configs
+from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
 
 
 def get_eval_dataset(data_csv, model):
@@ -48,8 +49,15 @@ def main():
         model = CorrectSegNetAux.load_from_checkpoint(ckpt_path)
         model.eval()
         model.cuda()
-        dataset = get_eval_dataset(args.data_csv, model)
+        dataset: CorrectSegNetDataset = get_eval_dataset(args.data_csv, model)
+        data_subdirs = list(dataset.subdirs)
+        assert "ou_aux" in dataset.raw_df.columns, "ou_aux column not found in dataset"
+        data_aux_labels = dataset.raw_df["ou_aux"] if "ou_aux" in dataset.raw_df.columns else None
         metrics = compute_metrics_batch(dataset, model, out_threshold=0.6, return_mean=True, batch_size=args.batch_size)
+        for key in metrics:
+            assert metrics[key].shape[0] == len(dataset), f"Metrics shape mismatch for {key}"
+        metrics["subdirs"] = data_subdirs
+        metrics["class_labels"] = data_aux_labels
         metrics["iteration"] = iter_dir
         results.append(metrics)
     if not results:
