@@ -59,7 +59,7 @@ def parse_args():
         type=float,
     )
     parser.add_argument(
-        "quota_per_iter",
+        "--quota_per_iter",
         type=int,
         default=512,
         help="Quota of labeled data per iteration",
