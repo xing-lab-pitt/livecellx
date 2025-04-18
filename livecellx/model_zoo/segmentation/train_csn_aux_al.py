@@ -58,6 +58,12 @@ def parse_args():
         default=0.1,
         type=float,
     )
+    parser.add_argument(
+        "quota_per_iter",
+        type=int,
+        default=512,
+        help="Quota of labeled data per iteration",
+    )
     args = parser.parse_args()
     args.aug_scale = [float(x) for x in args.aug_scale.split(",")]
     args.class_weights = [float(x) for x in args.class_weights.split(",")]
@@ -102,11 +108,11 @@ def df2dataset(df, transforms, args):
     return dataset
 
 
-def run_active_learning(args, train_df, val_df, test_df, train_transforms, iteration=100, quota_per_iteration=512):
+def run_active_learning(args, train_df, val_df, test_df, train_transforms, iteration=100, quota_per_iter=512):
     labeled_data_idx = np.zeros(len(train_df)).astype(bool)
     init_labeled_idx = list(range(len(train_df)))
     random.shuffle(init_labeled_idx)
-    labeled_data_idx[init_labeled_idx[:quota_per_iteration]] = True
+    labeled_data_idx[init_labeled_idx[:quota_per_iter]] = True
     unlabeled_data_idx = ~labeled_data_idx
 
     # Get directory path from logger
@@ -237,7 +243,7 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
 
         ranking = rank_unlabeled_data(np.array(scores))
         unlabeled_data_idx_idx = np.where(unlabeled_data_idx)[0]
-        selected = unlabeled_data_idx_idx[np.argsort(ranking)[:quota_per_iteration]]
+        selected = unlabeled_data_idx_idx[np.argsort(ranking)[:quota_per_iter]]
 
         labeled_data_idx[selected] = True
         unlabeled_data_idx = ~labeled_data_idx
@@ -315,4 +321,4 @@ if __name__ == "__main__":
     else:
         raise ValueError("Unknown augmentation version")
 
-    run_active_learning(args, train_df, val_df, test_df, train_transforms)
+    run_active_learning(args, train_df, val_df, test_df, train_transforms, quota_per_iter=args.quota_per_iter)
