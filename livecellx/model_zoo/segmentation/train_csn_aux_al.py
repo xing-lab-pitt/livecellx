@@ -108,7 +108,7 @@ def df2dataset(df, transforms, args):
     return dataset
 
 
-def run_active_learning(args, train_df, val_df, test_df, train_transforms, iteration=100, quota_per_iter=512):
+def run_active_learning(args, train_df, val_df, test_df, train_transforms, iteration=1000, quota_per_iter=512):
     labeled_data_idx = np.zeros(len(train_df)).astype(bool)
     init_labeled_idx = list(range(len(train_df)))
     random.shuffle(init_labeled_idx)
@@ -169,7 +169,9 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
             ],
             log_every_n_steps=100,
             check_val_every_n_epoch=50,
-            val_check_interval=5,
+            # val_check_interval=5,
+            # check_val_every_n_epoch=None,
+            limit_val_batches=0,
         )
         model.cuda().train()
         model.train_dataset = df2dataset(train_df[labeled_data_idx], train_transforms, args)
