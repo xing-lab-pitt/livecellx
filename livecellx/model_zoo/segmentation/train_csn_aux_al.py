@@ -326,12 +326,15 @@ def run_active_learning(
                 seg_out, aux_out = model(x)
                 seg_out = seg_out.detach().cpu()
                 aux_out = aux_out.detach().cpu()
-            three_channel_logits = model.output_to_logits(seg_out)[0]
-            assert three_channel_logits.shape[0] == 3, "Three channel logits should be of shape (3, H, W)"
+            three_channel_logits = model.output_to_logits(seg_out)
+            assert three_channel_logits.shape[0] == 3, f"Three channel shape:{three_channel_logits.shape}"
             if args.seg_entropy_only:
                 entropies = [binary_entropy(three_channel_logits[0])]
+                assert len(entropies) == 1, f"Entropy length: {len(entropies)}"
             else:
                 entropies = [binary_entropy(three_channel_logits[i]) for i in range(three_channel_logits.shape[0])]
+                assert len(entropies) == three_channel_logits.shape[0], f"Entropy length: {len(entropies)}"
+
             scores.append(entropies)
 
         ranking = rank_unlabeled_data(np.array(scores))
@@ -368,9 +371,11 @@ if __name__ == "__main__":
 
     train_df, val_df = train_test_split(train_df, test_size=0.2, random_state=args.split_seed)
     if args.debug:
-        train_df = train_df[:1000]
-        val_df = val_df[:1000]
+        train_df = train_df[:50]
+        val_df = val_df[:50]
         args.epochs = 4
+        args.quota_per_iter = 10
+        args.batch_size = 8
     train_df = train_df.iloc[: (len(train_df) // args.batch_size) * args.batch_size]
     val_df = val_df.iloc[: (len(val_df) // args.batch_size) * args.batch_size]
 
