@@ -44,8 +44,7 @@ def get_bbox_from_contour(contour: list) -> np.ndarray:
 
 
 def single_cell_to_btrack_object(
-    sc: SingleCellStatic,
-    feature_names: Optional[List[str]] = None
+    sc: SingleCellStatic, feature_names: Optional[List[str]] = None
 ) -> btrack.btypes.PyTrackObject:
     """Convert a SingleCellStatic object to a btrack PyTrackObject.
 
@@ -84,22 +83,23 @@ def single_cell_to_btrack_object(
         # btrack requires integer IDs
         # The ID should already be an integer at this point (converted in track_btrack_from_scs)
         if not isinstance(sc.id, int):
-            main_warning(f"btrack requires integer IDs, but got sc.id={sc.id} of type {type(sc.id)}. "
-                        f"This may cause issues with tracking.")
+            main_warning(
+                f"btrack requires integer IDs, but got sc.id={sc.id} of type {type(sc.id)}. "
+                f"This may cause issues with tracking."
+            )
         obj.ID = int(sc.id)
 
     # Add features if available
-    if hasattr(sc, 'feature_dict') and sc.feature_dict:
-        # If specific features are requested, only include those
-        if feature_names is not None:
-            features = {k: sc.feature_dict[k] for k in feature_names if k in sc.feature_dict}
-        else:
-            features = sc.feature_dict
+    if hasattr(sc, "feature_dict") and sc.feature_dict:
+        sc_pd_features = sc.get_feature_pd_series()
 
         # Add features to the object's properties
-        for key, value in features.items():
-            if isinstance(value, (int, float, bool)):
-                obj.properties[key] = float(value)
+        if feature_names is not None:
+            for feature in feature_names:
+                if feature in sc_pd_features:
+                    obj.properties[feature] = float(sc_pd_features[feature])
+                else:
+                    assert False, f"Feature {feature} not found in SingleCellStatic object"
 
     return obj
 
@@ -202,9 +202,9 @@ def track_btrack_from_scs(
     original_sc_map = {}
     for i, sc in enumerate(single_cells):
         # Store the original ID in the meta dictionary
-        if not hasattr(sc, 'meta'):
+        if not hasattr(sc, "meta"):
             sc.meta = {}
-        sc.meta['original_id'] = sc.id
+        sc.meta["original_id"] = sc.id
 
         # Assign a new integer ID
         btrack_id_to_original_id[i] = sc.id
@@ -234,52 +234,98 @@ def track_btrack_from_scs(
                 "prob_not_assign": 0.1,
                 "max_lost": 5,
                 "A": {
-                    "matrix": [1, 0, 0, 1, 0, 0,
-                              0, 1, 0, 0, 1, 0,
-                              0, 0, 1, 0, 0, 1,
-                              0, 0, 0, 1, 0, 0,
-                              0, 0, 0, 0, 1, 0,
-                              0, 0, 0, 0, 0, 1]
+                    "matrix": [
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1,
+                    ]
                 },
-                "H": {
-                    "matrix": [1, 0, 0, 0, 0, 0,
-                              0, 1, 0, 0, 0, 0,
-                              0, 0, 1, 0, 0, 0]
-                },
+                "H": {"matrix": [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]},
                 "P": {
                     "sigma": 150.0,
-                    "matrix": [0.1, 0, 0, 0, 0, 0,
-                              0, 0.1, 0, 0, 0, 0,
-                              0, 0, 0.1, 0, 0, 0,
-                              0, 0, 0, 1.0, 0, 0,
-                              0, 0, 0, 0, 1.0, 0,
-                              0, 0, 0, 0, 0, 1.0]
+                    "matrix": [
+                        0.1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0.1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0.1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1.0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1.0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1.0,
+                    ],
                 },
-                "G": {
-                    "sigma": 15.0,
-                    "matrix": [0.5, 0.5, 0.5, 1.0, 1.0, 1.0]
-                },
-                "R": {
-                    "sigma": 5.0,
-                    "matrix": [1.0, 0, 0,
-                              0, 1.0, 0,
-                              0, 0, 1.0]
-                }
+                "G": {"sigma": 15.0, "matrix": [0.5, 0.5, 0.5, 1.0, 1.0, 1.0]},
+                "R": {"sigma": 5.0, "matrix": [1.0, 0, 0, 0, 1.0, 0, 0, 0, 1.0]},
             },
-            "optimizer": {
-                "name": "hungarian",
-                "params": {
-                    "max_search_radius": max_search_radius
-                }
-            },
-            "update_mode": BayesianUpdates.EXACT
+            "optimizer": {"name": "hungarian", "params": {"max_search_radius": max_search_radius}},
+            "update_mode": BayesianUpdates.EXACT,
         }
 
     # If feature names are provided, configure the tracker to use them
     if feature_names:
         main_info(f"Using features for tracking: {feature_names}")
         config["features"] = feature_names
-
 
     # Create the tracker with the configuration
     tracker = btrack.BayesianTracker()
@@ -320,7 +366,7 @@ def track_btrack_from_scs(
                 # Use the original single cell object
                 sc = original_sc
                 # Store the btrack ID in the uns dictionary
-                sc.uns['btrack_id'] = track_id
+                sc.uns["btrack_id"] = track_id
             else:
                 # If original not found, create a new SingleCellStatic object
                 raise ValueError(
@@ -336,8 +382,8 @@ def track_btrack_from_scs(
     # Restore original IDs
     main_info("Restoring original IDs...")
     for sc in single_cells:
-        if hasattr(sc, 'meta') and 'original_id' in sc.meta:
-            sc.id = sc.meta['original_id']
+        if hasattr(sc, "meta") and "original_id" in sc.meta:
+            sc.id = sc.meta["original_id"]
 
     # Optionally return a DataFrame with the tracking results
     if return_dataframe:
@@ -350,16 +396,16 @@ def track_btrack_from_scs(
                     continue
                 obj = btrack_id_to_btrack_object[obj_id]
                 row = {
-                    'track_id': track.ID,
-                    'frame': obj.t,
-                    'x': obj.x,
-                    'y': obj.y,
-                    'z': obj.z,
+                    "track_id": track.ID,
+                    "frame": obj.t,
+                    "x": obj.x,
+                    "y": obj.y,
+                    "z": obj.z,
                 }
 
                 # Add original cell ID if available
                 if obj.ID in btrack_id_to_original_id:
-                    row['original_id'] = btrack_id_to_original_id[obj.ID]
+                    row["original_id"] = btrack_id_to_original_id[obj.ID]
 
                 # Add features
                 for feature in obj.properties:
@@ -378,9 +424,9 @@ def track_btrack_from_features(
     mask_dataset: Optional[LiveCellImageDataset] = None,
     config: Optional[Dict] = None,
     feature_columns: Optional[List[str]] = None,
-    position_columns: List[str] = ['x', 'y'],
-    frame_column: str = 'frame',
-    id_column: Optional[str] = 'id',
+    position_columns: List[str] = ["x", "y"],
+    frame_column: str = "frame",
+    id_column: Optional[str] = "id",
     max_search_radius: float = 100.0,
     return_dataframe: bool = False,
 ) -> Union[SingleCellTrajectoryCollection, Tuple[SingleCellTrajectoryCollection, pd.DataFrame]]:
@@ -478,45 +524,92 @@ def track_btrack_from_features(
                 "prob_not_assign": 0.1,
                 "max_lost": 5,
                 "A": {
-                    "matrix": [1, 0, 0, 1, 0, 0,
-                              0, 1, 0, 0, 1, 0,
-                              0, 0, 1, 0, 0, 1,
-                              0, 0, 0, 1, 0, 0,
-                              0, 0, 0, 0, 1, 0,
-                              0, 0, 0, 0, 0, 1]
+                    "matrix": [
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1,
+                    ]
                 },
-                "H": {
-                    "matrix": [1, 0, 0, 0, 0, 0,
-                              0, 1, 0, 0, 0, 0,
-                              0, 0, 1, 0, 0, 0]
-                },
+                "H": {"matrix": [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]},
                 "P": {
                     "sigma": 150.0,
-                    "matrix": [0.1, 0, 0, 0, 0, 0,
-                              0, 0.1, 0, 0, 0, 0,
-                              0, 0, 0.1, 0, 0, 0,
-                              0, 0, 0, 1.0, 0, 0,
-                              0, 0, 0, 0, 1.0, 0,
-                              0, 0, 0, 0, 0, 1.0]
+                    "matrix": [
+                        0.1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0.1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0.1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1.0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1.0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1.0,
+                    ],
                 },
-                "G": {
-                    "sigma": 15.0,
-                    "matrix": [0.5, 0.5, 0.5, 1.0, 1.0, 1.0]
-                },
-                "R": {
-                    "sigma": 5.0,
-                    "matrix": [1.0, 0, 0,
-                              0, 1.0, 0,
-                              0, 0, 1.0]
-                }
+                "G": {"sigma": 15.0, "matrix": [0.5, 0.5, 0.5, 1.0, 1.0, 1.0]},
+                "R": {"sigma": 5.0, "matrix": [1.0, 0, 0, 0, 1.0, 0, 0, 0, 1.0]},
             },
-            "optimizer": {
-                "name": "hungarian",
-                "params": {
-                    "max_search_radius": max_search_radius
-                }
-            },
-            "update_mode": BayesianUpdates.EXACT
+            "optimizer": {"name": "hungarian", "params": {"max_search_radius": max_search_radius}},
+            "update_mode": BayesianUpdates.EXACT,
         }
 
     # If feature columns are provided, configure the tracker to use them
@@ -591,9 +684,9 @@ def track_btrack_from_features(
             )
 
             # Store the btrack ID in the uns dictionary
-            if not hasattr(sc, 'uns'):
+            if not hasattr(sc, "uns"):
                 sc.uns = {}
-            sc.uns['btrack_id'] = track_id
+            sc.uns["btrack_id"] = track_id
 
             # Add the single cell to the trajectory
             trajectory.timeframe_to_single_cell[timeframe] = sc
@@ -612,11 +705,11 @@ def track_btrack_from_features(
                     continue
                 obj = btrack_id_to_btrack_object[obj_id]
                 row = {
-                    'track_id': track.ID,
-                    'frame': obj.t,
-                    'x': obj.x,
-                    'y': obj.y,
-                    'z': obj.z,
+                    "track_id": track.ID,
+                    "frame": obj.t,
+                    "x": obj.x,
+                    "y": obj.y,
+                    "z": obj.z,
                 }
 
                 # Add features

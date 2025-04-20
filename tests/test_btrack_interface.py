@@ -37,7 +37,7 @@ class TestBtrackInterface(unittest.TestCase):
                 "sc_level_normalize": True,
             },
             replace_feature=True,
-            verbose=True
+            verbose=True,
         )
 
         # Store original IDs for verification
@@ -50,8 +50,8 @@ class TestBtrackInterface(unittest.TestCase):
             self.single_cells,
             raw_imgs=self.dic_dataset,
             mask_dataset=self.mask_dataset,
-            feature_names=['area', 'perimeter', 'eccentricity'],
-            max_search_radius=20.0
+            feature_names=["skimage_area"],
+            max_search_radius=20.0,
         )
 
         # Check that the result is a SingleCellTrajectoryCollection
@@ -69,9 +69,9 @@ class TestBtrackInterface(unittest.TestCase):
                 self.assertIn(sc.id, self.original_ids)
 
                 # Check that the btrack ID is stored in sc.uns
-                self.assertTrue(hasattr(sc, 'uns'))
-                self.assertIn('btrack_id', sc.uns)
-                self.assertEqual(sc.uns['btrack_id'], track_id)
+                self.assertTrue(hasattr(sc, "uns"))
+                self.assertIn("btrack_id", sc.uns)
+                self.assertEqual(sc.uns["btrack_id"], track_id)
 
         # Visualize the trajectories
         plt.figure(figsize=(10, 8))
@@ -89,20 +89,20 @@ class TestBtrackInterface(unittest.TestCase):
             # Plot the trajectory
             if positions:
                 x_vals, y_vals = zip(*positions)
-                plt.plot(x_vals, y_vals, '-o', label=f'Track {track_id}')
+                plt.plot(x_vals, y_vals, "-o", label=f"Track {track_id}")
 
-        plt.title('Cell Trajectories')
-        plt.xlabel('X Position')
-        plt.ylabel('Y Position')
+        plt.title("Cell Trajectories")
+        plt.xlabel("X Position")
+        plt.ylabel("Y Position")
         plt.legend()
         plt.grid(True)
 
         # Save the figure
-        plt.savefig('btrack_interface_trajectories.png')
+        plt.savefig("btrack_interface_trajectories.png")
         plt.close()
 
         # Check that the figure was created
-        self.assertTrue(os.path.exists('btrack_interface_trajectories.png'))
+        self.assertTrue(os.path.exists("btrack_interface_trajectories.png"))
 
     def test_track_btrack_from_scs_with_dataframe(self):
         """Test the track_btrack_from_scs interface with DataFrame output."""
@@ -111,9 +111,9 @@ class TestBtrackInterface(unittest.TestCase):
             self.single_cells,
             raw_imgs=self.dic_dataset,
             mask_dataset=self.mask_dataset,
-            feature_names=['area', 'perimeter', 'eccentricity'],
+            feature_names=["skimage_area"],
             max_search_radius=20.0,
-            return_dataframe=True
+            return_dataframe=True,
         )
 
         # Check that the result is a SingleCellTrajectoryCollection and a DataFrame
@@ -121,35 +121,40 @@ class TestBtrackInterface(unittest.TestCase):
         self.assertIsInstance(df, pd.DataFrame)
 
         # Check that the DataFrame has the correct columns
-        self.assertIn('track_id', df.columns)
-        self.assertIn('frame', df.columns)
-        self.assertIn('x', df.columns)
-        self.assertIn('y', df.columns)
-        self.assertIn('z', df.columns)
+        self.assertIn("track_id", df.columns)
+        self.assertIn("frame", df.columns)
+        self.assertIn("x", df.columns)
+        self.assertIn("y", df.columns)
+        self.assertIn("z", df.columns)
 
         # Check that the DataFrame has the correct number of rows
         self.assertGreater(len(df), 0)
 
         # Check that the original IDs are included in the DataFrame
-        self.assertIn('original_id', df.columns)
+        self.assertIn("original_id", df.columns)
 
         # Check that each original ID in the DataFrame is one of the original IDs
         for _, row in df.iterrows():
-            self.assertIn(row['original_id'], self.original_ids)
+            self.assertIn(row["original_id"], self.original_ids)
 
     def test_track_btrack_with_string_ids(self):
         """Test tracking with string IDs."""
         # Assign string IDs to the single cells
         for i, sc in enumerate(self.single_cells):
             sc.id = f"cell_{i}"
-
+        compute_skimage_regionprops(
+            self.single_cells,
+            feature_key="skimage",
+            preprocess_img_func=normalize_img_to_uint8,
+            sc_level_normalize=True,
+        )
         # Track the single cells using the btrack interface
         trajectories = track_btrack_from_scs(
             self.single_cells,
             raw_imgs=self.dic_dataset,
             mask_dataset=self.mask_dataset,
-            feature_names=['area', 'perimeter', 'eccentricity'],
-            max_search_radius=20.0
+            feature_names=["skimage_area"],
+            max_search_radius=20.0,
         )
 
         # Check that the result is a SingleCellTrajectoryCollection
@@ -168,9 +173,9 @@ class TestBtrackInterface(unittest.TestCase):
                 self.assertTrue(sc.id.startswith("cell_"))
 
                 # Check that the btrack ID is stored in sc.uns
-                self.assertTrue(hasattr(sc, 'uns'))
-                self.assertIn('btrack_id', sc.uns)
-                self.assertEqual(sc.uns['btrack_id'], track_id)
+                self.assertTrue(hasattr(sc, "uns"))
+                self.assertIn("btrack_id", sc.uns)
+                self.assertEqual(sc.uns["btrack_id"], track_id)
 
     def test_track_btrack_with_uuid_ids(self):
         """Test tracking with UUID IDs."""
@@ -186,8 +191,8 @@ class TestBtrackInterface(unittest.TestCase):
             self.single_cells,
             raw_imgs=self.dic_dataset,
             mask_dataset=self.mask_dataset,
-            feature_names=['area', 'perimeter', 'eccentricity'],
-            max_search_radius=20.0
+            feature_names=["skimage_area"],
+            max_search_radius=20.0,
         )
 
         # Check that the result is a SingleCellTrajectoryCollection
@@ -205,10 +210,10 @@ class TestBtrackInterface(unittest.TestCase):
                 self.assertIsInstance(sc.id, uuid.UUID)
 
                 # Check that the btrack ID is stored in sc.uns
-                self.assertTrue(hasattr(sc, 'uns'))
-                self.assertIn('btrack_id', sc.uns)
-                self.assertEqual(sc.uns['btrack_id'], track_id)
+                self.assertTrue(hasattr(sc, "uns"))
+                self.assertIn("btrack_id", sc.uns)
+                self.assertEqual(sc.uns["btrack_id"], track_id)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
