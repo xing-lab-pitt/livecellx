@@ -42,6 +42,13 @@ class TestBtrackInterface(unittest.TestCase):
 
         # Store original IDs for verification
         self.original_ids = {sc.id for sc in self.single_cells}
+        for _sc in self.single_cells:
+            compute_skimage_regionprops(
+                _sc,
+                feature_key="skimage",
+                preprocess_img_func=normalize_img_to_uint8,
+                sc_level_normalize=True,
+            )
 
     def test_track_btrack_from_scs_interface(self):
         """Test the track_btrack_from_scs interface."""
@@ -142,12 +149,6 @@ class TestBtrackInterface(unittest.TestCase):
         # Assign string IDs to the single cells
         for i, sc in enumerate(self.single_cells):
             sc.id = f"cell_{i}"
-        compute_skimage_regionprops(
-            self.single_cells,
-            feature_key="skimage",
-            preprocess_img_func=normalize_img_to_uint8,
-            sc_level_normalize=True,
-        )
         # Track the single cells using the btrack interface
         trajectories = track_btrack_from_scs(
             self.single_cells,
