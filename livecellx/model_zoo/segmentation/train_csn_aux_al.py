@@ -82,7 +82,7 @@ def parse_args():
     parser.add_argument(
         "--seg-entropy-only",
         default=False,
-        type=bool,
+        action="store_true",
         help="Use segmentation entropy only for ranking unlabeled data",
     )
     args = parser.parse_args()
