@@ -278,15 +278,8 @@ def track_btrack_from_scs(
     # If feature names are provided, configure the tracker to use them
     if feature_names:
         main_info(f"Using features for tracking: {feature_names}")
+        config["features"] = feature_names
 
-        # Add feature weights to the configuration
-        if "features" not in config:
-            config["features"] = {}
-
-        # Set equal weights for all features by default
-        for feature in feature_names:
-            if feature not in config["features"]:
-                config["features"][feature] = 1.0
 
     # Create the tracker with the configuration
     tracker = btrack.BayesianTracker()
