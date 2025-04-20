@@ -73,6 +73,18 @@ def parse_args():
         default=1000,
         help="Number of active learning iterations",
     )
+    parser.add_argument(
+        "--resume",
+        default=False,
+        action="store_true",
+        help="Resume from previous active learning iteration",
+    )
+    parser.add_argument(
+        "--seg-entropy-only",
+        default=False,
+        type=bool,
+        help="Use segmentation entropy only for ranking unlabeled data",
+    )
     args = parser.parse_args()
     args.aug_scale = [float(x) for x in args.aug_scale.split(",")]
     args.class_weights = [float(x) for x in args.class_weights.split(",")]
@@ -125,12 +137,16 @@ def run_active_learning(
     train_transforms,
     iteration=1000,
     quota_per_iter=512,
+    resume=False,
 ):
     labeled_data_idx = np.zeros(len(train_df)).astype(bool)
     init_labeled_idx = list(range(len(train_df)))
     random.shuffle(init_labeled_idx)
     labeled_data_idx[init_labeled_idx[:quota_per_iter]] = True
     unlabeled_data_idx = ~labeled_data_idx
+    print("# Initial labeled data points:", labeled_data_idx.sum())
+    print("# Initial unlabeled data points:", unlabeled_data_idx.sum())
+    print("# Total data points:", len(train_df))
 
     # Get directory path from logger
     iter_metrics = {
@@ -167,11 +183,48 @@ def run_active_learning(
     model_best.cuda().eval()
 
     model_log_dir = Path("lightning_logs_AL") / args.model_version
-    model_log_dir.mkdir(parents=True, exist_ok=True)
+    start_iter = 0
+    if resume:
+        print("[AL] Resuming from previous iteration...")
+        if not model_log_dir.exists():
+            print(f"[AL] No previous iteration found at {model_log_dir}.")
+            print("[AL] Exiting...")
+            return
+        # Find iter_* folder with largest number
+        iter_folders = [f for f in model_log_dir.iterdir() if f.is_dir() and f.name.startswith("iter_")]
+        if iter_folders:
+            latest_iter_folder = max(iter_folders, key=lambda f: int(f.name.split("_")[-1]))
+            start_iter = int(latest_iter_folder.name.split("_")[-1]) + 1
+            print(f"[AL] Resuming from iteration {start_iter}...")
+            model = CorrectSegNetAux.load_from_checkpoint(latest_iter_folder / "checkpoints" / "last.ckpt")
+            # Load iter_metrics.json
+            with open(latest_iter_folder / "iter_metrics.json", "r") as f:
+                iter_metrics = json.load(f)
+            # Load iter_train_labeled_dfs
+            iter_train_df = pd.read_csv(latest_iter_folder / "iter_train_labeled_combined_df.csv")
+            iter_train_labeled_dfs = []
+            unique_iters = iter_train_df["iter"].unique()
+            unique_iters = [int(i) for i in unique_iters]
+            unique_iters = sorted(unique_iters)
+            print(f"[AL] Found {len(unique_iters)} unique iters in iter_train_labeled_combined_df.csv")
+            print(unique_iters)
+            # Iters should be intergers
+            assert all(isinstance(i, int) for i in unique_iters)
+            for i in unique_iters:
+                iter_train_labeled_dfs.append(iter_train_df[iter_train_df["iter"] == i])
 
+            # Reconstruct labeled_data_idx and unlabeled_data_idx
+            last_df = iter_train_labeled_dfs[-1]
+            last_df.drop(columns=["iter"], inplace=True)
+            # Match the last_df row index with the original train_df
+            labeled_data_idx = train_df.index.isin(last_df.index)
+            unlabeled_data_idx = ~labeled_data_idx
+            print(f"[AL] Found {labeled_data_idx.sum()} labeled data points in the last iteration.")
+
+    model_log_dir.mkdir(parents=True, exist_ok=True)
     eval_transform = csn_configs.CustomTransformEdtV9(use_gaussian_blur=True, gaussian_blur_sigma=30)
-    for iter_num in range(iteration):
-        print(f"[AL] Iteration {iter_num+1}, start training...")
+    for iter_num in range(start_iter, iteration):
+        print(f"[AL] Iteration {iter_num}, start training...")
 
         # iter_log_dir = Path("lightning_logs_AL") / (str(args.model_version) + f"_{iter_num}")
         logger = TensorBoardLogger(save_dir=".", name=str(model_log_dir), version=f"iter_{iter_num}")
@@ -273,8 +326,12 @@ def run_active_learning(
                 seg_out, aux_out = model(x)
                 seg_out = seg_out.detach().cpu()
                 aux_out = aux_out.detach().cpu()
-            logits = model.output_to_logits(seg_out)[0]
-            entropies = [binary_entropy(logits[i]) for i in range(logits.shape[0])]
+            three_channel_logits = model.output_to_logits(seg_out)[0]
+            assert three_channel_logits.shape[0] == 3, "Three channel logits should be of shape (3, H, W)"
+            if args.seg_entropy_only:
+                entropies = [binary_entropy(three_channel_logits[0])]
+            else:
+                entropies = [binary_entropy(three_channel_logits[i]) for i in range(three_channel_logits.shape[0])]
             scores.append(entropies)
 
         ranking = rank_unlabeled_data(np.array(scores))
@@ -283,6 +340,10 @@ def run_active_learning(
 
         labeled_data_idx[selected] = True
         unlabeled_data_idx = ~labeled_data_idx
+
+        print(f"[AL] Iteration {iter_num} finished, labeled data points: {labeled_data_idx.sum()}")
+        print(f"[AL] Iteration {iter_num} finished, unlabeled data points: {unlabeled_data_idx.sum()}")
+        print(f"[AL] Iteration {iter_num} finished, total data points: {len(train_df)}")
 
 
 if __name__ == "__main__":
@@ -365,4 +426,5 @@ if __name__ == "__main__":
         train_transforms,
         quota_per_iter=args.quota_per_iter,
         iteration=args.al_iters,
+        resume=args.resume,
     )
