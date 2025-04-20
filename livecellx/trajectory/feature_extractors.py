@@ -10,6 +10,7 @@ from livecellx.core.single_cell import SingleCellStatic
 from livecellx.livecell_logger import main_info
 from livecellx.preprocess.utils import normalize_img_to_uint8
 from livecellx.core.parallel import parallelize, parallelize_chunk
+from livecellx.trajectory.constants import SELECTED_SKIMAGE_REGIONPROPOS_COL_DTYPES
 
 
 def _compute_feature_wrapper(sc, func, params=dict()):
