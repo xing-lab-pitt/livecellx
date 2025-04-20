@@ -10,7 +10,10 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from sklearn.model_selection import train_test_split
 from livecellx.model_zoo.segmentation.sc_correction_aux import CorrectSegNetAux
 from livecellx.model_zoo.segmentation.sc_correction_dataset import CorrectSegNetDataset
-from livecellx.model_zoo.segmentation.eval_csn import compute_metrics, assemble_train_test_dataset
+from livecellx.model_zoo.segmentation.eval_csn import (
+    compute_metrics,
+    assemble_train_test_dataset,
+)
 import livecellx.model_zoo.segmentation.csn_configs as csn_configs
 from livecellx.model_zoo.segmentation import custom_transforms
 import argparse
@@ -58,6 +61,18 @@ def parse_args():
         default=0.1,
         type=float,
     )
+    parser.add_argument(
+        "--quota_per_iter",
+        type=int,
+        default=512,
+        help="Quota of labeled data per iteration",
+    )
+    parser.add_argument(
+        "--al_iters",
+        type=int,
+        default=1000,
+        help="Number of active learning iterations",
+    )
     args = parser.parse_args()
     args.aug_scale = [float(x) for x in args.aug_scale.split(",")]
     args.class_weights = [float(x) for x in args.class_weights.split(",")]
@@ -102,11 +117,19 @@ def df2dataset(df, transforms, args):
     return dataset
 
 
-def run_active_learning(args, train_df, val_df, test_df, train_transforms, iteration=100, quota_per_iteration=512):
+def run_active_learning(
+    args,
+    train_df,
+    val_df,
+    test_df,
+    train_transforms,
+    iteration=1000,
+    quota_per_iter=512,
+):
     labeled_data_idx = np.zeros(len(train_df)).astype(bool)
     init_labeled_idx = list(range(len(train_df)))
     random.shuffle(init_labeled_idx)
-    labeled_data_idx[init_labeled_idx[:quota_per_iteration]] = True
+    labeled_data_idx[init_labeled_idx[:quota_per_iter]] = True
     unlabeled_data_idx = ~labeled_data_idx
 
     # Get directory path from logger
@@ -158,12 +181,19 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
             max_epochs=args.epochs,
             logger=logger,
             callbacks=[
-                ModelCheckpoint(save_top_k=3, monitor="val_loss", mode="min", filename="{epoch:02d}-{val_loss:.4f}"),
+                ModelCheckpoint(
+                    save_top_k=3,
+                    monitor="val_loss",
+                    mode="min",
+                    filename="{epoch:02d}-{val_loss:.4f}",
+                ),
                 ModelCheckpoint(save_last=True, filename="{epoch}-{global_step}"),
             ],
             log_every_n_steps=100,
             check_val_every_n_epoch=50,
-            val_check_interval=5,
+            # val_check_interval=5,
+            # check_val_every_n_epoch=None,
+            limit_val_batches=0,
         )
         model.cuda().train()
         model.train_dataset = df2dataset(train_df[labeled_data_idx], train_transforms, args)
@@ -181,11 +211,17 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
         train_label_dataset_eval.transform = eval_transform
         test_label_dataset_eval.transform = eval_transform
         output_train_label_eval = compute_metrics(
-            train_label_dataset_eval, model, out_threshold=args.out_threshold, return_mean=True
+            train_label_dataset_eval,
+            model,
+            out_threshold=args.out_threshold,
+            return_mean=True,
         )
         # print("[AL EVAL] flag1 evaluating model on test label set...")
         output_test_label_eval = compute_metrics(
-            test_label_dataset_eval, model, out_threshold=args.out_threshold, return_mean=True
+            test_label_dataset_eval,
+            model,
+            out_threshold=args.out_threshold,
+            return_mean=True,
         )
         # train_all_dataset_eval, _, test_all_dataset_eval, = assemble_train_test_dataset(
         #     train_df, test_df, model, train_split=1
@@ -200,11 +236,17 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
         # )
 
         output_train_best_label_eval = compute_metrics(
-            train_label_dataset_eval, model_best, out_threshold=args.out_threshold, return_mean=True
+            train_label_dataset_eval,
+            model_best,
+            out_threshold=args.out_threshold,
+            return_mean=True,
         )
 
         output_test_best_label_eval = compute_metrics(
-            test_label_dataset_eval, model_best, out_threshold=args.out_threshold, return_mean=True
+            test_label_dataset_eval,
+            model_best,
+            out_threshold=args.out_threshold,
+            return_mean=True,
         )
         iter_metrics["train_labeled"].append(output_train_label_eval)
         iter_metrics["test_labeled"].append(output_test_label_eval)
@@ -237,7 +279,7 @@ def run_active_learning(args, train_df, val_df, test_df, train_transforms, itera
 
         ranking = rank_unlabeled_data(np.array(scores))
         unlabeled_data_idx_idx = np.where(unlabeled_data_idx)[0]
-        selected = unlabeled_data_idx_idx[np.argsort(ranking)[:quota_per_iteration]]
+        selected = unlabeled_data_idx_idx[np.argsort(ranking)[:quota_per_iter]]
 
         labeled_data_idx[selected] = True
         unlabeled_data_idx = ~labeled_data_idx
@@ -315,4 +357,12 @@ if __name__ == "__main__":
     else:
         raise ValueError("Unknown augmentation version")
 
-    run_active_learning(args, train_df, val_df, test_df, train_transforms)
+    run_active_learning(
+        args,
+        train_df,
+        val_df,
+        test_df,
+        train_transforms,
+        quota_per_iter=args.quota_per_iter,
+        iteration=args.al_iters,
+    )
