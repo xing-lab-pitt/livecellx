@@ -28,7 +28,7 @@ Key Features
 Getting Started
 ---------------
 - Explore our [Tutorials](livecellx_notebooks/tutorials/index) and [Examples](livecellx_notebooks/examples/index).
-- Contribute via [GitHub](https://github.com/xing-lab-pitt/LiveCellTracker-dev).
+- Contribute via [GitHub](https://github.com/xing-lab-pitt/livecellx).
 
 .. toctree::
     :caption: General
