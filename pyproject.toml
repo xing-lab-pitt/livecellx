@@ -36,7 +36,8 @@ dependencies = [
     "mahotas",
     "seaborn",
     "umap-learn",
-    "napari[all]"
+    "napari[all]",
+    "btrack==0.4.6"
 ]
 
 

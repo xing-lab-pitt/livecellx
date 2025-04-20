@@ -40,6 +40,7 @@ opencv-contrib-python
 # For sort tracker
 # lap[alldeps]
 filterpy
+btrack
 
 
 ################################################################################
