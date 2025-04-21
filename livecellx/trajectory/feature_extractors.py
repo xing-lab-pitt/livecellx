@@ -70,7 +70,7 @@ def compute_haralick_features(
     feature_key="haralick",
     ignore_zeros=True,
     return_mean=True,
-    ret_arr=True,
+    ret_arr=False,
     add_feature_to_sc=True,
     normalize_img_func=normalize_img_to_uint8,
     **kwargs
@@ -89,9 +89,7 @@ def compute_haralick_features(
     """
     import mahotas.features.texture
 
-    image = sc.get_contour_img(crop=True)
-    if normalize_img_func:
-        image = normalize_img_func(image)
+    image = sc.get_contour_img(crop=True, preprocess_img_func=normalize_img_func)
     features = mahotas.features.texture.haralick(image, ignore_zeros=ignore_zeros, return_mean=return_mean, **kwargs)
     if ret_arr:
         return features
