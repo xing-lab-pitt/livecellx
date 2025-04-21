@@ -1107,8 +1107,8 @@ class SingleUnit:
     get_sc_mask = get_contour_mask
     get_sc_label_mask = get_contour_label_mask
 
-    def add_feature(self, name, features: Union[np.ndarray, pd.Series]):
-        if not isinstance(features, (np.ndarray, pd.Series)):
+    def add_feature(self, name, features: Union[np.ndarray, pd.Series], typecheck=False):
+        if typecheck and not isinstance(features, (np.ndarray, pd.Series)):
             raise TypeError("features must be a numpy array or pandas series")
         self.feature_dict[name] = features
 
@@ -1532,7 +1532,7 @@ class SingleCellTrajectory:
             raise KeyError(f"single cell at timeframe {timeframe} does not exist in the trajectory")
         return self.get_sc(timeframe)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Tuple[int, SingleCellStatic]]:
         return iter(self.timeframe_to_single_cell.items())
 
     def _update_meta(self):
