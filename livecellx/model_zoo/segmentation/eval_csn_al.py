@@ -1,9 +1,12 @@
+import gc
 import os
 import argparse
 import json
 import numpy as np
 import pandas as pd
 from datetime import datetime
+
+import torch
 from livecellx.model_zoo.segmentation.eval_csn import compute_metrics, compute_metrics_batch, assemble_dataset_model
 from livecellx.model_zoo.segmentation.sc_correction_aux import CorrectSegNetAux
 from livecellx.model_zoo.segmentation import csn_configs
@@ -86,22 +89,29 @@ def main():
         mean_metrics["iteration"] = iter_dir
         mean_results.append(mean_metrics)
 
-    if not results:
-        print("No results to save.")
-        return
+        # Clear all CUDA memory
+        del model
+        torch.cuda.empty_cache()
+        gc.collect()
+        print(f"Finished evaluating {iter_dir}")
+        print("CUDA memory cleared.")
 
-    # Save mean metrics as CSV
-    df = pd.DataFrame(mean_results)
-    df.set_index("iteration", inplace=True)
-    df.to_csv(save_csv)
-    print(f"Saved metrics table to {save_csv}")
-    print(df)
+        # Update results after each iteration evaluation
+        print(f"Saving metrics at iteration dir{iter_dir}...")
+        if not results:
+            print("No results to save.")
+            return
 
-    # Save all results as json
-    import json
+        # Save mean metrics as CSV
+        df = pd.DataFrame(mean_results)
+        df.set_index("iteration", inplace=True)
+        df.to_csv(save_csv)
+        print(f"Saved metrics table to {save_csv}")
+        print(df)
 
-    with open(save_json, "w") as f:
-        json.dump(results, f, indent=4, cls=MetricsEncoder)
+        # Save all results as json
+        with open(save_json, "w") as f:
+            json.dump(results, f, indent=4, cls=MetricsEncoder)
 
 
 if __name__ == "__main__":
