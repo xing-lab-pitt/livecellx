@@ -36,11 +36,12 @@ Getting Started
     :hidden:
 
     installation
-    API
-    classes
+
     livecellx_notebooks/tutorials/tutorial_general_usage
     livecellx_notebooks/tutorials/index
     livecellx_notebooks/examples/index
+    API
+    classes
 
 .. toctree::
     :caption: Gallery
