@@ -157,8 +157,8 @@ html_show_sphinx = False
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 html_css_files = ["css/custom.css"]
-# html_logo = "_static/logo.png"
-html_logo = "_static/logo.png"
+# html_logo = "_static/logo.jpg"
+html_logo = "_static/logo.jpg"
 
 
 autodoc_member_order = "groupwise"
