@@ -1,5 +1,6 @@
 
-<img src="https://github.com/xing-lab-pitt/livecellx/blob/main/docs/source/_static/left-logo.png" alt="" height="250"/>
+<img src="https://github.com/xing-lab-pitt/livecellx/blob/main/docs/source/_static/logo.jpg" alt="LivecellX Logo" width="250"/>
+
 
 # LivecellX
 
