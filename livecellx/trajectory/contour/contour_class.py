@@ -973,7 +973,7 @@ class PCAContour(Contour):
 
     def from_contours(cls, contours, required_variance_explained=0.95, return_positions=False):
         """This class method should be used to construct a PCAContour object from a
-        set of contours. The proncipal components of the contours are caltulated, and
+        set of contours. The principal components of the contours are caltulated, and
         enough retained to account for the 'required_variance_explained' fraction.
 
         The mean shape is stored in the instance variable 'mean' and the principal components
