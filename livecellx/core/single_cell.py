@@ -2256,7 +2256,7 @@ def show_sct_on_grid(
     nr=4,
     nc=4,
     start=0,
-    interval=1,
+    interval=None,
     padding=20,
     dims: Tuple[int, int] = None,
     dims_offset: Tuple[int, int] = (0, 0),
@@ -2325,8 +2325,14 @@ def show_sct_on_grid(
         assert np.array(axes).shape == (nr, nc), "axes shape mismatch"
 
     span_range = trajectory.get_timeframe_span()
+    if interval is None:
+        # Calculate interval based on the trajectory's timeframe span
+        if span_range[1] - span_range[0] < nr * nc:
+            interval = 1
+        else:
+            interval = (span_range[1] - span_range[0]) // (nr * nc)
     traj_start, traj_end = span_range
-    if start < traj_start:
+    if start is None or start < traj_start:
         start = span_range[0]
         if verbose:
             main_info(
