@@ -60,7 +60,8 @@ def parallelize_compute_features(
             main_info("Replacing features in scs", indent_level=2)
         for sc in scs:
             sc_id = sc.id
-            sc.feature_dict = res_sc_id2sc[sc_id].feature_dict
+            # Do an in-place update of the feature_dict
+            sc.feature_dict.update(res_sc_id2sc[sc_id].feature_dict)
 
     return features, res_scs
 
