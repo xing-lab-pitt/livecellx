@@ -91,7 +91,9 @@ def normalize_img_by_bitdepth(img: np.ndarray, bit_depth: int = 8, mean=None) ->
     dtype = None
     if bit_depth == 8:
         dtype = np.uint8
-        img = (img * 255).astype(np.uint8)
+        img = img * 255
+        img = np.clip(img, 0, 255)  # Ensure values are within [0, 255]
+        img = img.astype(np.uint8)
         mean = mean if mean is not None else 127
     elif bit_depth == 16:
         dtype = np.uint16
