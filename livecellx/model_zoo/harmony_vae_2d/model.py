@@ -1,5 +1,10 @@
 import numpy as np
-import kornia  # version 0.4.0
+
+# import kornia  # version 0.4.0
+import torch
+import kornia
+import kornia.geometry.transform as tf
+
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -27,7 +32,7 @@ class Encoder(nn.Module):
         return phi
 
 
-class Transformer(object):
+class Transformer__kornia_deprecated(object):
     def __call__(self, image, theta, translations, scale_factor):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         B, C, H, W = image.size()
@@ -39,6 +44,49 @@ class Transformer(object):
         if scale_factor is not None:
             transformed_im = kornia.scale(transformed_im, scale_factor, padding_mode="zeros", align_corners=False)
         return transformed_im
+
+
+class Transformer(object):
+    def __call__(self, image, theta, translations, scale_factor):
+        device = image.device
+        B, C, H, W = image.size()
+        # Center as (x, y) = (W/2, H/2)
+        center = torch.tensor([[W / 2, H / 2]], device=device).repeat(B, 1)
+        # theta: shape (B, 1) or (B,), convert radians to degrees for Kornia
+        angle = theta.view(-1)
+        angle_deg = torch.rad2deg(angle)
+
+        # Step 1: Rotation matrix
+        # Ensure scale_factor is (B, 2)
+        if scale_factor is None:
+            scale = torch.ones(B, 2, device=device)
+        elif scale_factor.dim() == 1:
+            scale = scale_factor.unsqueeze(-1).repeat(1, 2)
+        else:
+            scale = scale_factor  # Already correct shape
+        rot_mat = tf.get_rotation_matrix2d(center, angle_deg, scale)
+
+        # Step 2: Add translation (to affine matrix, last column)
+        if translations is not None:
+            rot_mat = rot_mat.clone()
+            rot_mat[:, :, 2] += translations
+
+        # Step 3: Apply warp_affine for rotation+translation
+        rotated_translated = tf.warp_affine(
+            image, rot_mat, dsize=(H, W), mode="bilinear", padding_mode="zeros", align_corners=False
+        )
+
+        # Step 4: Optional scaling (scale around center)
+        if scale_factor is not None:
+            # Create new affine for scaling only (angle=0)
+            scale_mat = tf.get_rotation_matrix2d(center, torch.zeros(B, device=device), scale_factor)
+            out = tf.warp_affine(
+                rotated_translated, scale_mat, dsize=(H, W), mode="bilinear", padding_mode="zeros", align_corners=False
+            )
+        else:
+            out = rotated_translated
+
+        return out
 
 
 class Decoder(nn.Module):

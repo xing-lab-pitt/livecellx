@@ -10,10 +10,10 @@ from sklearn.svm import SVR
 
 def evaluate_model(dataset_name, model, z_dim, pixel, batch_size, device, scale):
     train_loader, test_loader, mu, std = data_loader(dataset_name, pixel, batch_size, shuffle=False)
-    plot_sample_images(dataset_name, test_loader, model, pixel, batch_size, device, mu, std)
-    generate_manifold_images(dataset_name, model, pixel, z_dim, batch_size, device, mu, std)
+    plot_sample_images(dataset_name, test_loader, model, pixel, batch_size, device)  # , mu, std)
+    generate_manifold_images(dataset_name, model, pixel, z_dim, batch_size, device)  # , mu, std)
     save_output_images(dataset_name, test_loader, model, pixel, "test", batch_size, device=device)
-    save_latent_variables(dataset_name, test_loader, model, "test", pixel, w)
+    save_latent_variables(dataset_name, test_loader, model, "test", pixel, scale, batch_size, device=device)
     # score = calculate_score(dataset_name,model,z_dim,pixel,scale, batch_size,device)
     # print('DIC score for semnatic content',score)
 
