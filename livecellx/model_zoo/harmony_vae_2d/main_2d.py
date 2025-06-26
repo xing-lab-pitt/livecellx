@@ -4,6 +4,7 @@ from livecellx.model_zoo.harmony_vae_2d.model import get_instance_model_optimize
 from livecellx.model_zoo.harmony_vae_2d.data import data_loader, estimate_optimal_gamma
 from livecellx.model_zoo.harmony_vae_2d.train import train_model
 from livecellx.model_zoo.harmony_vae_2d.evaluate import evaluate_model
+from livecellx.model_zoo.harmony_vae_2d.sc_dataloader import scs_train_test_dataloader
 import argparse
 
 
@@ -20,7 +21,23 @@ def train_and_evaluate(
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     siamese, optimizer = get_instance_model_optimizer(device, learning_rate, z_dim, pixel)
-    train_loader, test_loader, mu, std = data_loader(dataset_name, pixel, batch_size)
+    if dataset_name == "MCF10A_and_A549":
+        print("[INFO] Using MCF10A_and_A549 dataset")
+        train_loader, test_loader = scs_train_test_dataloader(
+            padding=30, img_shape=(pixel, pixel), batch_size=batch_size
+        )
+    else:
+        train_loader, test_loader, mu, std = data_loader(dataset_name, pixel, batch_size)
+    print("[INFO] Using dataset: {}".format(dataset_name))
+    print("[INFO] Using z_dim: {}".format(z_dim))
+    print("[INFO] Using pixel: {}".format(pixel))
+    print("[INFO] Using batch_size: {}".format(batch_size))
+    print("[INFO] Using learning_rate: {}".format(learning_rate))
+    print("[INFO] Using w: {}".format(w))
+    # Print dataset size
+    print("[INFO] Training dataset size: {}".format(len(train_loader.dataset)))
+    print("[INFO] Test dataset size: {}".format(len(test_loader.dataset)))
+
     if load_model:
         (siamese, optimizer, start_epoch, epoch_train_loss, epoch_valid_loss, valid_loss_min,) = load_ckp(
             siamese,
@@ -86,12 +103,15 @@ if __name__ == "__main__":
     if args.scale:
         scale = True
 
-    dataset_name = "codhacs"
+    # dataset_name = "codhacs"
 
     if args.gamma:
         w = args.gamma
     else:
-        w = estimate_optimal_gamma(dataset_name, batch_size)
+        if dataset_name == "MCF10A_and_A549":
+            w = 166531 / (args.batch_size * 1000)  # For MCF10A_and_A549 dataset, use a fixed value
+        else:
+            w = estimate_optimal_gamma(dataset_name, batch_size)
 
     train_and_evaluate(
         dataset_name=dataset_name,

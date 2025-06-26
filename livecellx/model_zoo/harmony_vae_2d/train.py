@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 from .utils import loss_fn, plot_loss
 from .model import save_ckp, load_ckp
 
@@ -21,12 +22,19 @@ def train_model(
     w=1,
     scale=False,
 ):
-    for epoch in range(start_epoch, n_epochs + 1):
+    print("[INFO] Training model on dataset: {} with parameters below".format(dataset_name))
+    print("[INFO] Using z_dim: {}".format(z_dim))
+    print("[INFO] Using pixel: {}".format(pixel))
+    print("[INFO] Using batch_size: {}".format(batch_size))
+    print("[INFO] Using w: {}".format(w))
+    print("[INFO] Using scale: {}".format(scale))
+
+    for epoch in tqdm(range(start_epoch, n_epochs + 1), desc="Training Epochs"):
         train_loss = 0.0
         valid_loss = 0.0
         # print("Training")
         siamese.train()
-        for batch_idx, images in enumerate(train_loader):
+        for batch_idx, images in tqdm(enumerate(train_loader), desc="Training Batches", total=len(train_loader)):
             images = images.to(device=device)
             data = images.reshape(batch_size, 1, pixel, pixel)
             image_z1, image_z2, image_x_theta1, image_x_theta2, phi1, phi2 = siamese(data, scale)
@@ -74,6 +82,9 @@ def train_model(
                 "state_dict": siamese.state_dict(),
                 "optimizer": optimizer.state_dict(),
             }
-            save_ckp(checkpoint, "best_model_Harmony_fc" + dataset_name + "_z_dim_{}_w_{}.pt".format(z_dim, w))
+            save_ckp(
+                checkpoint,
+                "./harmony_results/best_model_Harmony_fc" + dataset_name + "_z_dim_{}_w_{}.pt".format(z_dim, w),
+            )
             valid_loss_min = epoch_valid_loss[epoch]
     # plot_loss(epoch_train_loss=epoch_train_loss, epoch_valid_loss=epoch_valid_loss)
