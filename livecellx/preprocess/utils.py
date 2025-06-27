@@ -6,36 +6,11 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image, ImageSequence, ImageEnhance
+from scipy import ndimage
 from tqdm import tqdm
 import cv2 as cv
 from livecellx.core.io_utils import save_png
 from livecellx.preprocess.correct_bg import correct_background_bisplrep, correct_background_polyfit
-
-
-def normalize_edt(edt_img, edt_max=5):
-    """
-    Normalize the input Euclidean Distance Transform (EDT) image.
-
-    Parameters:
-    - edt_img (ndarray): The input EDT image.
-    - edt_max (float): The maximum value to which the EDT image will be normalized. Default is 4.
-
-    Returns:
-    - normalized_edt_img (ndarray): The normalized EDT image.
-
-    """
-
-    max_val = edt_img.max()
-    factor = max_val / (edt_max - 1)
-    edt_pos_mask = edt_img >= 1
-    if type(edt_img) == np.ndarray:
-        res_img = edt_img.copy()
-    else:
-        # torch.Tensor case
-        res_img = edt_img.clone()
-    res_img[edt_pos_mask] = edt_img[edt_pos_mask] / factor + 1
-    # edt_img[edt_pos_mask] = edt_img[edt_pos_mask] / factor + 1
-    return res_img
 
 
 def normalize_features_zscore(features: np.ndarray) -> np.ndarray:
@@ -84,34 +59,42 @@ def normalize_img_by_bitdepth(img: np.ndarray, bit_depth: int = 8, mean=None) ->
 
     img = img + abs(np.min(img.flatten()))  # Shift to non-negative values
 
-    if np.max(img) != 0:
-        img = img / np.max(img)  # Normalize to [0, 1]
+    if np.max(img.flatten()) != 0:
+        img = img / np.max(img.flatten())  # Normalize to [0, 1]
 
     # Scale according to bit depth and mean to be half of the max val if not specified
     dtype = None
+    dtype_max = None
+    if bit_depth == 8:
+        dtype_max = 255
+    elif bit_depth == 16:
+        dtype_max = 65535
+    elif bit_depth == 32:
+        dtype_max = np.iinfo(np.uint32).max
+    else:
+        raise ValueError(f"bit_depth must be 8, 16, or 32, not {bit_depth}")
+
     if bit_depth == 8:
         dtype = np.uint8
         img = img * 255
-        img = np.clip(img, 0, 255)  # Ensure values are within [0, 255]
-        img = img.astype(np.uint8)
         mean = mean if mean is not None else 127
     elif bit_depth == 16:
         dtype = np.uint16
-        img = (img * 65535).astype(np.uint16)
+        img = img * 65535
         mean = mean if mean is not None else 32767
     elif bit_depth == 32:
         dtype = np.uint32
-        img = (img * np.iinfo(np.uint32).max).astype(np.uint32)  # Max uint32 value
+        img = img * np.iinfo(np.uint32).max  # Max uint32 value
         mean = mean if mean is not None else np.iinfo(np.uint32).max // 2
     else:
         raise ValueError(f"bit_depth must be 8, 16, or 32, not {bit_depth}")
 
     # Scale to mean
     mean = int(mean)
+
     img = img - np.mean(img.flatten()) + mean
+    img = np.clip(img, 0, dtype_max)  # Ensure values are within [0, 255]
     img = img.astype(dtype)
-    # Clip to [0, max_val]
-    img = np.clip(img, 0, np.iinfo(img.dtype).max)
     return img
 
 
@@ -285,3 +268,51 @@ def dilate_or_erode_label_mask(label_mask: np.ndarray, scale_factor, bg_val=0):
         eroded_mask = dilate_or_erode_mask(bin_mask, scale_factor=scale_factor)
         res = res + eroded_mask * label
     return res
+
+
+def label_mask_to_edt_mask(label_mask, bg_val=0, dtype=np.uint8, normalize_func=normalize_img_to_uint8):
+    labels = np.unique(label_mask)
+    # remvoe bg_val
+    labels = labels[labels != bg_val]
+    edt_mask = np.zeros(label_mask.shape, dtype=np.float32)
+    for label in labels:
+        tmp_mask = label_mask == label
+        # perform euclidean distance transform and normalize
+        tmp_mask = ndimage.distance_transform_edt(tmp_mask)
+        normalized_mask = normalize_func(tmp_mask)
+        tmp_mask[tmp_mask != bg_val] = normalized_mask[tmp_mask != bg_val]
+        edt_mask += tmp_mask
+
+    # TODO: remove the guard below because it is unlikely that we will have a label mask with values > 255, but we should handle this case
+    # The reason for "unlikely" is that the label mask is usually generated from a binary mask
+    # And thus the normalization process in the loop above will ensure that the values are in the range [0, 255]
+    if edt_mask.max() > 255 and dtype == np.uint8:
+        edt_mask = normalize_img_to_uint8(edt_mask)
+
+    return edt_mask.astype(dtype)
+
+
+def normalize_edt(edt_img, edt_max=5):
+    """
+    Normalize the input Euclidean Distance Transform (EDT) image.
+
+    Parameters:
+    - edt_img (ndarray): The input EDT image.
+    - edt_max (float): The maximum value to which the EDT image will be normalized. Default is 4.
+
+    Returns:
+    - normalized_edt_img (ndarray): The normalized EDT image.
+
+    """
+
+    max_val = edt_img.max()
+    factor = max_val / (edt_max - 1)
+    edt_pos_mask = edt_img >= 1
+    if type(edt_img) == np.ndarray:
+        res_img = edt_img.copy()
+    else:
+        # torch.Tensor case
+        res_img = edt_img.clone()
+    res_img[edt_pos_mask] = edt_img[edt_pos_mask] / factor + 1
+    # edt_img[edt_pos_mask] = edt_img[edt_pos_mask] / factor + 1
+    return res_img
