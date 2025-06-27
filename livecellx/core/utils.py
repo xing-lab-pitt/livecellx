@@ -3,7 +3,7 @@ import numpy as np
 from scipy import ndimage
 from skimage import measure
 
-from livecellx.preprocess.utils import normalize_img_to_uint8
+from livecellx.preprocess.utils import normalize_img_to_uint8, label_mask_to_edt_mask
 
 
 def get_bbox_from_regionprops(regions):
@@ -87,28 +87,6 @@ def get_cv2_bbox(label_mask: np.ndarray):
     bboxes = get_bbox_from_regionprops(regions)
     bboxes_cv2 = bbox_skimage_to_cv2_order(bboxes)
     return bboxes_cv2
-
-
-def label_mask_to_edt_mask(label_mask, bg_val=0, dtype=np.uint8, normalize_func=normalize_img_to_uint8):
-    labels = np.unique(label_mask)
-    # remvoe bg_val
-    labels = labels[labels != bg_val]
-    edt_mask = np.zeros(label_mask.shape, dtype=np.float32)
-    for label in labels:
-        tmp_mask = label_mask == label
-        # perform euclidean distance transform and normalize
-        tmp_mask = ndimage.distance_transform_edt(tmp_mask)
-        normalized_mask = normalize_func(tmp_mask)
-        tmp_mask[tmp_mask != bg_val] = normalized_mask[tmp_mask != bg_val]
-        edt_mask += tmp_mask
-
-    # TODO: remove the guard below because it is unlikely that we will have a label mask with values > 255, but we should handle this case
-    # The reason for "unlikely" is that the label mask is usually generated from a binary mask
-    # And thus the normalization process in the loop above will ensure that the values are in the range [0, 255]
-    if edt_mask.max() > 255 and dtype == np.uint8:
-        edt_mask = normalize_img_to_uint8(edt_mask)
-
-    return edt_mask.astype(dtype)
 
 
 def clip_polygon(polygon, h, w):

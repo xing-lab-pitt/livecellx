@@ -24,6 +24,9 @@ def load_class2samples_from_json_dir(
         sample_paths = glob.glob(str(sample_json_dir / subfolder / "*.json"))
         for sample_path in sample_paths:
             sample = SingleCellStatic.load_single_cells_json(sample_path)
+            if len(sample) == 0:
+                print(f"Warning: No samples found in {sample_path}. Skipping.")
+                continue
             for sc in sample:
                 sc.meta["sample_src_dir"] = str(sample_json_dir)
                 sc.meta["sample_src_class"] = str(subfolder)
