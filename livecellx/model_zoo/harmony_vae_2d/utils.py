@@ -4,11 +4,14 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import pickle
 import numpy as np
+import os
 from .model import load_ckp
 from scipy.stats import norm
 
 
-def loss_fn(image_z1, image_z2, image_x_theta1, image_x_theta2, phi1, phi2, dim, w, scale):
+def loss_fn(
+    image_z1, image_z2, image_x_theta1, image_x_theta2, phi1, phi2, dim, w, scale, return_dict=False, loss_z_factor=1.0
+):
     n = image_x_theta1.size(0)
     recon_loss1 = F.mse_loss(image_z1, image_x_theta1, reduction="sum").div(n)
     recon_loss2 = F.mse_loss(image_z2, image_x_theta2, reduction="sum").div(n)
@@ -24,20 +27,127 @@ def loss_fn(image_z1, image_z2, image_x_theta1, image_x_theta2, phi1, phi2, dim,
     dist_z1 = torch.distributions.multivariate_normal.MultivariateNormal(z1_mean, torch.diag_embed(z1_var.exp()))
     dist_z2 = torch.distributions.multivariate_normal.MultivariateNormal(z2_mean, torch.diag_embed(z2_var.exp()))
     z_loss = torch.mean(torch.distributions.kl.kl_divergence(dist_z1, dist_z2)).div(dim)
-    loss = w * (recon_loss1 + recon_loss2 + branch_loss) + z_loss
+    loss = w * (recon_loss1 + recon_loss2 + branch_loss) + z_loss * loss_z_factor
+    if return_dict:
+        return {
+            "recon_loss1": recon_loss1,
+            "recon_loss2": recon_loss2,
+            "branch_loss": branch_loss,
+            "z_loss": z_loss,
+            "total_loss": loss,
+        }
     return loss
 
 
-def plot_loss(epoch_train_loss, epoch_valid_loss):
-    fig, ax = plt.subplots(dpi=150)
-    train_loss_list = [x for x in epoch_train_loss]
-    valid_loss_list = [x for x in epoch_valid_loss]
-    (line1,) = ax.plot([i for i in range(len(train_loss_list))], train_loss_list)
-    (line2,) = ax.plot([i for i in range(len(valid_loss_list))], valid_loss_list)
-    ax.set_xlabel("Number of epochs")
+def plot_loss(
+    dataset_name,
+    epoch_train_loss,
+    epoch_valid_loss,
+    train_recon_loss1=None,
+    train_recon_loss2=None,
+    train_branch_loss=None,
+    train_z_loss=None,
+    val_recon_loss1=None,
+    val_recon_loss2=None,
+    val_branch_loss=None,
+    val_z_loss=None,
+    train_z_loss_weighted=None,
+    val_z_loss_weighted=None,
+    train_total_recon_weighted=None,
+    val_total_recon_weighted=None,
+):
+    """
+    Visualize all loss types (total, recon1, recon2, branch, z, weighted z) for train/val in one figure.
+    Also plot:
+      - Only total weighted reconstruction loss and weighted z loss
+      - All reconstruction losses (recon1, recon2) in one figure (weighted)
+      - All reconstruction losses (recon1, recon2) in one figure (unweighted)
+    """
+    fig, ax = plt.subplots(1, 1, figsize=(10, 6), dpi=150)
+    epochs = list(range(len(epoch_train_loss)))
+    # Plot total loss
+    ax.plot(epochs, epoch_train_loss, label="Train Total Loss", color="tab:blue")
+    ax.plot(epochs, epoch_valid_loss, label="Val Total Loss", color="tab:orange")
+    # Optionally plot sub-losses if provided
+    if train_recon_loss1 is not None and val_recon_loss1 is not None:
+        ax.plot(epochs, train_recon_loss1, label="Train Recon1", linestyle="--", color="tab:green")
+        ax.plot(epochs, val_recon_loss1, label="Val Recon1", linestyle="--", color="tab:green", alpha=0.5)
+    if train_recon_loss2 is not None and val_recon_loss2 is not None:
+        ax.plot(epochs, train_recon_loss2, label="Train Recon2", linestyle="--", color="tab:red")
+        ax.plot(epochs, val_recon_loss2, label="Val Recon2", linestyle="--", color="tab:red", alpha=0.5)
+    if train_branch_loss is not None and val_branch_loss is not None:
+        ax.plot(epochs, train_branch_loss, label="Train Branch", linestyle="--", color="tab:purple")
+        ax.plot(epochs, val_branch_loss, label="Val Branch", linestyle="--", color="tab:purple", alpha=0.5)
+    if train_z_loss is not None and val_z_loss is not None:
+        ax.plot(epochs, train_z_loss, label="Train Z (KL)", linestyle="--", color="tab:brown")
+        ax.plot(epochs, val_z_loss, label="Val Z (KL)", linestyle="--", color="tab:brown", alpha=0.5)
+    if train_z_loss_weighted is not None and val_z_loss_weighted is not None:
+        ax.plot(epochs, train_z_loss_weighted, label="Train Z (KL) Weighted", linestyle=":", color="tab:gray")
+        ax.plot(epochs, val_z_loss_weighted, label="Val Z (KL) Weighted", linestyle=":", color="tab:gray", alpha=0.5)
+    ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss")
-    ax.legend((line1, line2), ("Train Loss", "Validation Loss"))
-    plt.savefig("./harmony_results/Harmony_mnist_loss_curves.png", bbox_inches="tight")
+    ax.set_title("Loss Curves: Total and Components")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    out_dir = f"./harmony_results/{dataset_name}"
+    os.makedirs(out_dir, exist_ok=True)
+    plt.savefig(os.path.join(out_dir, "Harmony_all_loss_curves.png"), bbox_inches="tight")
+    plt.close()
+
+    # Plot all reconstruction losses (weighted, NO branch, NO weighted z) in one figure
+    if (
+        train_recon_loss1 is not None
+        and train_recon_loss2 is not None
+        and val_recon_loss1 is not None
+        and val_recon_loss2 is not None
+    ):
+        fig3, ax3 = plt.subplots(1, 1, figsize=(10, 6), dpi=150)
+        ax3.plot(epochs, train_recon_loss1, label="Train Recon1 (weighted)", color="tab:green")
+        ax3.plot(epochs, train_recon_loss2, label="Train Recon2 (weighted)", color="tab:red")
+        ax3.plot(epochs, val_recon_loss1, label="Val Recon1 (weighted)", linestyle="--", color="tab:green", alpha=0.5)
+        ax3.plot(epochs, val_recon_loss2, label="Val Recon2 (weighted)", linestyle="--", color="tab:red", alpha=0.5)
+        ax3.set_xlabel("Epoch")
+        ax3.set_ylabel("Weighted Recon Loss")
+        ax3.set_title("Recon1 & Recon2 Losses (Weighted)")
+        ax3.legend()
+        ax3.grid(True, alpha=0.3)
+        plt.savefig(os.path.join(out_dir, "Harmony_recon1_recon2_weighted_loss_curves.png"), bbox_inches="tight")
+        plt.close()
+
+    # Plot all reconstruction losses (unweighted, NO branch, NO weighted z) in one figure
+    if (
+        train_recon_loss1 is not None
+        and train_recon_loss2 is not None
+        and val_recon_loss1 is not None
+        and val_recon_loss2 is not None
+    ):
+        fig4, ax4 = plt.subplots(1, 1, figsize=(10, 6), dpi=150)
+        ax4.plot(epochs, train_recon_loss1, label="Train Recon1", color="tab:green")
+        ax4.plot(epochs, train_recon_loss2, label="Train Recon2", color="tab:red")
+        ax4.plot(epochs, val_recon_loss1, label="Val Recon1", linestyle="--", color="tab:green", alpha=0.5)
+        ax4.plot(epochs, val_recon_loss2, label="Val Recon2", linestyle="--", color="tab:red", alpha=0.5)
+        ax4.set_xlabel("Epoch")
+        ax4.set_ylabel("Recon Loss (unweighted)")
+        ax4.set_title("Recon1 & Recon2 Losses (Unweighted)")
+        ax4.legend()
+        ax4.grid(True, alpha=0.3)
+        plt.savefig(os.path.join(out_dir, "Harmony_recon1_recon2_loss_curves.png"), bbox_inches="tight")
+        plt.close()
+
+    # Plot only weighted z loss (train/val)
+    if train_z_loss_weighted is not None and val_z_loss_weighted is not None:
+        fig5, ax5 = plt.subplots(1, 1, figsize=(10, 6), dpi=150)
+        ax5.plot(epochs, train_z_loss_weighted, label="Train Z (KL) Weighted", color="tab:gray")
+        ax5.plot(epochs, val_z_loss_weighted, label="Val Z (KL) Weighted", linestyle="--", color="tab:gray", alpha=0.7)
+        ax5.set_xlabel("Epoch")
+        ax5.set_ylabel("Weighted Z Loss")
+        ax5.set_title("Weighted Z (KL) Loss Only")
+        ax5.legend()
+        ax5.grid(True, alpha=0.3)
+        out_dir = f"./harmony_results/{dataset_name}"
+        os.makedirs(out_dir, exist_ok=True)
+        plt.savefig(os.path.join(out_dir, "Harmony_weighted_z_loss_only_curves.png"), bbox_inches="tight")
+        plt.close()
 
 
 def _save_sample_images(dataset_name, batch_size, recon_image, image, pixel):
@@ -57,7 +167,9 @@ def _save_sample_images(dataset_name, batch_size, recon_image, image, pixel):
         i += 1
 
     fig.subplots_adjust(wspace=0, hspace=0)
-    plt.savefig("./harmony_results/Harmony_decoded_image_sample_" + dataset_name + ".png", bbox_inches="tight")
+    plt.savefig(
+        "./harmony_results/{dataset_name}/Harmony_decoded_image_sample_" + dataset_name + ".png", bbox_inches="tight"
+    )
 
     sample_in = image.reshape(batch_size, pixel, pixel)
     plt.clf()
@@ -75,7 +187,9 @@ def _save_sample_images(dataset_name, batch_size, recon_image, image, pixel):
         i += 1
 
     fig.subplots_adjust(wspace=0, hspace=0)
-    plt.savefig("./harmony_results/Harmony_input_image_sample" + dataset_name + ".png", bbox_inches="tight")
+    plt.savefig(
+        "../harmony_results/{dataset_name}/Harmony_input_image_sample" + dataset_name + ".png", bbox_inches="tight"
+    )
 
 
 def generate_manifold_images(dataset_name, trained_vae, pixel, z_dim=1, batch_size=100, device="cuda", n_per_dim=10):

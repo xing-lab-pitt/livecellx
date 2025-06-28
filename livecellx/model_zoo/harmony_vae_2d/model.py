@@ -9,27 +9,27 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+import torch.nn.functional as F
 
+# class LinearEncoder(nn.Module):
+#     def __init__(self, latent_dims, pixel):
+#         super(Encoder, self).__init__()
+#         self.fc1 = nn.Linear(pixel * pixel, 512)
+#         self.fc2 = nn.Linear(512, 512)
+#         self.fc3 = nn.Linear(512, 512)
+#         self.fc4 = nn.Linear(512, 512)
+#         self.fc5 = nn.Linear(512, 128)
+#         self.fc6 = nn.Linear(128, 2 * latent_dims + 3)
 
-class Encoder(nn.Module):
-    def __init__(self, latent_dims, pixel):
-        super(Encoder, self).__init__()
-        self.fc1 = nn.Linear(pixel * pixel, 512)
-        self.fc2 = nn.Linear(512, 512)
-        self.fc3 = nn.Linear(512, 512)
-        self.fc4 = nn.Linear(512, 512)
-        self.fc5 = nn.Linear(512, 128)
-        self.fc6 = nn.Linear(128, 2 * latent_dims + 3)
-
-    def forward(self, x):
-        x = x.view(x.size(0), -1)
-        x = F.tanh(self.fc1(x))
-        x = F.tanh(self.fc2(x))
-        x = F.tanh(self.fc3(x))
-        x = F.tanh(self.fc4(x))
-        x = F.tanh(self.fc5(x))
-        phi = self.fc6(x)
-        return phi
+#     def forward(self, x):
+#         x = x.view(x.size(0), -1)
+#         x = F.tanh(self.fc1(x))
+#         x = F.tanh(self.fc2(x))
+#         x = F.tanh(self.fc3(x))
+#         x = F.tanh(self.fc4(x))
+#         x = F.tanh(self.fc5(x))
+#         phi = self.fc6(x)
+#         return phi
 
 
 class Transformer__kornia_deprecated(object):
@@ -47,6 +47,49 @@ class Transformer__kornia_deprecated(object):
 
 
 class Transformer(object):
+    def __call__(self, image, theta, translations=None, scale_factor=None):
+        device = image.device
+        B, C, H, W = image.size()
+
+        # Rotation (around image center)
+        center = torch.tensor([[W / 2, H / 2]], device=device).repeat(B, 1)
+        angle_deg = torch.rad2deg(theta.view(-1))
+
+        scale_rot = torch.ones(B, 2, device=device)  # No scaling during rotation
+        rot_mat = tf.get_rotation_matrix2d(center, angle_deg, scale_rot)  # shape (B, 2, 3)
+
+        rotated = tf.warp_affine(
+            image, rot_mat, dsize=(H, W), mode="bilinear", padding_mode="reflection", align_corners=False
+        )
+
+        # Translation (after rotation)
+        out = rotated
+        if translations is not None:
+            # Build translation affine: identity rotation, translation in pixels
+            translation_mat = torch.eye(2, 3, device=device).unsqueeze(0).repeat(B, 1, 1)
+            translation_mat[:, 0, 2] = translations[:, 0]
+            translation_mat[:, 1, 2] = translations[:, 1]
+            out = tf.warp_affine(
+                out, translation_mat, dsize=(H, W), mode="bilinear", padding_mode="reflection", align_corners=False
+            )
+
+        # Scaling (after translation)
+        if scale_factor is not None:
+            # Make sure scale_factor is (B, 2)
+            if scale_factor.dim() == 1:
+                scale = scale_factor.unsqueeze(-1).repeat(1, 2)
+            else:
+                scale = scale_factor
+            # Centered scaling: angle=0, center=same as before
+            scale_mat = tf.get_rotation_matrix2d(center, torch.zeros(B, device=device), scale)
+            out = tf.warp_affine(
+                out, scale_mat, dsize=(H, W), mode="bilinear", padding_mode="reflection", align_corners=False
+            )
+
+        return out
+
+
+class Transformer__affine(object):
     def __call__(self, image, theta, translations, scale_factor):
         device = image.device
         B, C, H, W = image.size()
@@ -89,6 +132,66 @@ class Transformer(object):
         return out
 
 
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
+        super(ResidualBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size, 1, kernel_size // 2)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.dropout = nn.Dropout2d(0.25)
+
+        # match dimention
+        if stride != 1 or in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, padding=0),
+                nn.BatchNorm2d(out_channels),
+            )
+        else:
+            self.shortcut = nn.Identity()
+
+    def forward(self, x):
+
+        identity = self.shortcut(x)
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.dropout(out)
+
+        out += identity
+        out = self.relu(out)
+        return out
+
+
+class Encoder(nn.Module):
+    def __init__(self, latent_dims, pixel):
+        super(Encoder, self).__init__()
+        self.res1 = ResidualBlock(1, 32, 3, 2, 1)
+        self.res2 = ResidualBlock(32, 32, 3, 2, 1)
+        self.res3 = ResidualBlock(32, 64, 3, 2, 1)
+        self.res4 = ResidualBlock(64, 64, 3, 2, 1)
+        self.res5 = ResidualBlock(64, 128, 5, 2, 2)
+        self.res6 = ResidualBlock(128, 512, 5, 2, 2)
+        self.conv7 = nn.Conv2d(512, 1 + 2 * latent_dims, 3, 2, 0)
+        self.latent_dims = latent_dims
+
+    def forward(self, x):
+        x = self.res1(x)
+        x = self.res2(x)
+        x = self.res3(x)
+        x = self.res4(x)
+        x = self.res5(x)
+        x = self.res6(x)
+        x = self.conv7(x)
+        phi = x.view(x.size(0), 1 + 2 * self.latent_dims)
+        return phi
+
+
 class Decoder(nn.Module):
     def __init__(self, latent_dims, pixel):
         super(Decoder, self).__init__()
@@ -111,11 +214,87 @@ class Decoder(nn.Module):
         return x
 
 
-class AutoEncoder(nn.Module):
+class ReverseResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, output_padding):
+        super(ReverseResidualBlock, self).__init__()
+        self.deconv1 = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding, output_padding)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.deconv2 = nn.ConvTranspose2d(out_channels, out_channels, kernel_size, 1, padding=kernel_size // 2)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.dropout = nn.Dropout2d(0.25)
+
+        # Match dimension
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.ConvTranspose2d(
+                    in_channels,
+                    out_channels,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    padding=padding,
+                    output_padding=output_padding,
+                ),
+                nn.BatchNorm2d(out_channels),
+            )
+
+    def forward(self, x):
+
+        identity = self.shortcut(x)
+
+        out = self.deconv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.deconv2(out)
+        out = self.bn2(out)
+        out = self.dropout(out)
+
+        out += identity
+        out = self.relu(out)
+        return out
+
+
+class ResidualConvDecoder(nn.Module):
     def __init__(self, latent_dims, pixel):
+        super(ResidualConvDecoder, self).__init__()
+        self.res1 = ReverseResidualBlock(latent_dims, 512, 3, 2, 0, 1)
+        self.res2 = ReverseResidualBlock(512, 128, 5, 2, 2, 0)
+        self.res3 = ReverseResidualBlock(128, 64, 5, 2, 2, 0)
+        self.res4 = ReverseResidualBlock(64, 64, 3, 2, 1, 0)
+        self.res5 = ReverseResidualBlock(64, 32, 5, 2, 2, 1)
+        self.res6 = ReverseResidualBlock(32, 32, 3, 2, 1, 1)
+        self.rev_conv = nn.ConvTranspose2d(32, 1, 3, 2, 1, 1)
+        self.upsample = nn.Upsample(size=(pixel, pixel), mode="bilinear", align_corners=False)
+        self.activation = nn.ReLU()
+        self.pixel = pixel
+
+    def forward(self, z):
+        z = z.view(z.size(0), z.size(1), 1, 1)
+        x = self.res1(z)
+        x = self.res2(x)
+        x = self.res3(x)
+        x = self.res4(x)
+        x = self.res5(x)
+        x = self.res6(x)
+
+        x = self.rev_conv(x)
+        x = self.activation(x)
+        x = self.upsample(x)
+        return x
+
+
+class AutoEncoder(nn.Module):
+    def __init__(self, latent_dims, pixel, decoder_type="fc"):
         super(AutoEncoder, self).__init__()
         self.encoder = Encoder(latent_dims, pixel)
-        self.decoder = Decoder(latent_dims, pixel)
+        if decoder_type == "fc":
+            self.decoder = Decoder(latent_dims, pixel)
+        elif decoder_type == "conv":
+            self.decoder = ResidualConvDecoder(latent_dims, pixel)
+        else:
+            raise ValueError("Unsupported decoder type: {}".format(decoder_type))
         self.transform = Transformer()
         self.latent_dims = latent_dims
         self.pixel = pixel
@@ -143,11 +322,13 @@ class AutoEncoder(nn.Module):
 
 
 class Siamese(nn.Module):
-    def __init__(self, latent_dims, pixel):
+    def __init__(self, latent_dims, pixel, decoder_type="fc"):
         super(Siamese, self).__init__()
-        self.autoencoder = AutoEncoder(latent_dims, pixel)
+        self.autoencoder = AutoEncoder(latent_dims, pixel, decoder_type=decoder_type)
         self.transform = Transformer()
         self.pixel = pixel
+        self.latent_dims = latent_dims
+        self.decoder_type = decoder_type
 
     def forward(self, image, scale=False):
         with torch.no_grad():
@@ -182,8 +363,8 @@ def save_ckp(state, f_path="./best_model.pt"):
     torch.save(state, f_path)
 
 
-def get_instance_model_optimizer(device, learning_rate=0.0001, z_dims=2, pixel=64):
+def get_instance_model_optimizer(device, learning_rate=0.0001, z_dims=2, pixel=64, *, decoder_type="fc"):
     print("Loading model")
-    model = Siamese(latent_dims=z_dims, pixel=pixel).to(device)
+    model = Siamese(latent_dims=z_dims, pixel=pixel, decoder_type=decoder_type).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     return model, optimizer
