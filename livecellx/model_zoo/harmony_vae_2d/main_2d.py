@@ -1,10 +1,12 @@
 import torch
 import numpy as np
+from livecellx.core.io_sc import prep_scs_from_mask_dataset
 from livecellx.model_zoo.harmony_vae_2d.model import get_instance_model_optimizer, load_ckp
 from livecellx.model_zoo.harmony_vae_2d.data import data_loader, estimate_optimal_gamma
 from livecellx.model_zoo.harmony_vae_2d.train import train_model
 from livecellx.model_zoo.harmony_vae_2d.evaluate import evaluate_model
 from livecellx.model_zoo.harmony_vae_2d.sc_dataloader import scs_train_test_dataloader
+import livecellx.model_zoo.harmony_vae_2d.harmony_model_conv
 import argparse
 
 
@@ -18,10 +20,36 @@ def train_and_evaluate(
     load_model=False,
     w=1,
     scale=False,
+    *,
+    decoder_type="fc",  # Added decoder_type argument
+    debug=False,
+    loss_z_factor=1.0,  # Added loss_z_factor argument
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    siamese, optimizer = get_instance_model_optimizer(device, learning_rate, z_dim, pixel)
-    if dataset_name == "MCF10A_and_A549":
+    if decoder_type == "v2_conv":
+        print("[INFO] Using v2_conv decoder")
+        (
+            siamese,
+            optimizer,
+            scheduler,
+        ) = livecellx.model_zoo.harmony_vae_2d.harmony_model_conv.get_instance_model_optimizer(
+            device, learning_rate, z_dim, pixel
+        )
+    else:
+        siamese, optimizer = get_instance_model_optimizer(
+            device, learning_rate, z_dim, pixel, decoder_type=decoder_type
+        )
+    if debug:
+        from livecellx.sample_data import tutorial_three_image_sys
+
+        batch_size = 2
+        dic_dataset, mask_dataset = tutorial_three_image_sys()
+        single_cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
+        train_loader, test_loader = scs_train_test_dataloader(
+            scs=single_cells, padding=30, img_shape=(pixel, pixel), batch_size=batch_size
+        )
+
+    elif dataset_name.startswith("MCF10A"):  # "MCF10A_and_A549":
         print("[INFO] Using MCF10A_and_A549 dataset")
         train_loader, test_loader = scs_train_test_dataloader(
             padding=30, img_shape=(pixel, pixel), batch_size=batch_size
@@ -34,6 +62,10 @@ def train_and_evaluate(
     print("[INFO] Using batch_size: {}".format(batch_size))
     print("[INFO] Using learning_rate: {}".format(learning_rate))
     print("[INFO] Using w: {}".format(w))
+    print("[INFO] Using scale: {}".format(scale))
+    print("[INFO] Using decoder_type: {}".format(decoder_type))
+    print("[INFO] Using loss_z_factor: {}".format(loss_z_factor))
+
     # Print dataset size
     print("[INFO] Training dataset size: {}".format(len(train_loader.dataset)))
     print("[INFO] Test dataset size: {}".format(len(test_loader.dataset)))
@@ -67,9 +99,10 @@ def train_and_evaluate(
         batch_size,
         w,
         scale,
+        loss_z_factor=loss_z_factor,  # Pass the loss_z_factor argument
     )
 
-    evaluate_model(dataset_name, siamese, z_dim, pixel, batch_size, device, scale)
+    evaluate_model(dataset_name, siamese, z_dim, pixel, batch_size, device, scale, test_loader=test_loader)
 
 
 if __name__ == "__main__":
@@ -83,6 +116,10 @@ if __name__ == "__main__":
     parser.add_argument("--scale", action="store_true", default=False)
     parser.add_argument("-dat", "--dataset", type=str)
     parser.add_argument("-p", "--pixel", type=int, required=False)
+    parser.add_argument("--decoder-type", type=str, default="fc", choices=["fc", "conv", "v2_conv"])
+    parser.add_argument("--loss_z_factor", type=float, default=1.0, help="Weight for the z factor loss term")
+    # debug flag
+    parser.add_argument("--debug", action="store_true", default=False, help="Run in debug mode with sample data")
     args = parser.parse_args()
     num_epochs = args.num_epochs
     batch_size = args.batch_size
@@ -108,11 +145,17 @@ if __name__ == "__main__":
     if args.gamma:
         w = args.gamma
     else:
-        if dataset_name == "MCF10A_and_A549":
+        if dataset_name.startswith("MCF10A") or dataset_name.startswith("tutorial"):  # == "MCF10A_and_A549":
             w = 166531 / (args.batch_size * 1000)  # For MCF10A_and_A549 dataset, use a fixed value
-        else:
+        elif dataset_name == "codhacs":
             w = estimate_optimal_gamma(dataset_name, batch_size)
+        else:
+            assert False, "Please provide a valid dataset name or gamma value"
 
+    # Create ./harmony_results/{dataset_name}/
+    from pathlib import Path
+
+    Path(f"./harmony_results/{dataset_name}").mkdir(parents=True, exist_ok=True)
     train_and_evaluate(
         dataset_name=dataset_name,
         batch_size=batch_size,
@@ -122,4 +165,7 @@ if __name__ == "__main__":
         pixel=pixel,
         load_model=load_model,
         w=w,
+        decoder_type=args.decoder_type,
+        debug=args.debug,
+        loss_z_factor=args.loss_z_factor,  # Pass the loss_z_factor argument
     )

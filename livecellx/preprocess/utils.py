@@ -73,25 +73,11 @@ def normalize_img_by_bitdepth(img: np.ndarray, bit_depth: int = 8, mean=None) ->
         dtype_max = np.iinfo(np.uint32).max
     else:
         raise ValueError(f"bit_depth must be 8, 16, or 32, not {bit_depth}")
-
-    if bit_depth == 8:
-        dtype = np.uint8
-        img = img * 255
-        mean = mean if mean is not None else 127
-    elif bit_depth == 16:
-        dtype = np.uint16
-        img = img * 65535
-        mean = mean if mean is not None else 32767
-    elif bit_depth == 32:
-        dtype = np.uint32
-        img = img * np.iinfo(np.uint32).max  # Max uint32 value
-        mean = mean if mean is not None else np.iinfo(np.uint32).max // 2
-    else:
-        raise ValueError(f"bit_depth must be 8, 16, or 32, not {bit_depth}")
+    mean = mean if mean is not None else dtype_max // 2
+    img *= dtype_max
 
     # Scale to mean
     mean = int(mean)
-
     img = img - np.mean(img.flatten()) + mean
     img = np.clip(img, 0, dtype_max)  # Ensure values are within [0, 255]
     img = img.astype(dtype)
