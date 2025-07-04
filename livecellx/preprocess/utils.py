@@ -34,53 +34,46 @@ def normalize_features_zscore(features: np.ndarray) -> np.ndarray:
 
 
 # TODO: add tests
-def normalize_img_by_bitdepth(img: np.ndarray, bit_depth: int = 8, mean=None) -> np.ndarray:
-    """
-    Normalize an image by its bit depth.
-    Parameters:
-    img (np.ndarray): Input image array.
-    bit_depth (int, optional): Bit depth to normalize the image to. Must be one of 8, 16, or 32. Default is 8.
-    mean (int, optional): Desired mean value for the normalized image. If None, defaults to half of the maximum value for the given bit depth.
-    Returns:
-    np.ndarray: Normalized image array.
-    Raises:
-    ValueError: If bit_depth is not one of 8, 16, or 32.
-    """
+def normalize_img_by_bitdepth(img: np.ndarray, bit_depth: int = 8, mean=None, use_percentile=False, lower=2, upper=98):
     if bit_depth not in [8, 16, 32]:
         raise ValueError(f"bit_depth must be 8, 16, or 32, not {bit_depth}")
 
-    img = img.astype(np.float32)  # Ensure floating point for normalization
-
-    std = np.std(img.flatten())
-    if std != 0:
-        img = (img - np.mean(img.flatten())) / std
-    else:
-        img = img - np.mean(img.flatten())
-
-    img = img + abs(np.min(img.flatten()))  # Shift to non-negative values
-
-    if np.max(img.flatten()) != 0:
-        img = img / np.max(img.flatten())  # Normalize to [0, 1]
-
-    # Scale according to bit depth and mean to be half of the max val if not specified
-    dtype = None
-    dtype_max = None
+    # Determine dtype and max
     if bit_depth == 8:
-        dtype_max = 255
+        dtype, dtype_max = np.uint8, 255
     elif bit_depth == 16:
-        dtype_max = 65535
+        dtype, dtype_max = np.uint16, 65535
     elif bit_depth == 32:
-        dtype_max = np.iinfo(np.uint32).max
-    else:
-        raise ValueError(f"bit_depth must be 8, 16, or 32, not {bit_depth}")
+        dtype, dtype_max = np.uint32, np.iinfo(np.uint32).max
     mean = mean if mean is not None else dtype_max // 2
-    img *= dtype_max
 
-    # Scale to mean
-    mean = int(mean)
-    img = img - np.mean(img.flatten()) + mean
-    img = np.clip(img, 0, dtype_max)  # Ensure values are within [0, 255]
-    img = img.astype(dtype)
+    img = img.astype(np.float32)
+
+    # Rescale using min-max or percentile
+    if use_percentile:
+        pmin = np.percentile(img, lower)
+        pmax = np.percentile(img, upper)
+    else:
+        pmin, pmax = img.min(), img.max()
+    img = (img - pmin) / (pmax - pmin) * dtype_max
+    img = np.clip(img, 0, dtype_max)  # Shouldn't be needed, but safe
+
+    # Now, shift/scaling to get mean
+    curr_mean = img.mean()
+    shift = mean - curr_mean
+
+    # Check if direct shift is safe
+    new_min, new_max = img.min() + shift, img.max() + shift
+    if new_min >= 0 and new_max <= dtype_max:
+        img = img + shift
+    else:
+        # Must compress toward mean to prevent overflow/underflow
+        max_delta = min(mean - 0, dtype_max - mean)
+        img = mean + (img - curr_mean) * (max_delta / max(abs(img - curr_mean).max(), 1e-6))
+        # Now mean is correct, no overflow
+
+    # Final rounding/cast
+    img = np.round(img).astype(dtype)
     return img
 
 
