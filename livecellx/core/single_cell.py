@@ -1,3 +1,4 @@
+from collections.abc import Hashable
 import itertools
 import json
 import copy
@@ -1920,7 +1921,7 @@ class SingleCellTrajectoryCollection:
     """
 
     def __init__(self, scts: Optional[List[SingleCellTrajectory]] = None) -> None:
-        self.track_id_to_trajectory: Dict[float, SingleCellTrajectory] = dict()
+        self.track_id_to_trajectory: Dict[Hashable, SingleCellTrajectory] = dict()
         if scts is not None:
             for sct in scts:
                 self.add_trajectory(sct)
