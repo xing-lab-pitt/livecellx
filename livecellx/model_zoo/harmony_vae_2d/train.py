@@ -1,6 +1,6 @@
 import torch
 from tqdm import tqdm
-from .utils import loss_fn, plot_loss
+from .utils import loss_fn, plot_loss, loss_fn_v2
 from .model import save_ckp, load_ckp
 
 
@@ -22,6 +22,7 @@ def train_model(
     w=1,
     scale=False,
     loss_z_factor=1.0,
+    loss_version="v1",  # Default to version 1 of the loss function
 ):
     print("[INFO] Training model on dataset: {} with parameters below".format(dataset_name))
     print("[INFO] Using z_dim: {}".format(z_dim))
@@ -42,9 +43,26 @@ def train_model(
             images = images.to(device=device)
             data = images.reshape(batch_size, 1, pixel, pixel)
             image_z1, image_z2, image_x_theta1, image_x_theta2, phi1, phi2 = siamese(data, scale)
-            loss_dict = loss_fn(
-                image_z1, image_z2, image_x_theta1, image_x_theta2, phi1, phi2, z_dim, w, scale, return_dict=True
-            )
+            if loss_version == "v1":
+                loss_dict = loss_fn(
+                    image_z1, image_z2, image_x_theta1, image_x_theta2, phi1, phi2, z_dim, w, scale, return_dict=True
+                )
+            elif loss_version == "v2":
+                loss_dict = loss_fn_v2(
+                    image_z1,
+                    image_z2,
+                    image_x_theta1,
+                    image_x_theta2,
+                    phi1,
+                    phi2,
+                    z_dim,
+                    w,
+                    scale,
+                    return_dict=True,
+                    loss_z_factor=loss_z_factor,
+                )
+            else:
+                raise ValueError("Invalid loss_version. Choose 'v1' or 'v2'.")
             loss = loss_dict["total_loss"]
             optimizer.zero_grad()
             loss.backward()
