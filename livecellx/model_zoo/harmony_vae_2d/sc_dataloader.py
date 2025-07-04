@@ -17,6 +17,9 @@ from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
 from livecellx.preprocess.utils import normalize_img_by_bitdepth
 
 
+WATER_RI = 1.333
+
+
 class SingleCellVaeDataset(torch.utils.data.Dataset):
     def __init__(
         self,
@@ -27,6 +30,7 @@ class SingleCellVaeDataset(torch.utils.data.Dataset):
         download=None,
         split="",
         cache_items: bool = True,
+        include_background: bool = True,  # New argument
     ):
         self.scs = scs
         self.img_shape = img_shape
@@ -37,17 +41,34 @@ class SingleCellVaeDataset(torch.utils.data.Dataset):
         self.split = split
         self.cache_items = cache_items
         self.cached_items = {}
+        self.include_background = include_background  # Store as attribute
 
-    def __getitem__(self, idx, img_only=True) -> Union[dict, list, torch.Tensor, tuple]:
+    def __getitem__(self, idx, img_only=True, bg_mode="min", bg_constant=0) -> Union[dict, list, torch.Tensor, tuple]:
         if self.cache_items and idx in self.cached_items:
             return self.cached_items[idx]
-        img = self.scs[idx].get_img_crop(padding=self.padding)
-        img = normalize_img_by_bitdepth(img, mean=127, bit_depth=8)
+        sc = self.scs[idx]
+        img = sc.get_img_crop(padding=self.padding)
+        mask = sc.get_mask_crop(padding=self.padding)
+        if not self.include_background:
+            mask = sc.get_mask_crop(padding=self.padding)
+            img = img.copy()
+            if bg_mode == "min":
+                img[mask < 1] = img.min()
+            elif bg_mode == "constant":
+                img[mask < 1] = bg_constant
+            else:
+                raise ValueError(f"Unknown background mode: {bg_mode}. Use 'min' or 'constant'.")
+        img[mask < 1] = WATER_RI  # Set background to water RI
+        # img = normalize_img_by_bitdepth(img, mean=127, bit_depth=8)
         img = img.reshape([1] + list(img.shape))
         img = torch.from_numpy(img).float()
+        # Per-image normalization: subtract mean, divide by std
+        img_mean = img.mean()
+        img_std = img.std()
+        img = (img - img_mean) / (img_std + 1e-8)
+
         if self.transform:
             img = self.transform(img)
-        # Resize images to the specified shape
         img = torch.nn.functional.interpolate(
             img.unsqueeze(0), size=self.img_shape, mode="bilinear", align_corners=False
         ).squeeze(0)
@@ -72,6 +93,7 @@ def scs_train_test_dataloader(
     img_shape=(256, 256),
     batch_size=100,
     preload_dataset_to_memory=True,
+    include_background=True,  # New argument
 ):
     # if path is string, convert to Path
     if isinstance(sctc_path, str):
@@ -96,11 +118,13 @@ def scs_train_test_dataloader(
         train_scs,
         padding=padding,
         img_shape=img_shape,
+        include_background=include_background,  # Pass argument
     )
     test_dataset = SingleCellVaeDataset(
         test_scs,
         padding=padding,
         img_shape=img_shape,
+        include_background=include_background,  # Pass argument
     )
     if preload_dataset_to_memory:
         # Load datasets into memory

@@ -24,6 +24,8 @@ def train_and_evaluate(
     decoder_type="fc",  # Added decoder_type argument
     debug=False,
     loss_z_factor=1.0,  # Added loss_z_factor argument
+    include_background=True,  # New argument
+    loss_version="v1",
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if decoder_type == "v2_conv":
@@ -46,13 +48,17 @@ def train_and_evaluate(
         dic_dataset, mask_dataset = tutorial_three_image_sys()
         single_cells = prep_scs_from_mask_dataset(mask_dataset, dic_dataset)
         train_loader, test_loader = scs_train_test_dataloader(
-            scs=single_cells, padding=30, img_shape=(pixel, pixel), batch_size=batch_size
+            scs=single_cells,
+            padding=30,
+            img_shape=(pixel, pixel),
+            batch_size=batch_size,
+            include_background=include_background,
         )
 
     elif dataset_name.startswith("MCF10A"):  # "MCF10A_and_A549":
         print("[INFO] Using MCF10A_and_A549 dataset")
         train_loader, test_loader = scs_train_test_dataloader(
-            padding=30, img_shape=(pixel, pixel), batch_size=batch_size
+            padding=30, img_shape=(pixel, pixel), batch_size=batch_size, include_background=include_background
         )
     else:
         train_loader, test_loader, mu, std = data_loader(dataset_name, pixel, batch_size)
@@ -65,6 +71,11 @@ def train_and_evaluate(
     print("[INFO] Using scale: {}".format(scale))
     print("[INFO] Using decoder_type: {}".format(decoder_type))
     print("[INFO] Using loss_z_factor: {}".format(loss_z_factor))
+    print("[INFO] Using include_background: {}".format(include_background))
+    if scale:
+        assert NotImplementedError(
+            "Scaling is not implemented in this version. Please set scale=False or implement scaling in the model."
+        )
 
     # Print dataset size
     print("[INFO] Training dataset size: {}".format(len(train_loader.dataset)))
@@ -100,6 +111,7 @@ def train_and_evaluate(
         w,
         scale,
         loss_z_factor=loss_z_factor,  # Pass the loss_z_factor argument
+        loss_version=loss_version,  # Pass the loss_version argument
     )
 
     evaluate_model(dataset_name, siamese, z_dim, pixel, batch_size, device, scale, test_loader=test_loader)
@@ -118,6 +130,15 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--pixel", type=int, required=False)
     parser.add_argument("--decoder-type", type=str, default="fc", choices=["fc", "conv", "v2_conv"])
     parser.add_argument("--loss_z_factor", type=float, default=1.0, help="Weight for the z factor loss term")
+    parser.add_argument(
+        "--include_background",
+        type=lambda x: (str(x).lower() == "true"),
+        default=True,
+        help="Include background pixels in training images (default: True/False)",
+    )
+    parser.add_argument(
+        "--loss_version", type=str, default="v1", choices=["v1", "v2"], help="Version of the loss function to use"
+    )
     # debug flag
     parser.add_argument("--debug", action="store_true", default=False, help="Run in debug mode with sample data")
     args = parser.parse_args()
@@ -126,13 +147,16 @@ if __name__ == "__main__":
     learning_rate = args.learning_rate
     z_dim = args.z_dim
     dataset_name = args.dataset
-    if dataset_name == "MNIST":
-        pixel = 28
-    else:
-        pixel = 40
 
     if args.pixel:  # If argument is provided it will supercede
         pixel = args.pixel
+    elif dataset_name == "MNIST":
+        print("[INFO] Using MNIST pixel size of 28")
+        pixel = 28
+    else:
+        print("[INFO] No arg set, Using default pixel size of 64")
+        pixel = 40
+
     load_model = False
     scale = False
     if args.load_model:
@@ -168,4 +192,6 @@ if __name__ == "__main__":
         decoder_type=args.decoder_type,
         debug=args.debug,
         loss_z_factor=args.loss_z_factor,  # Pass the loss_z_factor argument
+        include_background=args.include_background,  # Pass the include_background argument
+        loss_version=args.loss_version,  # Pass the loss_version argument
     )

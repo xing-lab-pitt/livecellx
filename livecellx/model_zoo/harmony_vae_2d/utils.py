@@ -39,6 +39,62 @@ def loss_fn(
     return loss
 
 
+def loss_fn_v2(
+    image_z1, image_z2, image_x_theta1, image_x_theta2, phi1, phi2, dim, w, scale, return_dict=False, loss_z_factor=1.0
+):
+    """
+    V2 loss function for Harmony VAE 2D. Requires bhattacharyya_coefficient and tsne_loss to be defined in this module.
+    Supports return_dict and loss_z_factor for compatibility with v1.
+    """
+    n = image_x_theta1.size(0)
+    recon_loss1 = F.mse_loss(image_z1, image_x_theta1, reduction="sum").div(n)
+    recon_loss2 = F.mse_loss(image_z2, image_x_theta2, reduction="sum").div(n)
+    branch_loss = F.mse_loss(image_x_theta1, image_x_theta2, reduction="sum").div(n)
+    if scale is True:
+        trans_dim = 2
+    else:
+        trans_dim = 1
+    z1_mean = phi1[:, trans_dim : trans_dim + dim]
+    z1_var = phi1[:, -dim:]
+    z2_mean = phi2[:, trans_dim : trans_dim + dim]
+    z2_var = phi2[:, -dim:]
+    batch_size = z1_mean.size(0)
+    # --- Bhattacharyya coefficient ---
+    def bhattacharyya_coefficient(mu1, mu2, logvar1, logvar2):
+        var1 = logvar1.exp()
+        var2 = logvar2.exp()
+        term1 = 0.25 * ((mu1 - mu2) ** 2 / (var1 + var2)).sum(dim=1)
+        term2 = 0.5 * torch.log(0.5 * (var1 + var2) / (var1.sqrt() * var2.sqrt())).sum(dim=1)
+        return (term1 + term2).mean()
+
+    # --- t-SNE loss dummy ---
+    def tsne_loss(x, z):
+        return torch.tensor(0.0, device=x.device)
+
+    z_loss = batch_size * bhattacharyya_coefficient(z1_mean, z2_mean, z1_var, z2_var).div(dim)
+    neg_z_loss = 0
+    for i in range(0, batch_size - 1):
+        z2_mean = torch.roll(z2_mean, 1, 0)
+        z2_var = torch.roll(z2_var, 1, 0)
+        if i == 0:
+            neg_z_loss = bhattacharyya_coefficient(mu1=z1_mean, mu2=z2_mean, logvar1=z1_var, logvar2=z2_var).div(dim)
+        else:
+            neg_z_loss += bhattacharyya_coefficient(mu1=z1_mean, mu2=z2_mean, logvar1=z1_var, logvar2=z2_var).div(dim)
+    z_loss = batch_size * torch.mean(z_loss / (neg_z_loss))
+    z_loss_weighted = z_loss * loss_z_factor
+    tsne_loss_total = tsne_loss(image_x_theta1, z1_mean) + tsne_loss(image_x_theta2, z2_mean)
+    loss = w * (recon_loss1 + recon_loss2 + branch_loss) + z_loss_weighted + tsne_loss_total
+    if return_dict:
+        return {
+            "recon_loss1": recon_loss1,
+            "recon_loss2": recon_loss2,
+            "branch_loss": branch_loss,
+            "z_loss": z_loss,
+            "total_loss": loss,
+        }
+    return loss
+
+
 def plot_loss(
     dataset_name,
     epoch_train_loss,
