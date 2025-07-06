@@ -1199,61 +1199,61 @@ class SingleUnit:
             ax.imshow(self.get_img(), **kwargs)
         return ax
 
-    def show_mask(self, crop=False, padding=0, ax: plt.Axes = None, **kwargs):
+    def show_mask(self, crop=False, padding=0, ax: plt.Axes = None, cmap=None, **kwargs):
         if ax is None:
             ax = plt.gca()
         if crop:
-            ax.imshow(self.get_mask_crop(padding=padding), **kwargs)
+            ax.imshow(self.get_mask_crop(padding=padding), cmap=cmap, **kwargs)
         else:
-            ax.imshow(self.get_mask(), **kwargs)
+            ax.imshow(self.get_mask(), cmap=cmap, **kwargs)
         return ax
 
-    def show_label_mask(self, padding=0, ax: plt.Axes = None, crop=True, **kwargs):
+    def show_label_mask(self, padding=0, ax: plt.Axes = None, crop=True, cmap=None, **kwargs):
         if ax is None:
             ax = plt.gca()
         if crop:
-            ax.imshow(self.get_label_mask_crop(padding=padding), **kwargs)
+            ax.imshow(self.get_label_mask_crop(padding=padding), cmap=cmap, **kwargs)
         else:
-            ax.imshow(self.get_label_mask(crop=crop, padding=padding), **kwargs)
+            ax.imshow(self.get_label_mask(crop=crop, padding=padding), cmap=cmap, **kwargs)
         return ax
 
-    def show_contour_mask(self, padding=0, ax: plt.Axes = None, crop=True, **kwargs):
+    def show_contour_mask(self, padding=0, ax: plt.Axes = None, crop=True, cmap=None, **kwargs):
         if ax is None:
             ax = plt.gca()
-        ax.imshow(self.get_contour_mask(crop=crop, padding=padding), **kwargs)
+        ax.imshow(self.get_contour_mask(crop=crop, padding=padding), cmap=cmap, **kwargs)
         return ax
 
-    def show_contour_img(self, padding=0, ax: plt.Axes = None, crop=True, **kwargs):
+    def show_contour_img(self, padding=0, ax: plt.Axes = None, crop=True, cmap=None, **kwargs):
         if ax is None:
             ax = plt.gca()
-        ax.imshow(self.get_contour_img(crop=crop, padding=padding), **kwargs)
+        ax.imshow(self.get_contour_img(crop=crop, padding=padding), cmap=cmap, **kwargs)
         return ax
 
-    def show_whole_img(self, ax: plt.Axes = None, **kwargs):
+    def show_whole_img(self, ax: plt.Axes = None, cmap=None, **kwargs):
         if ax is None:
             ax = plt.gca()
-        ax.imshow(self.get_img(), **kwargs)
+        ax.imshow(self.get_img(), cmap=cmap, **kwargs)
         return ax
 
-    def show_whole_mask(self, ax: plt.Axes = None, **kwargs):
+    def show_whole_mask(self, ax: plt.Axes = None, cmap=None, **kwargs):
         if ax is None:
             ax = plt.gca()
-        ax.imshow(self.get_mask(), **kwargs)
+        ax.imshow(self.get_mask(), cmap=cmap, **kwargs)
 
-    def show_panel(self, padding=0, figsize=(20, 10), **kwargs):
+    def show_panel(self, padding=0, figsize=(20, 10), img_cmap=None, mask_cmap=None, **kwargs):
         crop = True
         fig, axes = plt.subplots(1, 6, figsize=figsize)
-        self.show(ax=axes[0], crop=False, padding=padding, **kwargs)
+        self.show(ax=axes[0], crop=False, padding=padding, cmap=img_cmap, **kwargs)
         axes[0].set_title("img")
-        self.show_mask(ax=axes[1], crop=False, padding=padding, **kwargs)
+        self.show_mask(ax=axes[1], crop=False, padding=padding, cmap=mask_cmap, **kwargs)
         axes[1].set_title("mask")
-        self.show_contour_img(ax=axes[2], crop=crop, padding=padding, **kwargs)
+        self.show_contour_img(ax=axes[2], crop=crop, padding=padding, cmap=img_cmap, **kwargs)
         axes[2].set_title("contour_img")
-        self.show_contour_mask(ax=axes[3], crop=crop, padding=padding, **kwargs)
+        self.show_contour_mask(ax=axes[3], crop=crop, padding=padding, cmap=mask_cmap, **kwargs)
         axes[3].set_title("contour_mask")
-        self.show_label_mask(ax=axes[4], crop=True, padding=padding, **kwargs)
+        self.show_label_mask(ax=axes[4], crop=True, padding=padding, cmap=mask_cmap, **kwargs)
         axes[4].set_title("label_crop")
-        self.show(ax=axes[5], crop=True, padding=padding, **kwargs)
+        self.show(ax=axes[5], crop=True, padding=padding, cmap=img_cmap, **kwargs)
         axes[5].set_title("img_crop")
         return axes
 
