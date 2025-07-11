@@ -24,7 +24,11 @@ from livecellx.core import (
     SingleCellTrajectoryCollection,
 )
 from livecellx.core.single_cell import get_time2scs
-from livecellx.core.datasets import LiveCellImageDataset
+try:  # optional heavy dependency
+    from livecellx.core.datasets import LiveCellImageDataset
+except Exception:  # pragma: no cover - used when optional deps are missing
+    from typing import Any
+    LiveCellImageDataset = Any  # type: ignore
 from livecellx.preprocess.utils import (
     overlay,
     enhance_contrast,

@@ -21,7 +21,11 @@ import uuid
 from scipy import ndimage
 from skimage.draw import polygon
 
-from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
+try:  # Optional heavy dependency
+    from livecellx.core.datasets import LiveCellImageDataset, SingleImageDataset
+except Exception:  # pragma: no cover - used when optional deps are missing
+    LiveCellImageDataset = Any  # type: ignore
+    SingleImageDataset = Any  # type: ignore
 from livecellx.core.io_utils import LiveCellEncoder
 from livecellx.core.parallel import parallelize
 from livecellx.core.sc_key_manager import SingleCellMetaKeyManager as SCKM
