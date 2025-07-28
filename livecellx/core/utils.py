@@ -140,16 +140,32 @@ def crop_or_pad_img(img_crop, fix_dims):
     if fix_dims is not None:
         if img_crop.shape[0] > fix_dims[0]:
             start = (img_crop.shape[0] - fix_dims[0]) // 2
-            img_crop = img_crop[start : start + fix_dims[0], :]
+            end = start + fix_dims[0]
+            img_crop = img_crop[start:end, :]
         else:
-            pad = (fix_dims[0] - img_crop.shape[0]) // 2
-            img_crop = np.pad(img_crop, ((pad, pad), (0, 0)), mode="constant", constant_values=0)
+            pad_total = fix_dims[0] - img_crop.shape[0]
+            pad_before = pad_total // 2
+            pad_after = pad_total - pad_before
+            img_crop = np.pad(
+                img_crop,
+                ((pad_before, pad_after), (0, 0)),
+                mode="constant",
+                constant_values=0,
+            )
 
         if img_crop.shape[1] > fix_dims[1]:
             start = (img_crop.shape[1] - fix_dims[1]) // 2
-            img_crop = img_crop[:, start : start + fix_dims[1]]
+            end = start + fix_dims[1]
+            img_crop = img_crop[:, start:end]
         else:
-            pad = (fix_dims[1] - img_crop.shape[1]) // 2
-            img_crop = np.pad(img_crop, ((0, 0), (pad, pad)), mode="constant", constant_values=0)
+            pad_total = fix_dims[1] - img_crop.shape[1]
+            pad_before = pad_total // 2
+            pad_after = pad_total - pad_before
+            img_crop = np.pad(
+                img_crop,
+                ((0, 0), (pad_before, pad_after)),
+                mode="constant",
+                constant_values=0,
+            )
 
     return img_crop

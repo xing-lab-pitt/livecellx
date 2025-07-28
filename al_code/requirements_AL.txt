@@ -1,0 +1,120 @@
+# Active Learning for Single-Cell Segmentation - Dependencies
+# Compatible with Python 3.9+
+# Created: 2025-07-27
+
+# ============================================================================
+# CORE DEEP LEARNING FRAMEWORKS
+# ============================================================================
+
+# PyTorch ecosystem (CUDA 11.8 compatible)
+torch==2.7.1
+torchvision==0.22.1
+torchaudio==2.7.1
+
+# PyTorch Lightning for training framework
+pytorch-lightning==2.5.2
+lightning-utilities==0.15.0
+
+# Metrics computation
+torchmetrics==1.8.0
+
+# ============================================================================
+# EXPERIMENT TRACKING & VISUALIZATION
+# ============================================================================
+
+# TensorBoard for logging and visualization
+tensorboard==2.20.0
+tensorboard-data-server==0.7.2
+tensorboardX==2.6.4
+
+# ============================================================================
+# DATA SCIENCE & ANALYSIS
+# ============================================================================
+
+# Core data manipulation and analysis
+numpy==2.0.2
+pandas==2.3.1
+
+# Scientific computing and image processing
+scikit-image==0.24.0
+scikit-learn==1.6.1
+
+# ============================================================================
+# VISUALIZATION & PLOTTING
+# ============================================================================
+
+# Matplotlib ecosystem
+matplotlib==3.9.2
+seaborn==0.13.2
+
+# ============================================================================
+# IMAGE PROCESSING & COMPUTER VISION
+# ============================================================================
+
+# OpenCV for image processing
+opencv-python==4.12.0.88
+
+# PIL/Pillow for image handling
+pillow==11.3.0
+
+# ============================================================================
+# UTILITIES & PROGRESS TRACKING
+# ============================================================================
+
+# Progress bars and utilities
+tqdm==4.67.1
+
+# ============================================================================
+# ADDITIONAL DEPENDENCIES (automatically installed)
+# ============================================================================
+
+# The following packages are automatically installed as dependencies:
+# - absl-py (for TensorBoard)
+# - grpcio (for TensorBoard)
+# - markdown (for TensorBoard)
+# - werkzeug (for TensorBoard)
+# - packaging (for PyTorch Lightning)
+# - PyYAML (for PyTorch Lightning)
+# - fsspec (for PyTorch Lightning)
+# - typing-extensions (for PyTorch Lightning)
+# - importlib-metadata (for TensorBoard)
+# - setuptools (for TensorBoard)
+# - protobuf (for TensorBoard)
+
+# ============================================================================
+# INSTALLATION INSTRUCTIONS
+# ============================================================================
+
+# 1. Create conda environment:
+#    conda create -n livecellx-al python=3.9
+#    conda activate livecellx-al
+
+# 2. Install PyTorch with CUDA support:
+#    pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu118
+
+# 3. Install remaining dependencies:
+#    pip install -r requirements.txt
+
+# 4. Verify installation:
+#    python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
+#    python -c "import pytorch_lightning as pl; print('PyTorch Lightning version:', pl.__version__)"
+
+# ============================================================================
+# SYSTEM REQUIREMENTS
+# ============================================================================
+
+# - Python 3.9+
+# - CUDA 11.8+ (for GPU acceleration)
+# - 16GB+ RAM (32GB recommended)
+# - 20GB+ free disk space
+# - NVIDIA GPU with 8GB+ VRAM (GTX 1080 or better)
+
+# ============================================================================
+# COMPATIBILITY NOTES
+# ============================================================================
+
+# - Tested on Ubuntu 20.04/22.04 LTS
+# - Compatible with CUDA 11.8
+# - PyTorch Lightning 2.5.2 requires specific torchmetrics version
+# - OpenCV version ensures compatibility with latest numpy
+# - All versions tested together in comprehensive AL benchmark experiments

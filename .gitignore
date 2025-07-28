@@ -192,3 +192,20 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# =============================================================================
+# Active Learning Code Data and Results (Added by Claude)
+# =============================================================================
+
+# AL code data and results directories
+al_code/data/
+al_code/results/
+
+# Comprehensive benchmark results
+comprehensive_benchmark_v2_*/
+
+# Temporary experiment directories
+csv_validation_test_*/
+debug_benchmark_*/
+quick_benchmark_v2_*/
+scripts_agent_discarded/
