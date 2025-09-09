@@ -98,8 +98,9 @@ def assemble_train_test_dataset(
     # Split via random
     train_indices = random.sample(range(len(train_df)), train_sample_num)
     val_indices = list(set(range(len(train_df))) - set(train_indices))
-    train_df = train_df.iloc[train_indices]
-    val_df = train_df.iloc[val_indices]
+    all_train_df = train_df.copy()
+    train_df = all_train_df.iloc[train_indices]
+    val_df = all_train_df.iloc[val_indices]
 
     train_dataset = assemble_dataset(
         train_df,
@@ -220,7 +221,7 @@ def evaluate_sample_v3(
     scale=None,
     out_threshold=0.6,
     gt_label_mask=None,
-    gt_iou_match_thresholds=[0.5, 0.8, 0.9, 0.95],  # eval on a range of thresholds
+    gt_iou_match_thresholds=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95],  # eval on a range of thresholds
     return_outs_and_sample=False,
     apply_watershed=True,
     sample_model_output=None,
