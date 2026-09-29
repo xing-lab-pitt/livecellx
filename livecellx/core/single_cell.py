@@ -49,6 +49,50 @@ class Config:
     json_indent = 4
 
 
+LIVECELLX_ROOT = Path(__file__).resolve().parents[2]
+_SAVED_DATASET_PATH_KEYS = {
+    SCKM.JSON_IMG_DATASET_PATH,
+    SCKM.JSON_MASK_DATASET_PATH,
+    "dataset_json_dir",
+}
+
+
+def _transform_saved_dataset_paths(json_data, transform):
+    """Transform dataset references anywhere in a serialized cell object."""
+    if isinstance(json_data, dict):
+        for key, value in json_data.items():
+            if key in _SAVED_DATASET_PATH_KEYS and isinstance(value, str) and value:
+                json_data[key] = transform(value)
+            else:
+                _transform_saved_dataset_paths(value, transform)
+    elif isinstance(json_data, list):
+        for value in json_data:
+            _transform_saved_dataset_paths(value, transform)
+    return json_data
+
+
+def _path_relative_to_livecellx_root(value):
+    if "://" in value:
+        return value
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = LIVECELLX_ROOT / path
+    return Path(os.path.relpath(path.resolve(), start=LIVECELLX_ROOT)).as_posix()
+
+
+def _path_from_livecellx_root(value):
+    if "://" in value:
+        return value
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = LIVECELLX_ROOT / path
+    return str(path.resolve())
+
+
+def _relativize_saved_dataset_paths(json_data):
+    return _transform_saved_dataset_paths(json_data, _path_relative_to_livecellx_root)
+
+
 # TODO: possibly refactor load_from_json methods into a mixin class
 class SingleUnit:
     """Base class for single biological units (cells, organelles, etc.)"""
@@ -670,7 +714,7 @@ class SingleUnit:
             "timeframe": int(self.timeframe),
             "bbox": (list(np.array(self.bbox, dtype=float)) if self.bbox is not None else None),
             "feature_dict": dict(self.feature_dict),
-            "contour": self.contour.tolist() if self.contour is not None else None,
+            "contour": np.asarray(self.contour).tolist() if self.contour is not None else None,
             "meta": dict(self.meta),
             "id": str(self.id),
             "uns": dict(self.uns),
@@ -734,10 +778,14 @@ class SingleUnit:
         self.mask_dataset = mask_dataset
 
         if self.img_dataset is None and img_dataset_path:
-            self.img_dataset = LiveCellImageDataset.load_from_json_file(path=self.meta[SCKM.JSON_IMG_DATASET_PATH])
+            img_dataset_path = _path_from_livecellx_root(img_dataset_path)
+            self.meta[SCKM.JSON_IMG_DATASET_PATH] = img_dataset_path
+            self.img_dataset = LiveCellImageDataset.load_from_json_file(path=img_dataset_path)
 
         if self.mask_dataset is None and mask_dataset_path:
-            self.mask_dataset = LiveCellImageDataset.load_from_json_file(path=self.meta[SCKM.JSON_MASK_DATASET_PATH])
+            mask_dataset_path = _path_from_livecellx_root(mask_dataset_path)
+            self.meta[SCKM.JSON_MASK_DATASET_PATH] = mask_dataset_path
+            self.mask_dataset = LiveCellImageDataset.load_from_json_file(path=mask_dataset_path)
 
         # TODO: discuss and decide whether to keep mask dataset
         # self.mask_dataset = LiveCellImageDataset(
@@ -863,6 +911,7 @@ class SingleUnit:
 
         with open(path, "w+") as f:
             try:
+                _relativize_saved_dataset_paths(all_sc_jsons)
                 json.dump(all_sc_jsons, f, cls=LiveCellEncoder, indent=Config.json_indent)
             except TypeError as e:
                 main_exception("sample sc:" + str(all_sc_jsons[0]))
@@ -894,6 +943,7 @@ class SingleUnit:
         if path is None:
             return json.dumps(json_dict, cls=LiveCellEncoder, indent=Config.json_indent)
         else:
+            _relativize_saved_dataset_paths(json_dict)
             with open(path, "w+") as f:
                 json.dump(json_dict, f, cls=LiveCellEncoder, indent=Config.json_indent)
 
@@ -1647,7 +1697,7 @@ class SingleCellTrajectory:
                 for timeframe, sc in self.timeframe_to_single_cell.items()
             },
             # Store mother and daughter trajectories, and dataset json path in metadata
-            "meta": self.meta,
+            "meta": dict(self.meta),
         }
 
         if self.img_dataset is not None and res["meta"].get("img_dataset_json_path") is not None:
@@ -1674,6 +1724,7 @@ class SingleCellTrajectory:
         if path is None:
             return json.dumps(json_dict, cls=LiveCellEncoder, indent=Config.json_indent)
         else:
+            _relativize_saved_dataset_paths(json_dict)
             with open(path, "w+") as f:
                 json.dump(json_dict, f, cls=LiveCellEncoder, indent=Config.json_indent)
 
@@ -1699,6 +1750,8 @@ class SingleCellTrajectory:
         # If they're not found, look in `json_dict`.
         img_dataset_json_path = self.meta.get("img_dataset_json_path", json_dict.get("img_dataset_json_path"))
         if self.img_dataset is None and img_dataset_json_path is not None:
+            img_dataset_json_path = _path_from_livecellx_root(img_dataset_json_path)
+            self.meta["img_dataset_json_path"] = img_dataset_json_path
             if os.path.exists(img_dataset_json_path):
                 self.img_dataset = LiveCellImageDataset.load_from_json_file(path=img_dataset_json_path)
             else:
@@ -1706,6 +1759,8 @@ class SingleCellTrajectory:
 
         mask_dataset_json_path = self.meta.get("mask_dataset_json_path", json_dict.get("mask_dataset_json_path"))
         if self.mask_dataset is None and mask_dataset_json_path is not None:
+            mask_dataset_json_path = _path_from_livecellx_root(mask_dataset_json_path)
+            self.meta["mask_dataset_json_path"] = mask_dataset_json_path
             if os.path.exists(mask_dataset_json_path):
                 self.mask_dataset = LiveCellImageDataset.load_from_json_file(path=mask_dataset_json_path)
             else:
@@ -2061,9 +2116,11 @@ class SingleCellTrajectoryCollection:
             # Create the directory if it doesn't exist
             dataset_json_dir.mkdir(parents=True, exist_ok=True)
 
+        json_dict = self.to_json_dict(dataset_json_dir=dataset_json_dir)
+        _relativize_saved_dataset_paths(json_dict)
         with open(path, "w+") as f:
             json.dump(
-                self.to_json_dict(dataset_json_dir=dataset_json_dir),
+                json_dict,
                 f,
                 cls=LiveCellEncoder,
                 indent=Config.json_indent,
@@ -2194,6 +2251,22 @@ class SingleCellTrajectoryCollection:
         plt.show()
         return fig, ax
 
+    def get_sct_by_sc(self, sc: SingleCellStatic) -> SingleCellTrajectory:
+        """
+        根据给定的单细胞对象(sc)，查找并返回该细胞所属的轨迹（SingleCellTrajectory）。
+
+        遍历所有轨迹，并在每个轨迹中检查该细胞是否存在。这里采用了直接检查每个轨迹的单细胞列表，
+        如果在某个轨迹中找到了与sc相同（在时间点上匹配且对象相等）的单细胞，则返回该轨迹。
+
+        如果遍历所有轨迹后都没有找到对应的单细胞，抛出ValueError。
+        """
+        for trajectory in self.track_id_to_trajectory.values():
+            # 获取该轨迹中所有的单细胞（按时间排序）
+            scs = trajectory.get_all_scs()
+            # 如果sc出现在该轨迹中，则返回该轨迹
+            if sc in scs:
+                return trajectory
+        raise ValueError("The provided single cell does not belong to any trajectory in the collection.")
 
 def create_sctc_from_scs(scs: List[SingleCellStatic]) -> SingleCellTrajectoryCollection:
     temp_sc_trajs = SingleCellTrajectoryCollection()
