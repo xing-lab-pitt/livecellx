@@ -276,10 +276,9 @@ class SctOperator:
             print("Skipping connecting two shapes from the same trajectory...")
             return
         print("connecting two shapes from different trajectories...")
-        sct1_span = sct1.get_timeframe_span()
-        sct2_span = sct2.get_timeframe_span()
+        overlapping_frames = sorted(sct1.timeframe_set.intersection(sct2.timeframe_set))
 
-        if sct1_span[1] < sct2_span[0] or sct2_span[1] < sct1_span[0]:
+        if not overlapping_frames:
             res_traj = sct1.copy()
             res_traj.add_nonoverlapping_sct(sct2)
             self.traj_collection.pop_trajectory_by_id(sct1.track_id)
@@ -300,7 +299,10 @@ class SctOperator:
             self.store_shape_layer_info()
 
         else:
-            raise NotImplementedError("Two trajectories are overlapping, notImplemented for now...")
+            raise ValueError(
+                "Cannot connect trajectories containing cells at the same frame(s): "
+                f"{overlapping_frames}"
+            )
         print("connect operation complete!")
 
     def clear_selection(self):
@@ -356,10 +358,11 @@ class SctOperator:
         shape_layer.events.current_properties.connect(self.select_shape)
         self.store_shape_layer_info()
 
-    def setup_from_sctc(self, sctc: SingleCellTrajectoryCollection, contour_sample_num=20):
+    def setup_from_sctc(self, sctc: SingleCellTrajectoryCollection, contour_sample_num=20, bbox=False):
         shape_layer = NapariVisualizer.gen_trajectories_shapes(
             sctc,
             self.viewer,
+            bbox=bbox,
             contour_sample_num=contour_sample_num,
             text_parameters={
                 "string": "{track_id:0.0f}\n{status}",
@@ -375,7 +378,13 @@ class SctOperator:
         self.traj_collection = sctc
         return shape_layer
 
-    def setup_by_timespan(self, span: tuple, contour_sample_num=None, contour_sample_key="_contour_sample_num"):
+    def setup_by_timespan(
+        self,
+        span: tuple,
+        contour_sample_num=None,
+        contour_sample_key="_contour_sample_num",
+        bbox=False,
+    ):
         main_info(f"setting up shape layer by time span: {span}")
         tmp_sctc = filter_sctc_by_time_span(self.traj_collection, span)
         if self.shape_layer is not None:
@@ -390,7 +399,7 @@ class SctOperator:
 
         main_info("Generating Shapes in napari...")
         shape_layer = NapariVisualizer.gen_trajectories_shapes(
-            tmp_sctc, self.viewer, contour_sample_num=contour_sample_num
+            tmp_sctc, self.viewer, bbox=bbox, contour_sample_num=contour_sample_num
         )
         main_info("Setting up shape layer...")
         self.setup_shape_layer(shape_layer)
@@ -560,23 +569,87 @@ class SctOperator:
         self.clear_selection()
         print("<annotate click operation complete>")
 
+    def _get_single_selected_shape_index_for_edit(self):
+        def sc_key(sc):
+            return getattr(sc, "id", id(sc))
+
+        properties = self.shape_layer.properties
+        selected_indices = sorted([int(idx) for idx in self.shape_layer.selected_data])
+        if len(selected_indices) == 1:
+            return selected_indices[0]
+
+        if len(selected_indices) > 1 and "sc" in properties:
+            selected_scs = [
+                properties["sc"][idx]
+                for idx in selected_indices
+                if idx < len(properties["sc"])
+            ]
+            selected_sc_keys = {sc_key(sc) for sc in selected_scs}
+            if len(selected_scs) == len(selected_indices) and len(selected_sc_keys) == 1:
+                main_info(
+                    "Multiple selected shapes belong to the same single cell; editing that cell.",
+                    indent_level=2,
+                )
+                return selected_indices[0]
+
+        if len(self.select_info) == 1:
+            return int(self.select_info[0][2])
+
+        if len(self.select_info) > 1:
+            selected_sc_keys = {sc_key(sc) for _, sc, _ in self.select_info}
+            if len(selected_sc_keys) == 1:
+                main_info(
+                    "Multiple selected shapes belong to the same single cell; editing that cell.",
+                    indent_level=2,
+                )
+                return int(self.select_info[0][2])
+
+        if len(selected_indices) > 1 or len(self.select_info) > 1:
+            main_warning(
+                "More than one different cell is selected. Clear selection and select one cell before editing."
+            )
+            return None
+
+        main_warning("Please select one shape to edit.")
+        return None
+
     def edit_selected_sc(self):
-        # get the selected shape
-        current_properties = self.shape_layer.current_properties
-        if len(current_properties) == 0:
-            main_warning("Please select a shape to edit its properties.")
+        selected_shape_index = self._get_single_selected_shape_index_for_edit()
+        if selected_shape_index is None:
             return
-        if len(current_properties) > 1:
-            main_warning("More than one shape is selected. The first selected shape is used for editing.")
-        cur_sc = current_properties["sc"][0]
-        sc_operator = self.edit_sc(cur_sc)
+
+        properties = self.shape_layer.properties
+        if "sc" not in properties:
+            main_warning("Shape layer has no 'sc' property; cannot edit selected cell.")
+            return
+        if selected_shape_index >= len(properties["sc"]):
+            main_warning(
+                f"Selected shape index {selected_shape_index} is out of range for shape-layer properties."
+            )
+            return
+
+        cur_sc = properties["sc"][selected_shape_index]
+        self.shape_layer.selected_data = {selected_shape_index}
+        initial_shape_vec = None
+        try:
+            initial_shape_vec = np.asarray(self.shape_layer.data[selected_shape_index], dtype=float)
+        except Exception as exc:
+            main_warning(f"Failed to read selected shape for editing; using single-cell contour instead: {exc}")
+        sc_operator = self.edit_sc(cur_sc, initial_shape_vec=initial_shape_vec)
 
         # hide the shape layer
         self.shape_layer.visible = False
         return sc_operator
 
-    def edit_sc(self, cur_sc):
-        sc_operator = ScSegOperator(cur_sc, viewer=self.viewer, create_sc_layer=True, sct_observers=[self])
+    def edit_sc(self, cur_sc, force_fallback_shape=False, initial_shape_vec=None):
+        sc_operator = ScSegOperator(
+            cur_sc,
+            viewer=self.viewer,
+            create_sc_layer=True,
+            sct_observers=[self],
+            force_fallback_shape=force_fallback_shape,
+            initial_shape_vec=initial_shape_vec,
+        )
         create_sc_seg_napari_ui(sc_operator)
         self.sc_operators.append(sc_operator)
         return sc_operator
@@ -676,6 +749,11 @@ class SctOperator:
         new_sc = SingleCellStatic(timeframe=cur_time, contour=default_contour, img_dataset=self.img_dataset)
         new_sc.meta["created_by"] = "sct_operator"
         sc_operator = self.edit_sc(new_sc)
+        # For a newly added cell, start with an empty edit layer.  Otherwise
+        # the default square and the manually drawn contour both remain, and
+        # save_seg_callback correctly reports "Expected 1 contour, found 2".
+        if sc_operator.shape_layer is not None:
+            sc_operator.clear_sc_layer_callback()
         # add a new sct to sctc
         new_sct = SingleCellTrajectory(
             track_id=self.traj_collection._next_track_id(),
@@ -683,7 +761,6 @@ class SctOperator:
         )
         new_sct.add_sc(new_sc)
         self.traj_collection.add_trajectory(new_sct)
-        new_sct.add_sc(new_sc)
 
         self.created_objects.append(
             {
@@ -705,7 +782,9 @@ class SctOperator:
             "track_id": new_sc_layer_track_properties,
             "status": new_sc_layer_status_properties,
         }
-        sc_dummy_napari_data = [np.array([[new_sc.timeframe, 1, 1], [new_sc.timeframe, 10, 10]])]
+        sc_dummy_napari_data = [
+            np.asarray([[new_sc.timeframe] + list(point) for point in default_contour], dtype=float)
+        ]
         # self.shape_layer.data = list(self.shape_layer.data) + sc_napari_data
         random_color = list(np.random.rand(4))
         random_color[-1] = 1.0
@@ -900,6 +979,8 @@ def create_scts_operator_viewer(
     contour_sample_num=20,
     skip_add_shapes=False,
     img_layer_name="img_data",
+    image_cache=True,
+    bbox=False,
     name="scts",
 ) -> SctOperator:
     import napari
@@ -928,7 +1009,7 @@ def create_scts_operator_viewer(
         main_info("viewer is None, creating a new viewer...")
         if img_dataset is not None:
             main_info("Creating a new viewer with the img_dataset...")
-            viewer = napari.view_image(img_dataset.to_dask(), name=img_layer_name, cache=True)
+            viewer = napari.view_image(img_dataset.to_dask(), name=img_layer_name, cache=image_cache)
         else:
             main_info("Creating a new viewer because img_dataset is None...")
             viewer = napari.Viewer()
@@ -936,12 +1017,14 @@ def create_scts_operator_viewer(
     main_info("Creating a new shape layer...")
     if not skip_add_shapes:
         main_info("Adding shapes to the shape layer...")
-        shape_layer = NapariVisualizer.gen_trajectories_shapes(sctc, viewer, contour_sample_num=contour_sample_num)
+        shape_layer = NapariVisualizer.gen_trajectories_shapes(
+            sctc, viewer, bbox=bbox, contour_sample_num=contour_sample_num
+        )
     else:
         main_info("Skipping adding shapes to the shape layer...")
         empty_sctc = SingleCellTrajectoryCollection()
         shape_layer = NapariVisualizer.gen_trajectories_shapes(
-            empty_sctc, viewer, contour_sample_num=contour_sample_num
+            empty_sctc, viewer, bbox=bbox, contour_sample_num=contour_sample_num
         )
 
     shape_layer.mode = "select"
@@ -1113,6 +1196,8 @@ def create_sctc_edit_viewer_by_interval(
     viewer=None,
     clear_prev_batch=True,
     contour_sample_num=30,
+    image_cache=True,
+    bbox=False,
     uns_cur_idx_key="_lcx_sctc_cur_idx",
     init_time=0,
     contour_sample_num_key="_contour_sample_num",
@@ -1129,6 +1214,8 @@ def create_sctc_edit_viewer_by_interval(
         viewer=viewer,
         contour_sample_num=contour_sample_num,
         skip_add_shapes=True,
+        image_cache=image_cache,
+        bbox=bbox,
     )
 
     viewer = sct_operator.viewer
@@ -1165,7 +1252,7 @@ def create_sctc_edit_viewer_by_interval(
                 sct_operator.clear_selection()
             progress.setValue(50)
             QApplication.processEvents()
-            sct_operator.setup_by_timespan(cur_span, contour_sample_key=contour_sample_num_key)
+            sct_operator.setup_by_timespan(cur_span, contour_sample_key=contour_sample_num_key, bbox=bbox)
             viewer.dims.set_point(0, cur_idx)
 
             progress.setValue(100)

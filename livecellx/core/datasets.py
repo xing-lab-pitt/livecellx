@@ -27,6 +27,43 @@ import livecellx
 from livecellx.livecell_logger import main_debug
 
 
+LIVECELLX_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _path_relative_to_livecellx_root(value):
+    if value is None or str(value) == "None" or "://" in str(value):
+        return value
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = LIVECELLX_ROOT / path
+    return Path(os.path.relpath(path.resolve(), start=LIVECELLX_ROOT)).as_posix()
+
+
+def _path_from_livecellx_root(value):
+    if value is None or str(value) == "None" or "://" in str(value):
+        return value
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = LIVECELLX_ROOT / path
+    return str(path.resolve())
+
+
+def _relativize_dataset_image_paths(json_dict):
+    json_dict["data_dir_path"] = _path_relative_to_livecellx_root(json_dict.get("data_dir_path"))
+    json_dict["time2url"] = {
+        time: _path_relative_to_livecellx_root(url) for time, url in json_dict.get("time2url", {}).items()
+    }
+    return json_dict
+
+
+def _resolve_dataset_image_paths(json_dict):
+    json_dict["data_dir_path"] = _path_from_livecellx_root(json_dict.get("data_dir_path"))
+    json_dict["time2url"] = {
+        time: _path_from_livecellx_root(url) for time, url in json_dict.get("time2url", {}).items()
+    }
+    return json_dict
+
+
 def read_img_default(url: str, **kwargs) -> np.ndarray:
     img = Image.open(url)
     img = np.array(img)
@@ -72,6 +109,7 @@ class LiveCellImageDatasetManager:
             return self.path2cache[path]
         with open(path, "r") as f:
             json_dict = json.load(f)
+        _resolve_dataset_image_paths(json_dict)
 
         if (
             json_dict["name"] in self.name2cache
@@ -302,8 +340,9 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         if (not overwrite) and os.path.exists(path):
             main_debug("[LiveCellDataset] skip writing to an existing path: %s" % (path))
             return
+        json_dict = _relativize_dataset_image_paths(self.to_json_dict())
         with open(path, "w+") as f:
-            json.dump(self.to_json_dict(), f, indent=livecellx.core.single_cell.Config.json_indent)
+            json.dump(json_dict, f, indent=livecellx.core.single_cell.Config.json_indent)
 
     def load_from_json_dict(self, json_dict, update_time2url_from_dir_path=False, is_integer_time=True):
         """Load from a json dict. If update_img_paths is True, then we will update the img_path_list based on the data_dir_path.
@@ -341,6 +380,7 @@ class LiveCellImageDataset(torch.utils.data.Dataset):
         path = Path(path)
         with open(path, "r") as f:
             json_dict = json.load(f)
+        _resolve_dataset_image_paths(json_dict)
         return LiveCellImageDataset().load_from_json_dict(json_dict, **kwargs)
 
     def to_dask(self, times=None, ram=False, interpolate_missing=True):

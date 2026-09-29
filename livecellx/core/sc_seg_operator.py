@@ -122,6 +122,8 @@ class ScSegOperator:
         csn_model=None,
         create_sc_layer=True,
         sct_observers: Optional[list] = None,
+        force_fallback_shape=False,
+        initial_shape_vec=None,
     ):
         """
         Parameters
@@ -139,6 +141,8 @@ class ScSegOperator:
         self.mode = self.MANUAL_CORRECT_SEG_MODE
         self.magicgui_container = magicgui_container
         self.csn_model = csn_model
+        self.force_fallback_shape = force_fallback_shape
+        self.initial_shape_vec = initial_shape_vec
 
         self.sct_observers = sct_observers
         if sct_observers is None:
@@ -153,10 +157,137 @@ class ScSegOperator:
     def __repr__(self) -> str:
         return f"ScSegOperator(sc={self.sc}, mode={self.mode})"
 
+    @staticmethod
+    def _shape_vec_polygon_area(shape_vec):
+        shape_vec = np.asarray(shape_vec, dtype=float)
+        if shape_vec.ndim != 2 or len(shape_vec) < 3:
+            return 0.0
+        coords = shape_vec[:, 1:3] if shape_vec.shape[1] >= 3 else shape_vec[:, -2:]
+        if not np.all(np.isfinite(coords)):
+            return 0.0
+        y = coords[:, 0]
+        x = coords[:, 1]
+        return 0.5 * abs(float(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))))
+
+    @staticmethod
+    def _is_stable_polygon_coords(coords, min_area=1.0):
+        coords = np.asarray(coords, dtype=float)
+        if coords.ndim != 2 or coords.shape[1] != 2 or len(coords) < 3:
+            return False
+        if not np.all(np.isfinite(coords)):
+            return False
+        if len(np.unique(np.round(coords, decimals=3), axis=0)) < 3:
+            return False
+
+        y = coords[:, 0]
+        x = coords[:, 1]
+        area = 0.5 * abs(float(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))))
+        if area <= min_area:
+            return False
+
+        edge_lengths = np.linalg.norm(coords - np.roll(coords, -1, axis=0), axis=1)
+        positive_edges = edge_lengths[edge_lengths > 1e-6]
+        if len(positive_edges) == 0:
+            return False
+        median_edge = float(np.median(positive_edges))
+        max_edge = float(np.max(positive_edges))
+        bbox_diag = float(np.linalg.norm(coords.max(axis=0) - coords.min(axis=0)))
+        if median_edge > 0 and max_edge > max(30.0, 8.0 * median_edge, 0.75 * bbox_diag):
+            return False
+        return True
+
+    @classmethod
+    def _is_stable_shape_vec(cls, shape_vec):
+        try:
+            shape_vec = np.asarray(shape_vec, dtype=float)
+        except Exception:
+            return False
+        if shape_vec.ndim != 2 or shape_vec.shape[1] < 3:
+            return False
+        return cls._is_stable_polygon_coords(shape_vec[:, 1:3])
+
+    @staticmethod
+    def _fallback_edit_contour(sc: SingleCellStatic, min_half_size=8):
+        """Create a small valid square polygon for tiny/degenerate masks.
+
+        Napari can crash when an editable polygon has fewer than three usable
+        vertices or near-zero area.  This fallback opens an editable square near
+        the cell location.  The single-cell contour is not changed until the
+        user presses "save seg to sc".
+        """
+        center = None
+        bbox = getattr(sc, "bbox", None)
+        if bbox is not None:
+            bbox = np.asarray(bbox, dtype=float)
+            if bbox.size == 4 and np.all(np.isfinite(bbox)):
+                center = np.array([(bbox[0] + bbox[2]) / 2.0, (bbox[1] + bbox[3]) / 2.0])
+
+        if center is None:
+            contour = np.asarray(getattr(sc, "contour", []), dtype=float)
+            if contour.ndim == 2 and len(contour) > 0:
+                coords = contour[:, -2:]
+                if np.all(np.isfinite(coords)):
+                    center = coords.mean(axis=0)
+
+        if center is None:
+            center = np.array([8.0, 8.0])
+
+        half_size = float(min_half_size)
+        if bbox is not None and bbox.size == 4 and np.all(np.isfinite(bbox)):
+            half_size = max(half_size, float(bbox[2] - bbox[0]) / 2.0, float(bbox[3] - bbox[1]) / 2.0)
+
+        y, x = center
+        contour = np.array(
+            [
+                [y - half_size, x - half_size],
+                [y - half_size, x + half_size],
+                [y + half_size, x + half_size],
+                [y + half_size, x - half_size],
+            ],
+            dtype=float,
+        )
+
+        try:
+            image_shape = sc.get_img_shape()
+            contour[:, 0] = np.clip(contour[:, 0], 0, image_shape[0] - 1)
+            contour[:, 1] = np.clip(contour[:, 1], 0, image_shape[1] - 1)
+        except Exception:
+            pass
+        return contour
+
+    def _get_stable_edit_shape_vec(self, contour_sample_num=100):
+        if self.force_fallback_shape:
+            main_warning(
+                f"Opening sc {self.sc.id} with a safe editable square instead of its original contour."
+            )
+            fallback_contour = self._fallback_edit_contour(self.sc)
+            shape_vec = [[self.sc.timeframe] + list(point) for point in fallback_contour]
+            return shape_vec, True
+
+        if self.initial_shape_vec is not None and self._is_stable_shape_vec(self.initial_shape_vec):
+            return np.asarray(self.initial_shape_vec, dtype=float), False
+
+        try:
+            shape_vec = self.sc.get_napari_shape_contour_vec(contour_sample_num=contour_sample_num)
+        except Exception as exc:
+            main_warning(f"Failed to build editable contour for sc {self.sc.id}: {exc}")
+            shape_vec = []
+
+        if self._is_stable_shape_vec(shape_vec):
+            return shape_vec, False
+
+        main_warning(
+            f"sc {self.sc.id} has a tiny, disconnected, or degenerate contour for editing; "
+            "opening a small editable square instead."
+        )
+        fallback_contour = self._fallback_edit_contour(self.sc)
+        shape_vec = [[self.sc.timeframe] + list(point) for point in fallback_contour]
+        return shape_vec, True
+
     def create_sc_layer(self, name=None, contour_sample_num=100):
         if name is None:
             name = f"sc_{self.sc.id}"
-        shape_vec = self.sc.get_napari_shape_contour_vec(contour_sample_num=contour_sample_num)
+        shape_vec, used_fallback = self._get_stable_edit_shape_vec(contour_sample_num=contour_sample_num)
         shapes_data = [shape_vec]
         is_dummy_shape = False
         if len(shape_vec) == 0:
@@ -172,6 +303,8 @@ class ScSegOperator:
             tmp_shape_data = [[self.sc.timeframe] + coord for coord in tmp_contour]
             shapes_data = [tmp_shape_data]
             is_dummy_shape = True
+        elif used_fallback:
+            main_info("Using fallback edit polygon; save only after manually correcting it.", indent_level=2)
 
         properties = {"sc": [self.sc]}
         shape_layer = self.viewer.add_shapes(
@@ -195,7 +328,7 @@ class ScSegOperator:
         self.shape_layer = None
 
     def update_shape_layer_by_sc(self, contour_sample_num=100):
-        shape_vec = self.sc.get_napari_shape_contour_vec(contour_sample_num=contour_sample_num)
+        shape_vec, _ = self._get_stable_edit_shape_vec(contour_sample_num=contour_sample_num)
         self.shape_layer.data = [shape_vec]
 
     def correct_segment(self, model, create_ou_input_kwargs=None):
@@ -392,15 +525,20 @@ class ScSegOperator:
 
     @staticmethod
     def resample_contour(contour, sample_num=50, start_idx=None):
+        contour = np.asarray(contour, dtype=float)
+        if contour.ndim != 2 or contour.shape[1] != 2 or len(contour) < 3:
+            main_info("The contour has fewer than 3 valid points; skip resampling.")
+            return contour
         if start_idx is None:
             start_idx = np.random.randint(0, len(contour))
-        if len(contour) == 0 or start_idx > len(contour):
+        if start_idx >= len(contour):
             main_info("The contour is empty or the start_idx is out of range.")
             return contour
 
         # rotate contour so that the start_idx is at the beginning
         contour = np.roll(contour, -start_idx, axis=0)
 
+        sample_num = max(int(sample_num), 3)
         slice_step = int(len(contour) / sample_num)
         slice_step = max(slice_step, 1)  # make sure slice_step is at least 1
         if sample_num is not None:
@@ -412,13 +550,20 @@ class ScSegOperator:
         contours = self._get_contours_from_shape_layer(self.shape_layer)
         resampled_contours = []
         for contour in contours:
-            resampled_contours.append(self.resample_contour(contour, sample_num=sample_num))
+            resampled = self.resample_contour(contour, sample_num=sample_num)
+            if self._is_stable_polygon_coords(resampled):
+                resampled_contours.append(resampled)
+            else:
+                main_warning("Skipping an invalid contour during resampling.")
         time = self.sc.timeframe
         new_shape_data = []
         for contour in resampled_contours:
             napari_vertices = [[time] + list(point) for point in contour]
             napari_vertices = np.array(napari_vertices)
             new_shape_data.append((napari_vertices, "polygon"))
+        if len(new_shape_data) == 0:
+            main_warning("No valid contours remain after resampling; keeping the current shape layer unchanged.")
+            return
         self.shape_layer.data = []
         self.shape_layer.add(new_shape_data, shape_type=["polygon"])
 
