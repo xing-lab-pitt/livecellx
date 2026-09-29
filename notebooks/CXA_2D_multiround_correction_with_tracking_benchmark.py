@@ -296,7 +296,14 @@ def compute_sc_watershed_mask(
     # Use correct_sc function but with min_area=4000 to match the original script
     # Note: The original script uses min_area=4000, not the library default of 100
     res_dict = correct_sc(
-        sc, model, padding, input_transforms, gpu=True, return_outputs=True, h_threshold=h_threshold, min_area=4000
+        sc,
+        model,
+        padding,
+        input_transforms,
+        gpu=torch.cuda.is_available(),
+        return_outputs=True,
+        h_threshold=h_threshold,
+        min_area=4000,
     )
 
     # Extract watershed mask from results
